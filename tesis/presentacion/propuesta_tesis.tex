@@ -1,0 +1,1360 @@
+%% ===========================================================================
+%%  Propuesta de tesis — doble titulación Geología + Ingeniería Matemática
+%%  "¿Qué se puede recuperar de una erupción?"
+%%
+%%  Compilar con:  latexmk -pdf propuesta_tesis.tex
+%%             o:  pdflatex propuesta_tesis.tex   (dos veces)
+%% ===========================================================================
+\documentclass[aspectratio=169,10pt,t]{beamer}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish,es-noshorthands,es-nodecimaldot]{babel}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{microtype}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,decorations.pathmorphing,shapes.geometric}
+\usepackage{appendixnumberbeamer}
+
+\usetheme[progressbar=frametitle,numbering=fraction,block=fill]{metropolis}
+
+\definecolor{magma}{HTML}{C1440E}
+\definecolor{roca}{HTML}{2E4057}
+\definecolor{gas}{HTML}{0E7C7B}
+\definecolor{alerta}{HTML}{8B1E3F}
+
+\setbeamercolor{progress bar}{fg=magma}
+\setbeamercolor{title separator}{fg=magma}
+\setbeamercolor{frametitle}{bg=roca}
+\setbeamercolor{alerted text}{fg=magma}
+\setbeamercolor{block title}{bg=roca!12,fg=roca}
+
+% babel-spanish redefine \% con un chequeo de \lastskip que rompe en modo
+% matemático ("Incompatible glue units"); \pc lo evita.
+\newcommand{\pc}{\ifmmode\text{\,\%}\else\,\%\fi}
+
+\newcommand{\MER}{\mathrm{MER}}
+\newcommand{\dd}{\,\mathrm{d}}
+\newcommand{\ideageo}{\textcolor{magma}{$\bigstar$}}
+\newcommand{\fig}[2][\linewidth]{%
+  \includegraphics[width=#1]{../prototipo/figuras/#2}}
+\newcommand{\figh}[2][0.62\textheight]{%
+  \includegraphics[height=#1,keepaspectratio]{../prototipo/figuras/#2}}
+
+% Cajita de "mensaje de la lámina": el mensaje que se quiere que quede.
+\newcommand{\mensaje}[1]{%
+  \vfill
+  \begin{beamercolorbox}[wd=\linewidth,sep=0.4em,rounded=true]{block title}
+  \footnotesize #1
+  \end{beamercolorbox}}
+
+\title{¿Qué se puede recuperar de una erupción?}
+\subtitle{Identificabilidad y no-unicidad en modelos de ascenso de magma por un conducto volcánico}
+\date{Propuesta de tesis}
+\author{Doble titulación: Geología + Ingeniería Matemática}
+\institute{Caso de estudio: Calbuco, abril de 2015}
+
+\begin{document}
+
+\maketitle
+
+% ===========================================================================
+\begin{frame}{La reunión en una lámina}
+
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\textbf{Dónde estamos}\medskip
+
+Tenemos un modelo directo del conducto: dados los parámetros, calculamos
+$(P,\phi,u_m,u_g)$ en $z$, en $(z,t)$ y en $(r,z)$.
+
+\bigskip
+\textbf{Qué propongo}\medskip
+
+Recorrer la flecha al revés. Dados los observables de una erupción,
+\alert{¿qué se puede afirmar sobre el magma en profundidad y sobre la geometría
+del conducto, y con qué certeza?}
+\end{column}
+
+\begin{column}{0.48\textwidth}
+\textbf{La tesis NO es}\medskip
+
+``hacer una inversión y reportar números''.
+
+\bigskip
+\textbf{La tesis SÍ es}\medskip
+
+caracterizar \alert{qué es recuperable y qué no}, porque aquí la no-unicidad no
+es un accidente numérico: es \alert{estructural}, y se puede demostrar.
+
+\bigskip
+Ya tengo tres resultados preliminares que lo muestran.
+\end{column}
+\end{columns}
+
+\mensaje{Y el hilo que une todo con el trabajo ya hecho: \textbf{agregar
+dimensiones —tiempo, radio— es precisamente lo que permite recuperar parámetros
+que el modelo estacionario 1D no puede distinguir.}}
+\end{frame}
+
+% ===========================================================================
+\begin{frame}{Plan}
+\setbeamertemplate{section in toc}[sections numbered]
+{\small\tableofcontents[hideallsubsections]}
+\end{frame}
+
+% ===========================================================================
+\section{El punto de partida}
+% ===========================================================================
+
+\begin{frame}{El sistema físico}
+\begin{columns}[c]
+\begin{column}{0.42\textwidth}
+\centering
+\begin{tikzpicture}[scale=0.80,every node/.style={font=\tiny}]
+  % encajante
+  \fill[roca!12] (-1.5,-0.85) rectangle (1.5,6.0);
+  % conducto de radio variable
+  \fill[magma!70]
+    plot[smooth,domain=0:6,samples=40] ({0.42+0.45*exp(-\x/1.8)},\x) --
+    (0.24,6) -- (-0.24,6) --
+    plot[smooth,domain=6:0,samples=40] ({-0.42-0.45*exp(-\x/1.8)},\x) -- cycle;
+  % cámara
+  \fill[magma!70] (0,-0.05) ellipse (1.05 and 0.55);
+  \draw[roca,thick] (0,-0.05) ellipse (1.05 and 0.55);
+  % nivel de fragmentacion
+  \draw[gas,very thick,dashed] (-1.45,4.5) -- (1.45,4.5);
+  \node[gas,anchor=south west] at (0.45,4.55) {$z_f$: fragmentación};
+  % vent
+  \draw[roca,thick] (-1.5,6) -- (-0.24,6);
+  \draw[roca,thick] (0.24,6) -- (1.5,6);
+  \foreach \a in {62,76,90,104,118}
+    \draw[gas!80,-{Latex[length=1.4mm]}] (0,6.05) -- ({1.05*cos(\a)},{6.05+1.05*sin(\a)});
+  \node[gas,anchor=south] at (0,7.2) {$\MER(t)$, altura de columna};
+  % etiquetas
+  \node[anchor=north] at (0,-0.72) {cámara: $P(H)=P_{lit}+\Delta P$};
+  \node[alerta,anchor=west] at (0.80,2.7) {$R(z)$ incógnita};
+  \draw[alerta,-{Latex[length=1.2mm]}] (0.78,2.7) -- (0.58,2.7);
+  \draw[roca,-{Latex[length=1.6mm]}] (-1.25,0.7) -- (-1.25,5.8);
+  \node[roca,anchor=east] at (-1.30,3.3) {$z$};
+\end{tikzpicture}
+\end{column}
+
+\begin{column}{0.55\textwidth}
+Flujo bifásico ascendente por un conducto esbelto ($L/R\sim400$):
+\medskip
+\begin{itemize}
+  \item la descompresión exsuelve agua $\Rightarrow$ burbujas;
+  \item la desgasificación \alert{endurece} el fundido varios órdenes de
+        magnitud (viscosidad de Giordano);
+  \item al superar un umbral de porosidad, el magma \alert{fragmenta} y pasa de
+        líquido con burbujas a gas con piroclastos.
+\end{itemize}
+\bigskip
+Lo que se \emph{mide} está todo arriba: tasa de descarga másica, altura de
+columna, texturas y densidades de los piroclastos, deformación del edificio,
+sismicidad.
+
+\medskip
+Lo que se \emph{quiere saber} está todo abajo.
+\end{column}
+\end{columns}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Qué hay construido hoy en el repositorio}
+\small
+\begin{tabular}{@{}p{0.23\textwidth}p{0.42\textwidth}p{0.28\textwidth}@{}}
+\toprule
+\textbf{Módulo} & \textbf{Formulación} & \textbf{Cierre} \\
+\midrule
+\texttt{RIconduitex5\_5} &
+DAE de 6 variables $(P,\phi,N_d,x,u_m,u_g)$: momentum de dos fluidos con
+arrastre, coalescencia, permeabilidad, cristalización cinética &
+tiro sobre $v_{inicial}$; salida estrangulada o $P=P_{atm}$ \\[0.5em]
+\texttt{RIconduit1D\_transient} &
+3 EDP de transporte $(\phi,N_d,x)$ + presión cuasi-estática; IMEX
+(RK4 + relajación exacta) &
+bisección sobre $q$ para $P_{vent}=P_{atm}$ \\[0.5em]
+\texttt{RIconduit2D\_FD} &
+perfil radial $u_m(r)$ por diferencias finitas en cada nivel $z$ (lubricación),
+Thomas + Picard; marcha RK4 en $z$ &
+tiro sobre $v_{inicial}$ con $P_{exit}\approx P_{atm}$ \\
+\bottomrule
+\end{tabular}
+
+\mensaje{Ya tenemos \textbf{tiempo} y \textbf{dimensión radial}. El trabajo de
+simulación está hecho. La pregunta abierta es qué hacemos con él.}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Tres obstáculos técnicos, honestamente}
+\begin{enumerate}
+  \item<1-> \textbf{Los tres solvers están desacoplados.} El 2D no usa el
+    transiente ni viceversa; comparten sólo \texttt{calbuco2015d.py} y las
+    constitutivas. Un modelo inverso necesita \alert{un} operador directo, no
+    tres.
+  \item<2-> \textbf{El operador directo no es diferenciable.} Hay
+    $\max(0,\cdot)$, cambios de régimen con paradas por cruce de $\phi$,
+    criterios de estrangulamiento y bisecciones anidadas. Eso descarta los
+    métodos basados en gradiente hasta que se regularice.
+  \item<3-> \textbf{Hay inconsistencias entre versiones.} Por ejemplo
+    $\phi_{crit}$ dinámico (número de capilaridad) en el estacionario frente a
+    un valor fijo $0.75$ en el transiente; el término de permeabilidad
+    \texttt{\_Fmg} está definido pero no acoplado en el transiente.
+\end{enumerate}
+
+\onslide<4->{
+\mensaje{Ninguno es un defecto del trabajo previo: son exactamente las tareas
+que convierten un \textbf{código de simulación} en un \textbf{código de
+inversión}, y constituyen el primer capítulo natural de la tesis.}}
+\end{frame}
+
+% ===========================================================================
+\section{El giro: del problema directo al inverso}
+% ===========================================================================
+
+\begin{frame}{La flecha, en los dos sentidos}
+\centering
+\begin{tikzpicture}[every node/.style={font=\small},node distance=1.2cm]
+  \node[draw,rounded corners,fill=roca!10,minimum width=3.4cm,minimum height=1.5cm,align=center]
+    (th) {\textbf{Parámetros} $\theta$\\[0.2em]
+          \scriptsize $R(\cdot),\ \Delta P,\ c_0,\ T,\ \xi,\ \phi_{crit},\ k(\phi)$};
+  \node[draw,rounded corners,fill=roca!10,minimum width=3.4cm,minimum height=1.5cm,align=center,right=5.2cm of th]
+    (d) {\textbf{Observables} $d$\\[0.2em]
+         \scriptsize $\MER(t)$, masa, altura,\\ \scriptsize texturas, deformación, gas};
+  \draw[-{Latex[length=3mm]},line width=1.1pt,roca] (th) -- node[above,yshift=2pt]{$\mathcal{F}$: \textbf{directo} — \emph{hecho}} node[below,yshift=-2pt,font=\scriptsize]{simular} (d);
+  \draw[-{Latex[length=3mm]},line width=1.1pt,magma] ([yshift=-1.05cm]d.south) -- node[below,yshift=-2pt]{$\mathcal{F}^{-1}$: \textbf{inverso} — \emph{la tesis}} ([yshift=-1.05cm]th.south);
+  \draw[magma] (d.south) -- ([yshift=-1.05cm]d.south);
+  \draw[magma] (th.south) -- ([yshift=-1.05cm]th.south);
+\end{tikzpicture}
+
+\vspace{1em}
+\begin{columns}[T]
+\begin{column}{0.9\textwidth}
+Las tres preguntas clásicas sobre $\mathcal{F}$, con
+$d^{obs}=\mathcal{F}(\theta^\dagger)+\varepsilon$:
+\medskip
+\begin{enumerate}
+  \item \textbf{Unicidad / identificabilidad.} ¿Es $\mathcal{F}$ inyectivo? Si
+    no lo es, caracterizar $\mathcal{F}^{-1}(d)$.
+  \item \textbf{Estabilidad.} ¿Es $\mathcal{F}^{-1}$ continuo? ¿Con qué módulo?
+  \item \textbf{Reconstrucción.} Algoritmo, regularización, incertidumbre.
+\end{enumerate}
+\end{column}
+\end{columns}
+
+\mensaje{En este problema la respuesta a (1) es \alert{\textbf{no}}, y se puede
+\textbf{demostrar}. Ése es el núcleo de la propuesta.}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Las ideas que ya traíamos, ordenadas}
+\small
+\begin{tabular}{@{}p{0.40\textwidth}p{0.55\textwidth}@{}}
+\toprule
+\textbf{Idea conversada} \ideageo & \textbf{Dónde encaja} \\
+\midrule
+Recuperar la presión en profundidad &
+Familia \textbf{A1}: estimación de $\Delta P$ y, con ella, de $P(z)$.
+\alert{Hay que precisar el enunciado} (lámina siguiente). \\[0.4em]
+Contenido de burbujas en profundidad &
+Familia \textbf{B3}: recuperar el perfil $\phi(z,0)$. Problema de
+observabilidad a lo largo de características. \\[0.4em]
+Modelo más realista &
+Familia \textbf{E1/E4}: unificar solvers, exsolución y cristalización en
+desequilibrio, Darcy vertical y lateral. \\[0.4em]
+Mostrar la no-unicidad respecto de la geometría &
+Familia \textbf{D1}: \alert{ya demostrado y verificado} (sección 4). \\[0.4em]
+Complejizar la geometría &
+Familia \textbf{B1/E7}: $R(z)$ como \alert{incógnita funcional}, no sólo como
+estudio paramétrico. \\
+\bottomrule
+\end{tabular}
+
+\mensaje{Las cinco ideas son buenas y encajan. Lo que agrego es una
+\textbf{columna vertebral} que las conecta —la no-unicidad y la
+identificabilidad— y unas cuantas ideas nuevas.}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Una precisión sobre ``recuperar la presión en profundidad''}
+\begin{alertblock}{El enunciado ingenuo no está bien planteado}
+$P(z)$ \textbf{no} es un dato independiente: una vez fijados los parámetros, el
+modelo directo la produce. Lo que de verdad se invierte es la
+\alert{condición de borde} $P(H)$ y, con ella, el perfil completo.
+\end{alertblock}
+\medskip
+Y hay una mala noticia empírica que veremos en la sección 4: $\Delta P$ es
+justamente el parámetro \alert{peor determinado} por los observables de
+superficie.
+\medskip
+\begin{exampleblock}{El enunciado defendible}
+``¿Qué \textbf{cota superior} sobre la sobrepresión de cámara imponen los
+observables de la erupción, y \textbf{qué dato adicional} haría falta para
+acotarla por abajo?''
+\end{exampleblock}
+\medskip
+Esto no es una rebaja del objetivo: es el objetivo bien formulado. Y la
+respuesta —``hace falta deformación o gas''— es un resultado útil para el
+monitoreo.
+\end{frame}
+
+% ===========================================================================
+\section{Marco matemático}
+% ===========================================================================
+
+\begin{frame}{El operador directo}
+$$\mathcal{F}:\ \Theta\longrightarrow\mathcal{D},\qquad \theta\longmapsto d=\mathcal{F}(\theta)$$
+
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\textbf{$\Theta$ de dimensión finita}
+\begin{itemize}\small
+  \item radio $R$, sobrepresión $\Delta P$
+  \item agua inicial $c_0$, temperatura $T$
+  \item cristales $\xi$, umbral $\phi_{crit}$
+  \item constantes de permeabilidad
+\end{itemize}
+\end{column}
+\begin{column}{0.48\textwidth}
+\textbf{$\Theta$ de dimensión infinita}
+\begin{itemize}\small
+  \item la geometría $R(\cdot)$
+  \item un perfil de volátiles $c_0(\cdot)$
+  \item fricción de pared $\beta(\cdot)$
+  \item historia de cámara $P_{cam}(\cdot)$
+\end{itemize}
+\end{column}
+\end{columns}
+
+\vspace{1em}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\textbf{Determinista}
+$$\theta_\alpha\in\arg\min_\theta\ \tfrac12\|\mathcal{F}(\theta)-d^{obs}\|^2_{\Sigma^{-1}}+\alpha\,\mathcal{R}(\theta)$$
+\footnotesize $\mathcal{R}$: Tikhonov, variación total (geometrías con saltos)
+o Sobolev $\|R'\|^2_{L^2}$ (geometrías suaves). $\alpha$ por discrepancia de
+Morozov o validación cruzada.
+\end{column}
+\begin{column}{0.48\textwidth}
+\textbf{Bayesiano}
+$$\pi(\theta\mid d^{obs})\propto e^{-\frac12\|\mathcal{F}(\theta)-d^{obs}\|^2_{\Sigma^{-1}}}\ \pi_0(\theta)$$
+\footnotesize Adecuado aquí porque la petrología entrega \alert{previas reales}
+(inclusiones vítreas $\to c_0$; equilibrios de fases $\to T$, profundidad) y
+porque el $\MER$ se conoce \alert{salvo un factor 2}: una estimación puntual sin
+barras de error no significa nada.
+\end{column}
+\end{columns}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Por qué ``agregar dimensiones'' es lo que hace posible invertir}
+\begin{itemize}
+  \item<1-> \textbf{Estacionario 1D} $\rightarrow$ un puñado de \emph{escalares}
+    por simulación. Pocos datos, muchos parámetros: masivamente subdeterminado.
+  \item<2-> \textbf{Transiente} $\rightarrow$ una \emph{función del tiempo}.
+    Cada instante es una restricción adicional, y el sistema recorre un tramo de
+    la curva característica $\MER_{ss}(P_{cam})$, informando sobre su
+    \alert{pendiente}, que es una función distinta de los parámetros.
+  \item<3-> \textbf{2D} $\rightarrow$ un \emph{perfil radial}. La reología
+    dependiente de la tasa de corte deja firma en la distribución radial de
+    deformación, ligada a la sismicidad de borde de conducto y a las texturas de
+    piroclastos de borde frente a centro.
+\end{itemize}
+
+\onslide<4->{
+\mensaje{En lenguaje de problemas inversos: cada dimensión añadida
+\textbf{aumenta el rango efectivo del operador linealizado} y por tanto reduce
+la dimensión del espacio nulo. \textbf{Cuantificar esa reducción} —con la matriz
+de información de Fisher y con perfiles de verosimilitud— es un resultado
+concreto y demostrable, y es lo que conecta el trabajo previo con la tesis.}}
+\end{frame}
+
+% ===========================================================================
+\section{Resultados preliminares}
+% ===========================================================================
+
+\begin{frame}{El prototipo: un laboratorio matemático}
+Para no esperar a la unificación de los solvers, construí un \alert{modelo
+reducido} (\texttt{tesis/prototipo/}) que comparte las constitutivas del
+repositorio (\texttt{density.py}, \texttt{viscosity.py}, \texttt{fvrel.py}) y es:
+\medskip
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+\begin{itemize}\small
+  \item[(i)] \textbf{barato} — estacionario en $\sim0.1$ s;
+  \item[(ii)] \textbf{suave} — sin \emph{switches} ni bisecciones anidadas;
+\end{itemize}
+\end{column}
+\begin{column}{0.5\textwidth}
+\begin{itemize}\small
+  \item[(iii)] \textbf{abierto a $R(z)$ arbitrario};
+  \item[(iv)] consistente con el modelo completo en el régimen viscoso
+    pre-fragmentación.
+\end{itemize}
+\end{column}
+\end{columns}
+\medskip
+Lubricación compresible en $z\in[H,z_f]$, con exsolución en equilibrio:
+$$\frac{dP}{dz}=-\rho(P)\,g-\frac{8\,\mu(P)\,\MER}{\pi\,\rho(P)\,R(z)^4},
+\qquad P(H)=P_{lit}+\Delta P,\quad P(z_f)=P_{frag}.$$
+
+\mensaje{Caso base de Calbuco ($R=16$ m, $\Delta P=5$ MPa, 4 wt\% H$_2$O,
+970 °C, 25 \% cristales): $\MER=3.0\times10^{7}$ kg/s, del mismo orden que los
+$1.4$–$2.7\times10^{7}$ kg/s observados. \textbf{El caso base es
+cuantitativamente razonable.}}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Resultado 1 — Teorema de degeneración geométrica}
+\small
+En el régimen viscoso dominado por fricción, el balance de momentum con
+conservación de masa se integra exactamente:
+\vspace{-0.4em}
+$$\int_{P_{frag}}^{P_{cam}}\frac{\rho(P)}{\mu(P)}\dd P
+=\frac{8\,\MER}{\pi}\,J_4[R],\qquad
+\boxed{\ J_4[R]=\int_H^{z_f}R(z)^{-4}\dd z\ }$$
+\vspace{-1.0em}
+
+\begin{alertblock}{El lado izquierdo no depende de la geometría}
+Por lo tanto $\MER\cdot J_4[R]$ es \textbf{invariante}: dos conductos con el
+mismo $J_4$ son \alert{exactamente} indistinguibles a partir de la tasa de
+descarga estacionaria.
+\end{alertblock}
+
+La derivada de Fréchet es $DJ_4[R]\,\delta R=-4\int R^{-5}\delta R\dd z$, de
+modo que el espacio nulo del operador linealizado es
+\vspace{-0.4em}
+$$\mathcal{N}=\Big\{\delta R\ :\ \int_H^{z_f}R(z)^{-5}\,\delta R(z)\dd z=0\Big\},$$
+\vspace{-1.2em}
+
+un subespacio \alert{cerrado de codimensión 1}: infinitas direcciones de
+perturbación de la geometría son invisibles.
+
+\mensaje{Verificación numérica: $\MER\cdot J_4$ constante a $<10^{-6}$ relativo
+entre cinco formas distintas; la fórmula analítica reproduce el $\MER$ numérico
+con error $+0.000\pc$.}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Resultado 1 — la no-unicidad es enorme, no marginal}
+\centering
+\fig[0.98\linewidth]{exp1_no_unicidad_geometria.png}
+
+\vspace{-0.2em}
+\mensaje{Seis geometrías cualitativamente distintas, \textbf{con volúmenes que
+difieren en $+317\pc$}, producen el mismo $\MER$ con error relativo
+$\sim10^{-7}$ en el modelo \textbf{completo} (flotabilidad, exsolución,
+viscosidad de Giordano, cristales).}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Resultado 1 — la tabla}
+\centering\small
+\begin{tabular}{@{}lrrrrrr@{}}
+\toprule
+\textbf{Geometría} & $R(H)$ & $R(z_f)$ & \textbf{Volumen} & $\Delta V$ & $J_4$ & \textbf{error MER} \\
+\midrule
+cilindro                    & 16.0 & 16.0 & $4.83\times10^6$ & —        & $9.16\times10^{-2}$ & $+0.00000\pc$ \\
+ensanche basal $\times3$     & 44.4 & 14.8 & $1.29\times10^7$ & $+166\pc$ & $5.86\times10^{-2}$ & $-0.00001\pc$ \\
+ensanche basal $\times4$     & 51.4 & 13.6 & $2.01\times10^7$ & \alert{$+317\pc$} & $4.24\times10^{-2}$ & $-0.00002\pc$ \\
+ensanchamiento superior $\times2$ & 11.2 & 22.4 & $4.74\times10^6$ & $-1.8\pc$ & $2.18\times10^{-1}$ & $+0.00000\pc$ \\
+dos tramos $\times2$ (tipo NC2) & 10.7 & 21.5 & $5.38\times10^6$ & $+11.5\pc$ & $2.22\times10^{-1}$ & $+0.00001\pc$ \\
+constricción profunda $-35\pc$ & 16.8 & 16.9 & $4.80\times10^6$ & $-0.6\pc$ & $1.16\times10^{-1}$ & $+0.00001\pc$ \\
+\bottomrule
+\end{tabular}
+
+\medskip
+Nótese que $J_4$ varía en un \alert{factor 5} entre estas geometrías y aun así
+el $\MER$ es el mismo: con flotabilidad el invariante es otro funcional, pero
+sigue siendo \textbf{un solo funcional escalar}.
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Resultado 1 — ¿dónde ``mira'' el dato?}
+\begin{columns}[c]
+\begin{column}{0.58\textwidth}
+\fig[\linewidth]{exp1_kernel_resistencia.png}
+\end{column}
+\begin{column}{0.40\textwidth}
+La densidad de resistencia $w(z)\propto\mu(z)/R(z)^4$ se concentra brutalmente
+hacia arriba, porque la desgasificación endurece el magma varios órdenes de
+magnitud:
+\medskip
+\begin{itemize}
+  \item 50 \% de la resistencia en los últimos \alert{830 m};
+  \item 90 \% en los últimos \alert{44 m};
+  \item 99 \% en los últimos \alert{2 m}.
+\end{itemize}
+\end{column}
+\end{columns}
+
+\mensaje{\textbf{Consecuencia geológica directa:} cualquier inferencia sobre el
+conducto \emph{profundo} hecha a partir de la tasa de descarga es, esencialmente,
+una inferencia sobre \textbf{la previa} y no sobre \textbf{el dato}. Esto es una
+advertencia metodológica publicable por sí sola.}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Resultado 2 — el estacionario confunde $R$ con $\Delta P$}
+\begin{columns}[c]
+\begin{column}{0.46\textwidth}
+\fig[\linewidth]{exp2_degeneracion_RdP.png}
+\end{column}
+\begin{column}{0.52\textwidth}
+El conjunto de nivel
+$\{(R,\Delta P):\MER_{ss}=\MER_{obs}\}$ es una \alert{curva}: el dato
+estacionario fija \textbf{una} combinación de los dos parámetros, no los dos.
+\medskip
+
+Matriz de sensibilidad en el punto nominal ($R=16$ m, $\Delta P=5$ MPa):
+$$J=\frac{\partial(\log\MER,\log G)}{\partial(\log R,\log\Delta P)}
+=\begin{pmatrix}4.000 & 0.195\\ 4.000 & 0.115\end{pmatrix}$$
+
+\footnotesize
+El $4.000$ es la ley de Poiseuille $\MER\propto R^4$ \emph{recuperada
+numéricamente}. El $0.195$ es pequeño porque la sobrepresión aporta sólo una
+fracción del empuje total (el resto lo aporta la flotabilidad): de ahí la ley de
+compensación local $\Delta P\sim R^{-20.5}$.
+\end{column}
+\end{columns}
+
+\mensaje{\textbf{Variaciones enormes de sobrepresión se compensan con
+variaciones minúsculas de radio.}}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Resultado 2 — el tiempo los separa}
+\centering
+\fig[0.96\linewidth]{exp2_curvas_MER_tiempo.png}
+
+\vspace{-0.3em}
+{\small Conductos con $\MER$ inicial \textbf{idéntico} ($3.01\times10^7$ kg/s)
+drenando una misma cámara elástica de 50 km$^3$.}
+
+\mensaje{Comparten un \emph{punto} de la curva característica
+$\MER_{ss}(P_{cam})$, pero no su \alert{pendiente}
+$G=d\MER/dP_{cam}\approx\pi R^4/(8\mu L)$, que fija el tiempo de decaimiento
+$\tau=C/G$ de la erupción.}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Resultado 2 — la tabla}
+\centering\small
+\begin{tabular}{@{}rrrrrr@{}}
+\toprule
+$R$ [m] & $\Delta P$ [MPa] & $G$ [kg/s/Pa] & $\tau$ [h] & $\MER$ a 6 h & masa en 6 h [kg] \\
+\midrule
+10 & 92.5 & 0.353 & 19.5 & $2.23\times10^7$ & $5.62\times10^{11}$ \\
+12 & 45.3 & 0.617 & 11.1 & $1.84\times10^7$ & $5.10\times10^{11}$ \\
+14 & 20.6 & 0.905 &  7.6 & $1.55\times10^7$ & $4.66\times10^{11}$ \\
+16 &  5.0 & 1.174 &  5.8 & $1.36\times10^7$ & $4.34\times10^{11}$ \\
+\bottomrule
+\end{tabular}
+
+\vspace{1.2em}
+Los cuatro son \alert{indistinguibles} con un dato estacionario.
+Con la serie de tiempo, los tiempos característicos van de \alert{5.8 h a
+19.5 h} y las masas emitidas en seis horas difieren en \alert{29 \%}.
+
+\mensaje{Ésta es la razón técnica por la que el trabajo previo —agregar el
+tiempo al modelo— \textbf{no era un adorno}: es lo que vuelve identificable un
+parámetro que antes no lo era.}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Resultado 3 — cuánto se gana, cuantificado}
+\centering
+\figh[0.80\textheight]{exp3_identificabilidad.png}
+
+\vspace{0.1em}
+{\scriptsize Operador restringido
+$\theta=(\log R,\log\Delta P)\mapsto d=(\log\MER,\log G)$; perfiles de
+verosimilitud $\chi^2_{perfil}(\theta_i)=\min_{\theta_j,j\neq i}\chi^2(\theta)$
+(Raue \emph{et al.}, 2009).}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Resultado 3 — el veredicto}
+Con un modelo de ruido realista ($\sigma_{\log\MER}=\ln2/2$, es decir un factor
+2 de incertidumbre en la tasa de descarga):
+
+\vspace{0.5em}
+\centering\small
+\begin{tabular}{@{}lcc@{}}
+\toprule
+\textbf{Datos} & \textbf{intervalo 95 \% de $R$} & \textbf{intervalo 95 \% de $\Delta P$} \\
+\midrule
+sólo estacionario & $[8,\,19]$ m (abierto) & $[0.2,\,250]$ MPa (todo el rango) \\
+estacionario + serie de tiempo & $[13,\,18]$ m & $[0.25,\,44]$ MPa (sólo cota superior) \\
+\bottomrule
+\end{tabular}
+
+\vspace{1.0em}
+\begin{columns}[T]
+\begin{column}{0.92\textwidth}
+\begin{alertblock}{Conclusión honesta}
+La serie de tiempo \textbf{identifica el radio} y \textbf{acota por arriba} la
+sobrepresión, pero \textbf{no la determina}. Para determinarla hacen falta datos
+de \alert{otra naturaleza}: deformación, emisión de gas.
+\end{alertblock}
+\end{column}
+\end{columns}
+
+\mensaje{Esto es \textbf{un resultado, no un fracaso}: es la justificación
+cuantitativa de la inversión conjunta, y una respuesta concreta a la pregunta
+``¿qué habría que medir?''.}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Síntesis de los tres resultados}
+\begin{columns}[T]
+\begin{column}{0.32\textwidth}
+\begin{block}{1. Degeneración}
+\small El $\MER$ estacionario ve $R(\cdot)$ sólo a través de \alert{un escalar}.
+La preimagen de un dato es una hipersuperficie de codimensión 1 en un espacio de
+funciones.\smallskip
+
+\emph{Demostrado y verificado.}
+\end{block}
+\end{column}
+\begin{column}{0.32\textwidth}
+\begin{block}{2. Es enorme}
+\small $+317\pc$ de diferencia de volumen con el mismo $\MER$. El 90 \% de la
+caída de presión está en el kilómetro más somero: \alert{el conducto profundo es
+invisible}.
+\end{block}
+\end{column}
+\begin{column}{0.32\textwidth}
+\begin{block}{3. El tiempo ayuda}
+\small Pero no lo resuelve todo: identifica $R$, sólo acota $\Delta P$ por
+arriba. \alert{Cuánto aporta cada dimensión se puede medir.}
+\end{block}
+\end{column}
+\end{columns}
+
+\vspace{1.2em}
+\mensaje{Los tres son reproducibles hoy: \texttt{tesis/prototipo/exp1..exp3}.
+\textbf{La propuesta no parte de cero: parte de resultados.}}
+\end{frame}
+
+% ===========================================================================
+\section{Catálogo de problemas inversos}
+% ===========================================================================
+
+\begin{frame}{Familia A — parámetros (dimensión finita)}
+\small
+\begin{tabular}{@{}p{0.05\textwidth}p{0.32\textwidth}p{0.26\textwidth}p{0.22\textwidth}@{}}
+\toprule
+\# & \textbf{Qué se recupera} & \textbf{Datos} & \textbf{Herramienta} \\
+\midrule
+\textbf{A1}\,\ideageo & Sobrepresión $\Delta P$ y, con ella, $P(z)$ &
+$\MER$, duración, masa, altura de columna & MCMC con previas petrológicas \\[0.4em]
+\textbf{A2}\,\ideageo & Volátiles $c_0$ y cristales $\xi$ &
+$+$ inclusiones vítreas & Previa informativa fuerte \\[0.4em]
+\textbf{A3} & Profundidad de fragmentación $z_f$, umbral $\phi_{crit}$ &
+Densidad, porosidad y vesicularidad de piroclastos & Inversión conjunta con A1–A2 \\[0.4em]
+\textbf{A4} & Constantes de $k(\phi)$ &
+Porosidad–permeabilidad de laboratorio $+$ $\MER$ & Datos de dos fuentes distintas \\
+\bottomrule
+\end{tabular}
+
+\mensaje{\ideageo{} $=$ ideas ya conversadas con el profesor de geología.}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Familia B — funciones (dimensión infinita)}
+\footnotesize
+\begin{tabular}{@{}p{0.05\textwidth}p{0.33\textwidth}p{0.25\textwidth}p{0.23\textwidth}@{}}
+\toprule
+\# & \textbf{Qué se recupera} & \textbf{Datos} & \textbf{Herramienta} \\
+\midrule
+\textbf{B1}\,\ideageo\ideageo & \alert{Geometría $R(z)$} &
+$\MER(t)$, presión de salida, $z_f$ & Tikhonov / TV, con el teorema de $J_4$
+como resultado de no-unicidad \\[0.4em]
+\textbf{B2} & Fricción de pared $\beta(z)$, condición de Navier
+$\mu\,\partial_r u=-\beta u$ en $r=R$ &
+$\MER(t)$, sismicidad de borde, texturas de borde &
+Coeficiente de Robin: unicidad y estabilidad logarítmica conocidas \\[0.4em]
+\textbf{B3}\,\ideageo & Porosidad inicial $\phi(z,0)$ &
+Serie de porosidad/densidad de piroclastos en el vent &
+Observabilidad sobre características \\[0.4em]
+\textbf{B4} & Ley $k(\phi)$ como \emph{función} & igual que A4 &
+Identificación de coeficiente no lineal \\
+\bottomrule
+\end{tabular}
+
+\mensaje{\textbf{B1 es el núcleo de la tesis.} Y \textbf{B2 es la extensión
+natural del código 2D que ya existe}: \texttt{RIconduit2D\_FD.py} impone
+no-deslizamiento $u_m(R)=0$; reemplazarlo por Navier con $\beta(z)$ desconocido
+convierte el problema en identificación de un coeficiente de Robin desde la
+frontera —con teoría establecida. Geológicamente $\beta(z)$ es la zona de
+cizalle del borde, asociada a los sismos repetitivos de Mount St. Helens.}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Familia C — historias temporales}
+\footnotesize
+\begin{tabular}{@{}p{0.05\textwidth}p{0.30\textwidth}p{0.25\textwidth}p{0.29\textwidth}@{}}
+\toprule
+\# & \textbf{Qué se recupera} & \textbf{Datos} & \textbf{Herramienta} \\
+\midrule
+\textbf{C1} & Historia de presión de cámara $P_{cam}(t)$ &
+$\MER(t)$ de la columna eruptiva &
+Problema lateral (\emph{sideways}) / deconvolución de Volterra, mal puesto \\[0.4em]
+\textbf{C2} & Historia de recarga $Q_{in}(t)$ &
+$\MER(t)$ $+$ deformación & Igual, con cámara–conducto acoplado \\[0.4em]
+\textbf{C3} & Tasa de descompresión $dP/dt$ durante el ascenso &
+Densidad numérica de microlitos en piroclastos &
+Inversión de una ecuación de balance poblacional \\
+\bottomrule
+\end{tabular}
+
+\vspace{0.6em}
+\scriptsize
+\textbf{C1 es atractivo por su limpieza matemática.} La ecuación parabólica no
+lineal del prototipo
+$A(z)\rho'(P)\partial_tP=\partial_z[k(z)\rho(P)(\partial_zP+\rho g)]$, con dato
+$\MER(t)$ en $z=z_f$ y la incógnita en $z=H$, es un problema de frontera lateral
+para una ecuación parabólica: severamente mal puesto, con teoría clásica de
+estabilidad condicional. \emph{Es un tema de tesis de ingeniería matemática por
+derecho propio.}
+
+\smallskip
+\textbf{C3 conecta directamente con la geología de terreno.} La densidad
+numérica de microlitos es un ``velocímetro'' de descompresión ampliamente usado.
+Formularlo como problema inverso explícito —con regularización y barras de
+error, en vez de una calibración empírica— sería una contribución metodológica
+concreta a la petrología.
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Familia D — teoría de unicidad y no-unicidad}
+\small
+\begin{tabular}{@{}p{0.05\textwidth}p{0.45\textwidth}p{0.30\textwidth}p{0.10\textwidth}@{}}
+\toprule
+\# & \textbf{Resultado buscado} & \textbf{Herramienta} & \textbf{Estado} \\
+\midrule
+\textbf{D1}\,\ideageo & Teorema de degeneración $J_4$ y caracterización del
+espacio nulo & Cálculo variacional & \alert{hecho} \\[0.4em]
+\textbf{D2}\,\ideageo & No-unicidad de la geometría desde datos sísmicos de
+resonancia & Ecuación de Webster $+$ teoría espectral inversa de
+Sturm–Liouville & propuesto \\[0.4em]
+\textbf{D3} & Multiplicidad de estados estacionarios (curva sigmoidal
+$p_{ch}$–$q$) como fuente \emph{adicional} de no-unicidad &
+Teoría de bifurcaciones; Melnik \& Sparks (1999), Kozono \& Koyaguchi (2012) &
+propuesto \\
+\bottomrule
+\end{tabular}
+
+\mensaje{Ojo con la distinción: \textbf{D3} es la no-unicidad \emph{del problema
+directo} (varios caudales para los mismos parámetros), que la literatura sí
+conoce. \textbf{D1 y D2} son no-unicidad \emph{del problema inverso}
+(no-inyectividad de $\mathcal{F}$), que —hasta donde he podido revisar— no ha
+sido formalizada en volcanología.}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{D2: la joya matemática de la propuesta}
+\small
+Linealizando el flujo compresible en un conducto de sección $A(z)$ se obtiene la
+\textbf{ecuación de Webster}, que con $p=A^{-1/2}\psi$ se transforma en un
+problema de \textbf{Sturm–Liouville}:
+\vspace{-0.3em}
+$$\frac{\partial^2p}{\partial t^2}=c^2\,\frac1A\frac{\partial}{\partial z}\!\left(A\frac{\partial p}{\partial z}\right)
+\qquad\Longleftrightarrow\qquad
+\psi''+\left(\frac{\omega^2}{c^2}-V(z)\right)\psi=0,\quad V=\frac{(A^{1/2})''}{A^{1/2}}.$$
+\vspace{-1.0em}
+
+Dos hechos clásicos con lectura volcanológica inmediata:
+\begin{itemize}
+  \item \textbf{Una sola familia espectral no determina el potencial} (teorema
+    de dos espectros de Borg, 1946). Es decir: \alert{el espectro de resonancia
+    de un conducto no determina su geometría}.
+  \item Aun conociendo $V$ exactamente, $(A^{1/2})''=V\,A^{1/2}$ tiene un
+    espacio de soluciones de \alert{dimensión 2}: existe una \textbf{familia
+    biparamétrica explícita} de secciones $A(z)$ acústicamente indistinguibles.
+\end{itemize}
+
+\mensaje{Como en volcanología se infieren rutinariamente dimensiones de conducto
+a partir de eventos de largo período y tremor, exhibir esa familia con
+parámetros realistas sería una \textbf{advertencia metodológica fuerte y
+matemáticamente irreprochable}.}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Familia E — metodología y realismo del modelo}
+\footnotesize
+\begin{tabular}{@{}p{0.05\textwidth}p{0.43\textwidth}p{0.43\textwidth}@{}}
+\toprule
+\# & \textbf{Qué se hace} & \textbf{Por qué importa} \\
+\midrule
+\textbf{E1}\,\ideageo & Unificar los tres solvers en \alert{un} operador
+directo, con fragmentación regularizada &
+Sin esto no hay gradientes ni inversión eficiente. \alert{Prerrequisito} \\[0.3em]
+\textbf{E2} & Método \textbf{adjunto} para el sistema transiente &
+Gradiente a costo $O(1)$ \emph{solves} en vez de $O(p)$: habilita $R(z)$ con
+cientos de incógnitas \\[0.3em]
+\textbf{E3} & \textbf{Selección de modelo} entre criterios de fragmentación &
+Convierte ``¿cuál criterio es correcto?'' en una pregunta con respuesta
+cuantitativa (factores de Bayes) \\[0.3em]
+\textbf{E4}\,\ideageo & Modelo más realista: desequilibrio de exsolución y
+cristalización, Darcy vertical y lateral, cámara acoplada &
+Wong \emph{et al.} (2017): la permeabilidad controla el flujo másico
+erupcionado \\[0.3em]
+\textbf{E5} & \textbf{Emulador} (proceso gaussiano o red neuronal) &
+Hace factible MCMC con $10^5$–$10^6$ evaluaciones \\[0.3em]
+\textbf{E6} & \textbf{Diseño óptimo de experimentos} &
+Qué observable reduce más la incertidumbre: útil para el monitoreo
+volcánico en Chile \\[0.3em]
+\textbf{E7}\,\ideageo & Geometría más compleja: dique profundo $\to$ cilindro
+somero, sección elíptica, cráter &
+Aravena \emph{et al.} (2017, 2018): efectos de primer orden en presión de salida
+y $\MER$ \\
+\bottomrule
+\end{tabular}
+\end{frame}
+
+% ===========================================================================
+\section{Estado del arte}
+% ===========================================================================
+
+\begin{frame}{Sí existen, y son bastantes: modelos con TIEMPO}
+\footnotesize
+\begin{itemize}
+  \item \textbf{Melnik \& Sparks (1999)}, \emph{Nature} 402:37 — el resultado
+    fundacional: para condiciones fijas puede haber \alert{hasta tres tasas de
+    descarga estacionarias}, que difieren en órdenes de magnitud.
+  \item \textbf{Barmin, Melnik \& Sparks (2002)}, \emph{EPSL} 199:173 — cámara
+    $+$ conducto reducido que produce ciclos por transiciones entre ramas
+    estables. Matemáticamente limpio: buen modelo de juguete para probar
+    algoritmos de inversión.
+  \item \textbf{Melnik \& Sparks (2005)}, \emph{JGR} — periodos controlados
+    principalmente por el \alert{volumen de la cámara}. Confirma el mecanismo
+    que usa nuestro experimento 2.
+  \item \textbf{La Spina, de' Michieli Vitturi \& Clarke (2017)}, \emph{JVGR}
+    336:118 — \alert{lo más cercano a nuestro \texttt{RIconduit1D\_transient},
+    pero más completo}: sistema hiperbólico con dos presiones y dos velocidades,
+    tasas finitas de exsolución y relajación, flujo denso y diluido unificados.
+    Conclusión: \emph{la duración de la erupción la controlan las escalas de
+    tiempo de exsolución}, no el equilibrio. \textbf{Lectura obligada antes de
+    fijar el operador directo.}
+  \item \textbf{Wong \& Segall (2019)}, \emph{JGR} — transiente con escape de gas
+    de Darcy vertical y lateral. Observación relevante: \alert{la mayoría de los
+    transientes a escala de erupción siguen siendo 1D promediados
+    radialmente}.
+  \item \textbf{Código abierto \textsc{mamma}} (de' Michieli Vitturi, La Spina,
+    Aravena) — vale la pena evaluarlo como operador directo alternativo, en vez
+    de reescribir todo.
+\end{itemize}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Modelos con GEOMETRÍA VARIABLE}
+\footnotesize
+\begin{itemize}
+  \item \textbf{de' Michieli Vitturi \emph{et al.} (2008)}, \emph{EPSL}
+    272:567 — código \textsc{domeflow}, transiente ``1.5D'' con radio variable.
+    Barren $0.4\le R_t/R_b\le2.5$ y $0.1\le H/L\le0.7$.
+  \item \textbf{de' Michieli Vitturi \emph{et al.} (2010)}, \emph{EPSL} — más de
+    300 corridas y análisis dimensional dan una relación universal: el producto
+    del cambio de tasa de extrusión por el tiempo de transición es proporcional
+    al cambio normalizado de presión de cámara, \alert{al volumen del conducto} y
+    a la razón de radios. \emph{Es exactamente la degeneración que explota
+    nuestro experimento 2}, y da un punto de comparación directo.
+  \item \textbf{Costa, Melnik \& Sparks (2007)}, \emph{EPSL} 260:137 — acopla la
+    geometría a la elasticidad del encajante: el conducto se deforma con la
+    presión. Antecedente natural de un problema de frontera libre.
+  \item \textbf{Aravena \emph{et al.} (2017, 2018)}, \emph{JVGR} / \emph{Sci.
+    Rep.} — criterios de colapso de Mohr–Coulomb aplicados al perfil $P(z)$:
+    \alert{los conductos cilíndricos son estables sólo para radios grandes}, de
+    modo que el ensanchamiento sineruptivo lleva naturalmente a $R(z)$. Definen
+    las configuraciones NC2 y NC3, que nuestro experimento 1 reproduce.
+\end{itemize}
+
+\mensaje{\textbf{Álvaro Aravena es chileno} y trabaja en esta línea exacta
+(geometría no cilíndrica $+$ modelos de conducto). Contacto natural y posible
+evaluador externo.}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Modelos 2D}
+\footnotesize
+\begin{itemize}
+  \item \textbf{Massol, Jaupart \& Pepper (2001)}, \emph{JGR} 106:16223 — el 2D
+    axisimétrico de referencia. Resultados que un 1D no puede dar: la
+    sobrepresión de gas en el vent supera 1 MPa; hay variaciones
+    \alert{horizontales} grandes de presión de gas y agua exsuelta; y el
+    resultado depende críticamente de la \alert{condición de borde de salida}
+    (velocidad horizontal nula vs.\ esfuerzo de corte nulo cambian la
+    sobrepresión en $\sim$1 MPa).
+  \item \textbf{Collier \& Neuberg (2006)}, \textbf{Thomas \& Neuberg (2014,
+    2019)} — 2D axisimétrico por elementos finitos con tres fases, pérdida de
+    gas, deslizamiento en la pared y falla frágil; el de 2019 acopla el flujo con
+    deformación elástica para predecir inclinometría. \emph{Precedente directo de
+    una inversión conjunta flujo $+$ geodesia.}
+  \item \textbf{Dufek \& Bergantz (2005)}, \textbf{Tsvetkova \& Melnik (2018)},
+    \textbf{Longo \emph{et al.} (\textsc{gales})} — transiente y 2D
+    simultáneamente, reología dependiente de la tasa de corte, multicomponente.
+\end{itemize}
+
+\mensaje{El punto de Massol \emph{et al.} sobre la condición de borde de salida
+es directamente relevante para la propuesta: es un ejemplo documentado de que
+\textbf{la condición de borde importa tanto como los parámetros}, lo que
+justifica tratarla como incógnita (idea B2).}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Modelos 3D: la recomendación es no}
+\begin{alertblock}{Observación honesta}
+Los modelos genuinamente 3D de conducto son escasos, \emph{y por buena razón
+física}: el conducto es un tubo esbelto ($L/R\sim400$ en Calbuco), de modo que la
+axisimetría captura casi toda la física. El 3D se justifica sólo para diques,
+secciones elípticas, conductos inclinados o sistemas múltiples. El retorno
+científico es bajo frente al costo, y el problema inverso se vuelve intratable.
+\alert{La dimensión que sí paga es el tiempo, y después la geometría variable.}
+\end{alertblock}
+
+\medskip
+Dicho de otro modo: el costo computacional de una dimensión extra sólo se
+justifica si esa dimensión \emph{aporta información al problema inverso}. El
+experimento 3 muestra que el tiempo sí la aporta, y de manera medible. Para el
+3D, en un tubo con $L/R\sim400$, no hay razón para esperar lo mismo.
+
+\medskip
+\small Donde el 3D sí sería necesario: un \textbf{dique} en profundidad que pasa
+a conducto cilíndrico somero, una \textbf{sección elíptica} —ambos, de hecho,
+casos de ``complejizar la geometría'' que se pueden tratar de forma efectiva en
+un modelo 1.5D con un radio hidráulico equivalente (idea E7).
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Problemas inversos en volcanología}
+La línea está esencialmente monopolizada por el grupo de Stanford/USGS.
+\smallskip
+\small
+\begin{itemize}
+  \item \textbf{Anderson \& Segall (2011, 2013)}, \emph{JGR} — la referencia
+    fundacional. Invierten GPS $+$ tasa de extrusión con un modelo físico de
+    cámara elipsoidal $+$ conducto cilíndrico, por MCMC. Argumento central: a
+    diferencia de las inversiones geodésicas con modelos \emph{cinemáticos}, esta
+    técnica \alert{sí} puede restringir propiedades del magma y el volumen y
+    presión absolutos de la cámara.
+  \item \textbf{Wong, Segall, Bradley \& Anderson (2017)}, \emph{JGR} 122:7789 —
+    agregan cristalización en equilibrio y Darcy. Hallazgos relevantes: el flujo
+    másico \alert{depende fuertemente de las permeabilidades}; incluir transporte
+    de gas lateral \emph{y} vertical produce comportamiento \alert{no monótono}
+    —es decir, no-unicidad adicional.
+  \item \textbf{Wong \& Segall \emph{et al.} (2020)}, \emph{G-Cubed} — inversión
+    conjunta de \alert{tres series de tiempo} (volumen extruido, deformación,
+    CO$_2$). Es el estándar metodológico al que debería apuntar el capítulo 4.
+\end{itemize}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Lo que ese cuerpo de trabajo NO hace}
+\begin{enumerate}
+  \item<1-> \textbf{Ninguno trata la geometría del conducto como función
+    incógnita.} Todos invierten un \emph{radio escalar} (a lo sumo un radio y una
+    longitud de tapón).
+  \item<2-> \textbf{Ninguno presenta un análisis de no-unicidad estructural.}
+    Reportan posteriores anchas, pero no demuestran \emph{por qué} son anchas ni
+    caracterizan el espacio nulo.
+  \item<3-> \textbf{Todos son casos efusivos} (domos de Mount St. Helens,
+    Soufrière Hills). No hay inversión bayesiana con modelo físico de una
+    erupción \alert{explosiva sub-pliniana}.
+  \item<4-> \textbf{Ninguno usa un modelo con dimensión radial resuelta.}
+\end{enumerate}
+
+\onslide<5->{
+\mensaje{Ahí está el nicho —y las cuatro cosas son justamente lo que este
+proyecto ya tiene a medio camino.}}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Dónde encaja esta tesis}
+\centering\footnotesize
+\begin{tabular}{@{}p{0.18\textwidth}p{0.36\textwidth}p{0.39\textwidth}@{}}
+\toprule
+\textbf{Dimensión} & \textbf{Estado del arte} & \textbf{Qué falta} \\
+\midrule
+\textbf{Tiempo} & Maduro (Melnik \& Sparks; La Spina; Wong \& Segall) &
+Usarlo \alert{para invertir}, no sólo para simular, y cuantificar cuánta
+información aporta \\[0.4em]
+\textbf{Radial (2D)} & Maduro (Massol \& Jaupart; Collier \& Neuberg) &
+Nadie lo ha usado en un problema inverso; \alert{la condición de borde de pared
+como incógnita es territorio virgen} \\[0.4em]
+\textbf{3D} & Escaso y poco justificado físicamente & No recomendado \\[0.4em]
+\textbf{Geometría variable} & Maduro como estudio paramétrico \emph{directo}
+(de' Michieli Vitturi; Aravena; Costa) &
+Nadie la ha tratado como \alert{incógnita de un problema inverso}, ni ha
+caracterizado su no-unicidad \\[0.4em]
+\textbf{Inversión bayesiana} & Establecida para casos efusivos &
+Ningún caso explosivo sub-pliniano; ningún análisis estructural de no-unicidad;
+ningún caso chileno \\
+\bottomrule
+\end{tabular}
+
+\mensaje{\textbf{El nicho es la intersección de las dos últimas filas:} tratar la
+geometría del conducto como incógnita funcional en un problema inverso
+bayesiano, demostrar que es estructuralmente no único, caracterizar el espacio
+nulo y determinar qué datos lo reducen — aplicado a una erupción explosiva
+chilena con datos reales.}
+\end{frame}
+
+% ===========================================================================
+\section{La tesis propuesta}
+% ===========================================================================
+
+\begin{frame}{Título y estructura}
+\begin{block}{}
+\centering
+\textbf{``¿Qué se puede recuperar de una erupción? Identificabilidad y
+no-unicidad en modelos de ascenso de magma por un conducto, con aplicación a
+Calbuco 2015.''}
+\end{block}
+
+\vspace{0.4em}
+\footnotesize
+\begin{description}
+  \item[\textbf{Cap.\ 1 — El operador directo} (E1)] Unificación de los tres
+    solvers; regularización de la fragmentación; verificación de que la versión
+    suave reproduce la original; costo y diferenciabilidad.
+  \item[\textbf{Cap.\ 2 — Teoría de no-unicidad} (D1, D2)] El teorema $J_4$ y el
+    espacio nulo. Webster–Sturm–Liouville y la familia biparamétrica de
+    conductos acústicamente idénticos.
+  \item[\textbf{Cap.\ 3 — Identificabilidad} ] Fisher y perfiles de verosimilitud
+    para todos los parámetros. Comparación sistemática: estacionario 1D
+    vs.\ transiente 1D vs.\ estacionario 2D.
+    \alert{Conecta el trabajo previo con la tesis.}
+  \item[\textbf{Cap.\ 4 — Inversión bayesiana de Calbuco} (A1–A3)] Previas de
+    Castruccio \emph{et al.} (2016); posterior sobre $\Delta P$, $R$, $c_0$,
+    $z_f$; verificación predictiva posterior.
+  \item[\textbf{Cap.\ 5 — Geometría como incógnita funcional} (B1, E7)]
+    Inversión de $R(z)$ con regularización; demostración numérica de que el
+    mínimo no es único; conexión con el ensanchamiento sineruptivo.
+\end{description}
+
+\mensaje{Si el tiempo alcanza, \textbf{B2} extiende el capítulo 5 hacia el
+modelo 2D y da material para un artículo independiente.}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Datos disponibles para Calbuco 2015}
+\centering\scriptsize
+\begin{tabular}{@{}p{0.31\textwidth}p{0.33\textwidth}p{0.30\textwidth}@{}}
+\toprule
+\textbf{Observable} & \textbf{Valor} & \textbf{Fuente} \\
+\midrule
+Volumen emitido total & 0.27–0.56 km$^3$ (no DRE) & Romero (2016); Castruccio (2016); Van Eaton (2016) \\
+Reparto entre fases & $\sim$38 \% fase 1, $\sim$62 \% fase 2 & Castruccio (2016) \\
+Masa fase 1 / fase 2 & $8\times10^{10}$ kg en 1.5 h / $3.2\times10^{11}$ kg en 6 h & Castruccio (2016) \\
+$\MER$ media & $1.4$ y $1.5\times10^7$ kg/s & Castruccio (2016) \\
+$\MER$ máxima (isopletas) & $2.4$ y $2.7\times10^7$ kg/s & Castruccio (2016) \\
+Altura de columna & 15–17 km sobre el cráter & SERNAGEOMIN; Van Eaton (2016) \\
+Composición & andesita basáltica, 54–55 \% SiO$_2$ & Romero (2016) \\
+Almacenamiento & 8–12 km, 900–950 °C, 5.5–6.5 wt\% H$_2$O & Morgado (2019); Arzilli (2019) \\
+Texturas de piroclastos & CSD, BSD, densidad, porosidad, permeabilidad & Castruccio (AGU 2018) \\
+Deformación & co-eruptiva detectada; pre-eruptiva bajo el ruido & Delgado (2017) \\
+Pluma y descargas eléctricas & \alert{serie temporal} & Van Eaton (2016) \\
+\bottomrule
+\end{tabular}
+
+\mensaje{\textbf{Advertencia de consistencia:} \texttt{calbuco2015d.py} usa
+$T=970$ °C, $c_0=4$ wt\% y base a 7 km; la literatura reciente sugiere
+900–950 °C, 5.5–6.5 wt\% y 8–12 km. La viscosidad de Giordano es
+\alert{exponencialmente} sensible a ambos. Conviene reconciliarlo antes de fijar
+previas.}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Una oportunidad concreta para el profesor de geología}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{block}{Arzilli \emph{et al.} (2019)}
+Gatillo \alert{interno}: cristalización prolongada $\to$ segunda ebullición
+$\to$ sobrepresurización. \textbf{Sin} intrusión de magma fresco.
+\end{block}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{block}{Morgado \emph{et al.} (2019)}
+Gatillo \alert{externo}: calentamiento localizado del reservorio por inyección
+de magma caliente.
+\end{block}
+\end{column}
+\end{columns}
+
+\vspace{1em}
+Son \textbf{dos hipótesis publicadas y contrapuestas} sobre el mecanismo
+gatillante de Calbuco 2015. Ambas predicen \alert{historias de sobrepresión
+distintas}, y por tanto \alert{curvas $\MER(t)$ distintas}.
+
+\vspace{1em}
+\begin{exampleblock}{Propuesta}
+Discriminar entre ellas mediante \textbf{selección bayesiana de modelos}
+(factores de Bayes). Sería un resultado con impacto en la comunidad
+volcanológica chilena, y es exactamente el tipo de pregunta que un problema
+inverso bien planteado \emph{sí} puede responder.
+\end{exampleblock}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Plan de trabajo y riesgos}
+\begin{columns}[T]
+\begin{column}{0.49\textwidth}
+\textbf{Etapas} \scriptsize(ordenadas por dependencia, cada una con
+entregable verificable)
+\smallskip
+\scriptsize
+\begin{description}
+  \item[0. Consolidación] Un solo operador directo, con tests de regresión
+    contra los tres solvers y fragmentación regularizada.
+  \item[1. No-unicidad] Teorema $J_4$ y espacio nulo; familia de Webster.
+    \alert{Parcialmente hecho.}
+  \item[2. Identificabilidad] Tabla de todos los parámetros frente a todos los
+    conjuntos de datos. ¿Cuánto aporta el tiempo? ¿Y la dimensión radial?
+  \item[3. Inversión de Calbuco] Posteriores con datos reales; verificación
+    predictiva.
+  \item[4. Geometría] Reconstrucción regularizada de $R(z)$; efecto del
+    regularizador.
+  \item[5. Escritura] Manuscrito $+$ un artículo candidato (capítulos 2 y 3).
+\end{description}
+\end{column}
+\begin{column}{0.49\textwidth}
+\textbf{Riesgos y mitigaciones}
+\smallskip
+\scriptsize
+\begin{description}
+  \item[Operador caro, MCMC no converge] Emulador (E5); o estadísticos resumen
+    con algoritmo de vecindad, como Wong \emph{et al.} (2020).
+  \item[\texttt{scikits.odes} no compila] El prototipo sólo usa numpy/scipy;
+    portar el estacionario a un DAE puro de scipy.
+  \item[Datos insuficientes de Calbuco] Ése \alert{es} el resultado: se reporta
+    como análisis de identificabilidad y se complementa con datos sintéticos.
+  \item[Los \emph{switches} impiden gradientes] Regularizar la fragmentación
+    (E1); si falla, métodos sin derivadas o emulador.
+  \item[El alcance crece demasiado] El núcleo son los capítulos 2 y 3, que
+    \alert{ya tienen resultados preliminares}; 4 y 5 son incrementales.
+\end{description}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ===========================================================================
+\section{Preguntas para ustedes}
+% ===========================================================================
+
+\begin{frame}{Para el profesor de matemáticas}
+\begin{enumerate}
+  \item ¿Enfoque \textbf{determinista} (Tikhonov, tasas de convergencia bajo
+    condiciones de fuente) o \textbf{bayesiano} (posterior, MCMC, cuantificación
+    de incertidumbre)? El capítulo 5 admite ambos; la elección cambia el sabor
+    de la tesis.
+  \item ¿Vale la pena invertir en el \textbf{método adjunto} (E2), o basta con
+    diferencias finitas y un número moderado de parámetros?
+  \item ¿Le parece suficiente el resultado de no-unicidad del teorema $J_4$ como
+    \textbf{teorema central}, o conviene apuntar a un enunciado de
+    \textbf{unicidad condicional} (bajo qué datos adicionales $R(z)$ \emph{sí}
+    queda determinada)?
+  \item La analogía de \textbf{Webster–Sturm–Liouville} (D2): ¿capítulo propio o
+    sección?
+\end{enumerate}
+
+\mensaje{Herramientas importables que ya identifiqué: perfiles de verosimilitud
+(Raue \emph{et al.}, 2009); teoría espectral inversa (Borg 1946;
+Gel'fand–Levitan; Pöschel \& Trubowitz 1987); identificación de coeficientes de
+Robin (Chaabane \& Jaoua 1999; Sincich 2007); problemas parabólicos laterales
+(Eldén \emph{et al.} 2000); bayesiano en dimensión infinita (Stuart, 2010).}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Para el profesor de geología}
+\begin{enumerate}
+  \item Sobre ``recuperar la presión en profundidad'': ¿el objetivo es
+    $\Delta P$ en la cámara, o el perfil $P(z)$ completo?
+  \item Sobre el contenido de burbujas en profundidad: ¿hay \textbf{serie
+    temporal} de porosidad/densidad de piroclastos por unidad estratigráfica
+    para Calbuco? Si la hay, \alert{B3 se vuelve el problema inverso más directo
+    y mejor condicionado de todo el catálogo}.
+  \item ¿Existen mediciones de \textbf{permeabilidad} de los piroclastos?
+    Habilitan A4/B4, y la literatura indica que la permeabilidad es el control de
+    primer orden.
+  \item ¿Qué \textbf{evidencia independiente} hay sobre la geometría del
+    conducto de Calbuco (componente lítico de los depósitos, geometría del
+    cráter, diques aflorantes)? Serviría como previa y como verificación del
+    capítulo 5.
+  \item ¿Confirma $T$ y $c_0$? (Ver la advertencia de consistencia.)
+\end{enumerate}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Para ambos}
+\begin{block}{La pregunta de alcance}
+¿El caso de estudio es \textbf{Calbuco 2015}, o conviene un caso con mejor
+cobertura de series de tiempo —por ejemplo un caso efusivo tipo domo, donde la
+tasa de extrusión se mide continuamente?
+\end{block}
+
+\medskip
+El análisis de identificabilidad del experimento 3 sugiere que \alert{los casos
+con series de tiempo largas son mucho más informativos}. Eso es un argumento
+\emph{técnico}, no de gusto, para la elección del caso.
+
+\medskip
+Contraargumento a favor de Calbuco: es chileno, es explosivo (nadie ha invertido
+un caso explosivo con modelo físico), tiene petrología publicada de buena
+calidad, y ya tenemos el modelo calibrado con sus parámetros.
+
+\vspace{1em}
+\begin{exampleblock}{Alternativa}
+Usar \textbf{ambos}: un caso efusivo bien muestreado como banco de pruebas
+metodológico del capítulo 3, y Calbuco como aplicación del capítulo 4.
+\end{exampleblock}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}[standout]
+Gracias
+
+\vspace{1em}
+{\small\normalfont
+Todo lo presentado es reproducible:\\
+\texttt{tesis/PROPUESTA.md}\quad
+\texttt{tesis/ESTADO\_DEL\_ARTE.md}\quad
+\texttt{tesis/prototipo/}}
+\end{frame}
+
+% ===========================================================================
+\appendix
+% ===========================================================================
+
+\begin{frame}{Respaldo — el modelo reducido en detalle}
+\small
+Dominio $z\in[H,z_f]$, con $P(z_f)=P_{frag}$ definida por
+$\phi_{eq}(P_{frag})=\phi_{frag}$: es un dato termodinámico, no un parámetro
+ajustable. Sobre $z_f$ el flujo es una dispersión gas–piroclastos que el modelo
+reducido no resuelve (cortar ahí evita las velocidades de salida no físicas que
+da la lubricación en la región fragmentada).
+
+\medskip
+\textbf{Cierre termodinámico} (exsolución en equilibrio, isotermo):
+$$c_d(P)=\min(c_0,C_1P^\beta),\quad n(P)=\frac{c_0-c_d}{1-c_d},\quad
+\rho_g=\frac{P}{R_vT},\quad \frac1\rho=\frac{n}{\rho_g}+\frac{1-n}{\rho_m}.$$
+El $\min$ se reemplaza por una versión suavizada para que el operador sea
+diferenciable.
+
+\medskip
+\textbf{Limitaciones conocidas:} una sola fase con velocidad única (sin
+deslizamiento gas–fundido ni escape por permeabilidad); exsolución y
+cristalización en equilibrio; isotermo; cámara elástica de un parámetro sin
+recarga.
+
+\medskip
+Ninguna afecta las conclusiones cualitativas: \alert{la degeneración $J_4$ es
+una propiedad estructural de cualquier modelo con fricción tipo Poiseuille.}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Respaldo — por qué los perfiles de verosimilitud}
+\small
+La matriz de información de Fisher $F=J^\top\Sigma^{-1}J$ da elipses de
+confianza a partir de una \alert{aproximación cuadrática local} del $\chi^2$.
+
+\medskip
+Aquí eso falla: el operador directo es fuertemente no lineal en $\Delta P$ (la
+sobrepresión compite con la flotabilidad, y su peso relativo cambia con el
+propio $\Delta P$). La elipse de Fisher subestima groseramente la incertidumbre.
+
+\medskip
+El \textbf{perfil de verosimilitud}
+$$\chi^2_{perfil}(\theta_i)=\min_{\theta_j,\,j\neq i}\chi^2(\theta)$$
+recorre el valle completo, sin suponer que sea cuadrático. Un perfil que
+\alert{no sube} por encima del umbral $\chi^2_{1,0.95}=3.84$ indica un parámetro
+\textbf{prácticamente no identificable} con los datos disponibles — que es
+exactamente lo que ocurre con $\Delta P$ por abajo.
+
+\medskip
+Es el estándar en biología de sistemas desde Raue \emph{et al.} (2009) y se
+importa sin cambios.
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Respaldo — la otra no-unicidad (D3)}
+\small
+Hay \textbf{dos} no-unicidades distintas, y conviene no confundirlas:
+
+\vspace{0.8em}
+\begin{columns}[T]
+\begin{column}{0.47\textwidth}
+\begin{block}{Del problema \emph{directo}}
+Para parámetros fijos pueden existir \alert{varios estados estacionarios}
+(Melnik \& Sparks 1999: hasta tres tasas de descarga que difieren en órdenes de
+magnitud).
+
+\smallskip
+Mecanismo: \emph{resistencia diferencial negativa} $dp_{ch}/dq<0$, por
+cristalización retardada y por cambio de porosidad debido al escape de gas
+(Kozono \& Koyaguchi 2012).
+
+\smallskip
+\emph{La literatura sí la conoce.}
+\end{block}
+\end{column}
+\begin{column}{0.47\textwidth}
+\begin{block}{Del problema \emph{inverso}}
+Para un dato fijo existe una \alert{familia de parámetros y geometrías}
+compatibles: $\mathcal{F}$ no es inyectivo.
+
+\smallskip
+Mecanismo: el dato ve la geometría sólo a través de un funcional escalar
+(teorema $J_4$); el espacio nulo tiene codimensión 1.
+
+\smallskip
+\emph{Hasta donde he revisado, no ha sido formalizada en volcanología.}
+\end{block}
+\end{column}
+\end{columns}
+
+\vspace{0.8em}
+Ambas empeoran la inversión, y la primera además rompe la unicidad del
+\emph{forward}, lo que obliga a un tratamiento cuidadoso (continuación,
+selección de rama). Vale la pena tratarlas juntas en el capítulo 2.
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}[fragile]{Respaldo — estructura de archivos}
+\scriptsize
+\begin{semiverbatim}
+tesis/
+  PROPUESTA.md                           \textmd{documento completo}
+  ESTADO\_DEL\_ARTE.md                     \textmd{revisión anotada, con DOIs}
+  prototipo/
+    README.md                            \textmd{cómo reproducir todo}
+    modelo\_reducido.py                   \textmd{operador directo con R(z)}
+    exp1\_no\_unicidad\_geometria.py
+    exp2\_el\_tiempo\_rompe\_la\_degeneracion.py
+    exp3\_identificabilidad.py
+    figuras/                             \textmd{figuras de esta presentación}
+  presentacion/
+    propuesta\_tesis.tex                  \textmd{esta presentación}
+    propuesta\_tesis.pdf
+\end{semiverbatim}
+
+\vspace{0.8em}
+\small
+Reproducir todo:
+\scriptsize
+\begin{semiverbatim}
+pip install numpy scipy matplotlib
+cd tesis/prototipo
+python3 exp1\_no\_unicidad\_geometria.py
+python3 exp2\_el\_tiempo\_rompe\_la\_degeneracion.py
+python3 exp3\_identificabilidad.py
+cd ../presentacion && latexmk -pdf propuesta\_tesis.tex
+\end{semiverbatim}
+\end{frame}
+
+\end{document}
