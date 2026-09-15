@@ -29,8 +29,11 @@ python3 exp3_identificabilidad.py
 ```
 
 Cada script imprime sus resultados en la consola y escribe figuras en
-`figuras/`. El experimento 3 cachea la tabla del operador directo en
-`cache/tabla_directa.npz`; para recomputarla desde cero, borrar ese archivo.
+`figuras/`. Tiempos de referencia en una máquina modesta: experimento 1,
+$\sim50$ s; experimento 2, $\sim7$ min; experimento 3, $\sim13$ min la primera
+vez. El experimento 3 cachea la tabla del operador directo en
+`cache/tabla_directa.npz` y en corridas posteriores tarda segundos; para
+recomputarla desde cero, borrar ese archivo.
 
 ---
 
