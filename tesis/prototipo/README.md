@@ -26,14 +26,15 @@ cd tesis/prototipo
 python3 exp1_no_unicidad_geometria.py
 python3 exp2_el_tiempo_rompe_la_degeneracion.py
 python3 exp3_identificabilidad.py
+python3 exp4_cuando_hace_falta_el_transiente.py
 ```
 
 Cada script imprime sus resultados en la consola y escribe figuras en
 `figuras/`. Tiempos de referencia en una máquina modesta: experimento 1,
 $\sim50$ s; experimento 2, $\sim7$ min; experimento 3, $\sim13$ min la primera
-vez. El experimento 3 cachea la tabla del operador directo en
-`cache/tabla_directa.npz` y en corridas posteriores tarda segundos; para
-recomputarla desde cero, borrar ese archivo.
+vez; experimento 4, $\sim1.5$ min. El experimento 3 cachea la tabla del operador
+directo en `cache/tabla_directa.npz` y en corridas posteriores tarda segundos;
+para recomputarla desde cero, borrar ese archivo.
 
 ---
 
@@ -167,6 +168,59 @@ no la determina: para eso hacen falta datos de otra naturaleza (deformación,
 gas). Eso motiva la inversión conjunta del capítulo 4 de la propuesta.
 
 Figura: `figuras/exp3_identificabilidad.png`.
+
+---
+
+## `exp4_cuando_hace_falta_el_transiente.py` — ¿cuándo importa el término $\partial_t$?
+
+``Agregar el tiempo'' significa dos cosas distintas que conviene no confundir:
+
+- **(A)** el **observable** depende del tiempo: $\mathrm{MER}(t)$ es una función
+  y no un escalar. Esto casi siempre ayuda al problema inverso (experimento 2);
+- **(B)** el **conducto** está fuera de equilibrio con sus condiciones de borde,
+  de modo que los términos $\partial_t$ de sus ecuaciones importan.
+
+(A) no implica (B). El criterio es una comparación de escalas, tipo número de
+Deborah: $\mathrm{De}=\tau_{conducto}/\tau_{forzamiento}$.
+
+**Escalas medidas** para el caso base de Calbuco (no supuestas: se obtienen del
+propio modelo):
+
+| Escala | Valor | Qué es |
+|---|---|---|
+| $\tau_{hidr}$ | 8 s | relajación de $\mathrm{MER}$ tras un escalón de $-2\%$ en $P_{cam}$ |
+| $\tau_{resid}$ | 6.0 min | masa en el conducto dividida por $\mathrm{MER}$ |
+| $\tau_{cam}$ | 5.83 h | drenaje de la cámara, $C/G$, con $V=50$ km³ |
+
+De ahí $\mathrm{De}=5.7\times10^{-4}$: el conducto está **esclavizado** a la
+cámara. Dos comprobaciones:
+
+1. Alimentando el solver transiente completo con la historia $P_{cam}(t)$ del
+   drenaje cuasi-estacionario, el error en $\mathrm{MER}(t)$ es de
+   **0.08 % máximo** sobre toda la erupción. La curva cuasi-estacionaria del
+   experimento 2 queda justificada a posteriori.
+2. Barriendo el tiempo de forzamiento con rampas exponenciales, el error del
+   cuasi-estacionario alcanza 1 % cuando $\mathrm{De}\approx0.09$, es decir
+   para forzamientos más rápidos que $\sim90$ s.
+
+**Advertencia importante.** El $\tau$ medido aquí es sólo la relajación
+**hidráulica** (difusión de presión). El modelo reducido supone exsolución y
+cristalización en equilibrio, de modo que **no contiene** las escalas lentas que
+la literatura identifica como las que de verdad vuelven transiente una erupción:
+
+| Proceso | Escala | Referencia |
+|---|---|---|
+| exsolución en desequilibrio | $10^1$–$10^3$ s | La Spina et al. (2017) |
+| cristalización de microlitos | $10^4$–$10^6$ s | Melnik & Sparks (1999) |
+| escape de gas por permeabilidad | $10^3$–$10^5$ s | Wong & Segall (2019) |
+
+Con $\tau\sim10^4$ s el veredicto cambia por completo: hasta una fase
+sub-pliniana de 6 h pasa a $\mathrm{De}\approx0.5$. Y en un ciclo de domo el
+período **no es un forzamiento externo**: lo fija la propia cinética, de modo
+que $\mathrm{De}\approx1$ por construcción — el ciclo existe *porque* hay
+retardo. Ahí el término transiente no es un refinamiento, es el mecanismo.
+
+Figura: `figuras/exp4_escalas_de_tiempo.png`.
 
 ---
 
