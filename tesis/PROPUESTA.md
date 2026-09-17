@@ -278,6 +278,63 @@ arriba la sobrepresión, pero no la determina. Para determinarla hacen falta
 datos de otra naturaleza (deformación, gas), lo que motiva la inversión
 conjunta. Éste es un resultado, no un fracaso.
 
+### 3.4 ¿Cuándo hace falta de verdad el término transiente?
+
+Conviene separar dos cosas que la palabra "tiempo" confunde:
+
+- **(A)** el **observable** depende del tiempo, $\mathrm{MER}(t)$ es una función
+  y no un escalar;
+- **(B)** el **conducto** está fuera de equilibrio con sus condiciones de borde,
+  de modo que los términos $\partial_t$ de sus ecuaciones importan.
+
+(A) no implica (B), y la distinción es decisiva para el problema inverso: si el
+régimen es cuasi-estacionario, el operador directo es un tiro estacionario más
+una EDO para la cámara —barato—, y **las tasas finitas son invisibles al dato**,
+porque sólo entran a través de su límite de equilibrio.
+
+El criterio es una comparación de escalas, tipo número de Deborah:
+$\mathrm{De}=\tau_{conducto}/\tau_{forzamiento}$. El experimento 4 lo cuantifica
+con escalas **medidas** del propio modelo, no supuestas:
+
+| Escala | Valor | Qué es |
+|---|---|---|
+| $\tau_{hidr}$ | 8 s | relajación de $\mathrm{MER}$ tras un escalón de $-2\%$ en $P_{cam}$ |
+| $\tau_{resid}$ | 6.0 min | masa en el conducto dividida por $\mathrm{MER}$ |
+| $\tau_{cam}$ | 5.83 h | drenaje de la cámara, $C/G$, con $V=50$ km³ |
+
+De ahí $\mathrm{De}=5.7\times10^{-4}$, y dos comprobaciones:
+
+1. Alimentando el solver transiente completo con la historia $P_{cam}(t)$ del
+   drenaje cuasi-estacionario, el error en $\mathrm{MER}(t)$ es de **0.08 %
+   máximo** sobre toda la erupción: la aproximación del experimento 2 queda
+   justificada a posteriori.
+2. El error del cuasi-estacionario alcanza 1 % cuando $\mathrm{De}\approx0.09$,
+   es decir para forzamientos más rápidos que $\sim90$ s.
+
+**Pero el $\tau$ que domina no es el hidráulico.** El modelo reducido supone
+exsolución y cristalización en equilibrio, de modo que no contiene las escalas
+lentas que la literatura identifica como las que de verdad vuelven transiente
+una erupción: exsolución en desequilibrio ($10^1$–$10^3$ s, La Spina et al.
+2017), cristalización de microlitos ($10^4$–$10^6$ s, Melnik & Sparks 1999),
+escape de gas por permeabilidad ($10^3$–$10^5$ s, Wong & Segall 2019). Con
+$\tau\sim10^4$ s, hasta una fase sub-pliniana de 6 h pasa a
+$\mathrm{De}\approx0.5$.
+
+**Consecuencia directa para la tesis.** *Lo que se puede invertir depende del
+régimen.* En régimen cuasi-estacionario los datos informan sobre geometría,
+propiedades de la cámara y sobrepresión, y **nada** sobre cinética. Sólo cuando
+$\mathrm{De}\gtrsim0.1$ los datos contienen información sobre las constantes de
+tasa. Esto convierte la elección del caso de estudio (§9, pregunta 6) en una
+decisión técnica y no de gusto, y justifica el punto E4 del catálogo: agregar
+desequilibrio al modelo sólo tiene sentido si el caso elegido está en el régimen
+en que ese desequilibrio es observable.
+
+En los **ciclos de domo** el argumento se invierte de manera interesante: el
+período no es un forzamiento externo, lo fija la propia cinética, de modo que
+$\mathrm{De}\approx1$ por construcción. El ciclo existe *porque* hay retardo.
+Ahí el término transiente no es un refinamiento: es el mecanismo, y por eso son
+el caso donde la inversión de constantes de tasa está mejor planteada.
+
 ---
 
 ## 4. Catálogo de problemas inversos
@@ -553,6 +610,14 @@ volcanológica no ha formalizado).
    que **los casos con series de tiempo largas son mucho más informativos**, lo
    que es un argumento técnico para la elección del caso.
 
+7. Relacionado, y más fino (§3.4): ¿queremos un caso **cuasi-estacionario** o
+   uno **genuinamente transiente**? Determina qué es invertible. En régimen
+   cuasi-estacionario los datos informan sobre geometría y cámara pero **nada**
+   sobre cinética; sólo con $\mathrm{De}\gtrsim0.1$ las constantes de tasa
+   pasan a ser observables. Calbuco está cómodamente en el primer régimen si se
+   mira la hidráulica, y en la frontera si se mira la cristalización. Un caso de
+   domo cíclico está en el segundo por construcción.
+
 ---
 
 ## 10. Archivos de esta propuesta
@@ -567,6 +632,7 @@ tesis/
 │   ├── exp1_no_unicidad_geometria.py
 │   ├── exp2_el_tiempo_rompe_la_degeneracion.py
 │   ├── exp3_identificabilidad.py
+│   ├── exp4_cuando_hace_falta_el_transiente.py
 │   └── figuras/                 ← figuras generadas
 └── presentacion/
     ├── propuesta_tesis.tex      ← presentación Beamer
@@ -581,5 +647,6 @@ cd tesis/prototipo
 python3 exp1_no_unicidad_geometria.py
 python3 exp2_el_tiempo_rompe_la_degeneracion.py
 python3 exp3_identificabilidad.py
+python3 exp4_cuando_hace_falta_el_transiente.py
 cd ../presentacion && latexmk -pdf propuesta_tesis.tex
 ```

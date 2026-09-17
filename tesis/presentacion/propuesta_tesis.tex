@@ -610,34 +610,105 @@ cuantitativa de la inversión conjunta, y una respuesta concreta a la pregunta
 \end{frame}
 
 % ---------------------------------------------------------------------------
-\begin{frame}{Síntesis de los tres resultados}
+\begin{frame}{Resultado 4 — ¿cuándo hace falta de verdad el $\partial_t$?}
+\small
+``Agregar el tiempo'' significa dos cosas distintas, y conviene no confundirlas:
+\smallskip
 \begin{columns}[T]
-\begin{column}{0.32\textwidth}
+\begin{column}{0.47\textwidth}
+\begin{block}{(A) El observable depende de $t$}
+$\MER(t)$ es una función, no un escalar. Casi siempre ayuda a invertir
+(resultado 2).
+\end{block}
+\end{column}
+\begin{column}{0.47\textwidth}
+\begin{block}{(B) El conducto está fuera de equilibrio}
+Los términos $\partial_t$ de sus ecuaciones importan. Hay que resolver la EDP.
+\end{block}
+\end{column}
+\end{columns}
+\smallskip
+\alert{(A) no implica (B).} El criterio es un número de Deborah
+$\mathrm{De}=\tau_{conducto}/\tau_{forzamiento}$, con escalas \emph{medidas} del
+propio modelo:
+
+\vspace{0.3em}
+\centering\footnotesize
+\begin{tabular}{@{}lrl@{}}
+\toprule
+\textbf{Escala} & \textbf{Valor} & \textbf{Qué es} \\
+\midrule
+$\tau_{hidr}$  & 8 s     & relajación de $\MER$ tras un escalón de $-2\pc$ en $P_{cam}$ \\
+$\tau_{resid}$ & 6.0 min & masa en el conducto dividida por $\MER$ \\
+$\tau_{cam}$   & 5.83 h  & drenaje de la cámara, $C/G$, con $V=50$ km$^3$ \\
+\bottomrule
+\end{tabular}
+
+\mensaje{$\mathrm{De}=5.7\times10^{-4}$: el conducto está \textbf{esclavizado} a
+la cámara. Alimentando el transiente completo con el $P_{cam}(t)$
+cuasi-estacionario, el error en $\MER(t)$ es de \textbf{0.08 \% máximo}.}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Resultado 4 — la cinética, no la hidráulica, es la que decide}
+\centering
+\figh[0.52\textheight]{exp4_escalas_de_tiempo.png}
+
+\vspace{0.2em}
+\begin{columns}[T]
+\begin{column}{0.95\textwidth}
+\footnotesize
+El $\tau$ medido es sólo el \textbf{hidráulico}: el modelo reducido supone
+equilibrio, así que no contiene las escalas lentas que la literatura identifica
+como las que de verdad vuelven transiente una erupción —exsolución en
+desequilibrio ($10^1$–$10^3$ s), cristalización de microlitos ($10^4$–$10^6$ s),
+escape de gas ($10^3$–$10^5$ s). Con $\tau\sim10^4$ s, hasta una fase
+sub-pliniana de 6 h pasa a $\mathrm{De}\approx0.5$.
+\end{column}
+\end{columns}
+
+\mensaje{\textbf{Consecuencia para la tesis: lo que se puede invertir depende
+del régimen.} En cuasi-estacionario los datos informan sobre geometría y cámara
+y \alert{nada} sobre cinética. En los ciclos de domo el período lo fija la
+propia cinética, de modo que $\mathrm{De}\approx1$ por construcción: ahí el
+transiente no es un refinamiento, \textbf{es el mecanismo}.}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Síntesis de los resultados preliminares}
+\begin{columns}[T]
+\begin{column}{0.24\textwidth}
 \begin{block}{1. Degeneración}
-\small El $\MER$ estacionario ve $R(\cdot)$ sólo a través de \alert{un escalar}.
-La preimagen de un dato es una hipersuperficie de codimensión 1 en un espacio de
-funciones.\smallskip
+\footnotesize El $\MER$ estacionario ve $R(\cdot)$ sólo a través de \alert{un
+escalar}. La preimagen de un dato es una hipersuperficie de codimensión 1 en un
+espacio de funciones.\smallskip
 
 \emph{Demostrado y verificado.}
 \end{block}
 \end{column}
-\begin{column}{0.32\textwidth}
+\begin{column}{0.24\textwidth}
 \begin{block}{2. Es enorme}
-\small $+317\pc$ de diferencia de volumen con el mismo $\MER$. El 90 \% de la
-caída de presión está en el kilómetro más somero: \alert{el conducto profundo es
-invisible}.
+\footnotesize $+317\pc$ de diferencia de volumen con el mismo $\MER$. El 90 \%
+de la caída de presión está en el kilómetro más somero: \alert{el conducto
+profundo es invisible}.
 \end{block}
 \end{column}
-\begin{column}{0.32\textwidth}
+\begin{column}{0.24\textwidth}
 \begin{block}{3. El tiempo ayuda}
-\small Pero no lo resuelve todo: identifica $R$, sólo acota $\Delta P$ por
-arriba. \alert{Cuánto aporta cada dimensión se puede medir.}
+\footnotesize Pero no lo resuelve todo: identifica $R$, sólo acota $\Delta P$
+por arriba. \alert{Cuánto aporta cada dimensión se puede medir.}
+\end{block}
+\end{column}
+\begin{column}{0.24\textwidth}
+\begin{block}{4. Y hay dos tiempos}
+\footnotesize El observable dependiente de $t$ y el conducto fuera de
+equilibrio son cosas distintas. \alert{El régimen decide qué es invertible.}
 \end{block}
 \end{column}
 \end{columns}
 
 \vspace{1.2em}
-\mensaje{Los tres son reproducibles hoy: \texttt{tesis/prototipo/exp1..exp3}.
+\mensaje{Los cuatro son reproducibles hoy: \texttt{tesis/prototipo/exp1..exp4}.
 \textbf{La propuesta no parte de cero: parte de resultados.}}
 \end{frame}
 
@@ -1337,6 +1408,7 @@ tesis/
     exp1\_no\_unicidad\_geometria.py
     exp2\_el\_tiempo\_rompe\_la\_degeneracion.py
     exp3\_identificabilidad.py
+    exp4\_cuando\_hace\_falta\_el\_transiente.py
     figuras/                             \textmd{figuras de esta presentación}
   presentacion/
     propuesta\_tesis.tex                  \textmd{esta presentación}
@@ -1353,6 +1425,7 @@ cd tesis/prototipo
 python3 exp1\_no\_unicidad\_geometria.py
 python3 exp2\_el\_tiempo\_rompe\_la\_degeneracion.py
 python3 exp3\_identificabilidad.py
+python3 exp4\_cuando\_hace\_falta\_el\_transiente.py
 cd ../presentacion && latexmk -pdf propuesta\_tesis.tex
 \end{semiverbatim}
 \end{frame}
