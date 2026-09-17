@@ -21,6 +21,15 @@ build/
 *.pdf
 !Template-Presentacion-dim/img/**
 
+# Excepciones: figuras y PDF de la propuesta de tesis (se versionan para que
+# la presentacion compile y se pueda abrir sin re-ejecutar los experimentos)
+!tesis/prototipo/figuras/*.png
+!tesis/presentacion/img/**
+!tesis/presentacion/propuesta_tesis.pdf
+
+# Cache regenerable del prototipo
+tesis/prototipo/cache/
+
 # LaTeX (auxiliares)
 *.aux
 *.bbl
