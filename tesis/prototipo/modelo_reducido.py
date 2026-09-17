@@ -558,7 +558,12 @@ def malla(p: Parametros, N: int = 161, dz_min: float = 2.0) -> np.ndarray:
     r = brentq(lambda r: dz_min * (r ** n - 1.0) / (r - 1.0) - L,
                1.0 + 1e-12, 2.0, xtol=1e-14)
     dz = dz_min * r ** np.arange(n)[::-1]    # grande abajo, pequena arriba
-    return np.concatenate([[p.H], p.H + np.cumsum(dz)])
+    z = np.concatenate([[p.H], p.H + np.cumsum(dz)])
+    # El extremo superior debe ser EXACTAMENTE z_f: ahi se impone P = P_frag, y
+    # un residuo de redondeo deja el nodo fuera del intervalo de integracion de
+    # `presion_estacionaria`, que entonces falla en silencio.
+    z[0], z[-1] = p.H, p.z_f
+    return z
 
 
 def capacidad_de_almacenamiento(geo: Geometria, p: Parametros,
