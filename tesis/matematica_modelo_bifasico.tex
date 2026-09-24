@@ -209,9 +209,11 @@ Ley de Henry,
 \label{eq:henry}
 c_s(P)=C_1 P^\beta,
 \qquad
-C_1=4.11\times10^{-6},
-\quad
-\beta=\tfrac12,
+(C_1,\beta)
+=\begin{cases}
+(4.11\times10^{-6},\;1/2) & \text{silíceos},\\
+(6.80\times10^{-8},\;0.7) & \text{basaltos (Villarrica)}.
+\end{cases}
 \end{equation}
 con $P$ en pascales y $c_s$ en fracción másica del fundido. El agua
 total del sistema es $c_0$. Los cristales no disuelven agua: el
@@ -429,29 +431,45 @@ P(H)=P_{\mathrm{lit}}(H)+\Delta P
 \qquad
 u_m(H)=u_g(H)=v_{\mathrm{in}}.
 \end{equation}
-$v_{\mathrm{in}}$ \textbf{no} es un dato: es el parámetro de tiro. En
-la superficie se pide una de las dos condiciones de Yoshida \&
-Koyaguchi (1999) / Kozono \& Koyaguchi (2009),
+$v_{\mathrm{in}}$ \textbf{no} es un dato: es el parámetro de tiro. El
+DAE es el mismo para erupciones explosivas y efusivas; cambian solo
+las condiciones de salida. Hay dos códigos, no dos modelos:
+
+\paragraph{Explosivo (\texttt{RIconduitex5\_5.py}).}
+Yoshida \& Koyaguchi (1999) / Kozono \& Koyaguchi (2009):
 \begin{equation}
 \label{eq:bc-top}
 P(0)=P_{\mathrm{atm}}
 \quad\text{o}\quad
-u_g(0)\approx c_s:=\sqrt{\Rv T}
+u_g(0)\approx c_s:=\sqrt{\Rv T},
 \end{equation}
-(la segunda es el estrangulamiento; $c_s$ es la velocidad del sonido
-isoterma del gas). El código acepta la solución si $z_{\mathrm{exit}}\ge-5\,\mathrm{m}$
-y se cumple el choque o $P\approx P_{\mathrm{atm}}$ con
-$\phi\ge\phi_{\mathrm{crit}}$. El $v_{\mathrm{in}}$ que cierra el
-problema se busca por bisección (y, más adelante, una corrección tipo
-secante). El operador directo es
+con $\phi(0)\ge\phi_{\mathrm{crit}}$ (fragmentó) y
+$z_{\mathrm{exit}}\ge-5\,\mathrm{m}$. $c_s$ es la velocidad del
+sonido isoterma del gas.
+
+\paragraph{Efusivo (\texttt{RIconduitef5\_5.py}).}
+El magma llega a la superficie \emph{sin} fragmentar:
+\begin{equation}
+\label{eq:bc-ef}
+P(0)=P_{\mathrm{atm}},
+\qquad
+\phi(0)\le\phi_{\mathrm{crit}},
+\qquad
+z_{\mathrm{exit}}\in(-2,0].
+\end{equation}
+El $v_{\mathrm{in}}$ inicial de la búsqueda es $0.1\,\mathrm{m\,s^{-1}}$
+(frente a $10\,\mathrm{m\,s^{-1}}$ en el explosivo).
+
+Para un mismo $\theta$ puede existir $q_{\mathrm{ex}}^\ast$,
+$q_{\mathrm{ef}}^\ast$, las dos, o ninguna
+(Castruccio \emph{et al.}, 2025). El operador directo del paper es el
+par
 \begin{equation}
 \label{eq:F}
 \mathcal{F}(\theta)
-=q^\ast(\theta)
-=v_{\mathrm{in}}^\ast(\theta)\,\rho_{t,i}(\theta),
+=\bigl(q_{\mathrm{ex}}^\ast(\theta),\;q_{\mathrm{ef}}^\ast(\theta)\bigr).
 \end{equation}
-donde $\theta$ reúne $R$, $\Delta P$, $c_0$, $T$, $\xi_0$ y, si se
-abre, $R(\cdot)$.
+Invertir solo un $\MER$ sin el estilo deja las dos ramas confundidas.
 
 \section{El DAE, escrito de una vez}
 
@@ -541,6 +559,12 @@ $g$ & gravedad & $9.81\,\mathrm{m\,s^{-2}}$ \\
 \end{center}
 
 \begin{thebibliography}{9}\small
+\bibitem{castruccio2025} Castruccio, A., Rebolledo, A.\ \& Gómez, I.
+  (2025). \emph{The influence of melt composition, temperature,
+  crystallinity and water content on eruptive style and eruption rate:
+  insights from a conduit model of magma ascent}. JGR Solid Earth 130,
+  e2024JB030599.
+  \href{https://doi.org/10.1029/2024JB030599}{10.1029/2024JB030599}
 \bibitem{bottinga1970} Bottinga, Y.\ \& Weill, D.\,F. (1970).
   \emph{Densities of liquid silicate systems calculated from partial
   molar volumes of oxide components}. Am.\ J.\ Sci.\ 269:169--182.

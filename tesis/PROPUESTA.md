@@ -63,9 +63,12 @@ es un resultado matemático y geológico publicable.
 
 | Módulo | Formulación | Cierre | Estado |
 |---|---|---|---|
-| `RIconduitex5_5.py` | DAE de 6 variables $(P,\phi,N_d,x,u_m,u_g)$, momentum de dos fluidos con arrastre, coalescencia, permeabilidad, cristalización cinética | Tiro sobre `vinicial`; salida estrangulada o $P=P_{atm}$ con fragmentación | Funciona; requiere `scikits.odes` (IDA) |
+| `RIconduitex5_5.py` | DAE de 6 variables $(P,\phi,N_d,x,u_m,u_g)$, momentum de dos fluidos con arrastre, coalescencia, permeabilidad, cristalización cinética | Tiro: $P=P_{atm}$ o choque, **con** fragmentación | Funciona; requiere `scikits.odes` (IDA) |
+| `RIconduitef5_5.py` | **El mismo DAE.** No es otro modelo | Tiro: $P=P_{atm}$ y $\phi\le\phi_{crit}$ (sin fragmentar) | Funciona; el par $(q_{ex},q_{ef})$ puede ser 0, 1 o 2 soluciones |
 | `RIconduit1D_transient.py` | 3 EDP de transporte $(\phi,N_d,x)$ + presión cuasi-estática; IMEX (RK4 + relajación exacta) | Bisección sobre $q$ para $P_{vent}=P_{atm}$ | Funciona; sólo numpy |
 | `RIconduit2D_FD.py` | Perfil radial $u_m(r)$ por diferencias finitas en cada nivel $z$ (lubricación), Thomas + Picard; marcha RK4 en $z$ | Tiro sobre `vinicial` con $P_{exit}\approx P_{atm}$ | Funciona; sólo numpy |
+
+Casos del paper (Castruccio, Rebolledo & Gómez, 2025) en `casos/`: Vesuvius 79, Huaynaputina 1600, Caulle 2011, Merapi 2010, St. Helens 2004, Villarrica 2015, más Pinatubo 1991 y Quizapu 1932. Calbuco sigue en `calbuco2015d.py`. Ver `casos/README.md`.
 
 Tres observaciones técnicas que condicionan el problema inverso y que conviene
 poner sobre la mesa con ambos profesores:
@@ -86,8 +89,9 @@ Ninguna de estas tres cosas es un defecto del trabajo previo: son exactamente
 las tareas que convierten un código de simulación en un código de inversión, y
 constituyen el primer capítulo natural de la tesis.
 
-**El modelo de la tesis es el bifásico.** `RIconduitex5_5.py` (dos velocidades,
-arrastre, coalescencia, cristalización) no se reemplaza. El prototipo de
+**El modelo de la tesis es el bifásico.** `RIconduitex5_5.py` /
+`RIconduitef5_5.py` (dos velocidades, arrastre, coalescencia, cristalización;
+cambia solo el tiro) no se reemplazan. El prototipo de
 `tesis/prototipo/` es un *recorte* monofásico del mismo sistema, hecho para
 demostrar el teorema de degeneración y para explorar el inverso a bajo costo.
 Comparte constitutivas y parámetros de Calbuco; no es un modelo nuevo. El
