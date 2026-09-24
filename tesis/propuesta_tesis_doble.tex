@@ -1,0 +1,1377 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish,es-noshorthands]{babel}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage[margin=2.4cm]{geometry}
+\usepackage{booktabs}
+\usepackage{microtype}
+\usepackage{enumitem}
+\usepackage{setspace}
+\usepackage{titlesec}
+\usepackage[colorlinks=true,linkcolor=black,citecolor=black,urlcolor=blue]{hyperref}
+
+\theoremstyle{plain}
+\newtheorem{teorema}{Teorema}
+\newtheorem{corolario}[teorema]{Corolario}
+\newtheorem{proposicion}[teorema]{Proposición}
+\theoremstyle{definition}
+\newtheorem{problema}{Problema abierto}
+\theoremstyle{remark}
+\newtheorem*{obs}{Observación}
+
+\newcommand{\pc}{\ifmmode\text{\,\%}\else\,\%\fi}
+\newcommand{\MER}{\mathrm{MER}}
+\newcommand{\dd}{\,\mathrm{d}}
+\newcommand{\p}{\partial}
+\newcommand{\Rv}{R_v}
+\newcommand{\F}{\mathcal{F}}
+\newcommand{\R}{\mathbb{R}}
+
+\setstretch{1.12}
+\setlist[itemize]{leftmargin=1.3em,itemsep=0.25em,topsep=0.3em}
+\setlist[enumerate]{leftmargin=1.4em,itemsep=0.25em,topsep=0.3em}
+\titleformat{\section}{\large\bfseries}{\thesection.}{0.6em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{0.5em}{}
+
+\title{\vspace{-1.3cm}
+\textbf{¿Qué se puede recuperar de una erupción?}\\[0.35em]
+\large Identificabilidad y no-unicidad en el ascenso bifásico\\
+de magma por un conducto volcánico\\[0.7em]
+\normalsize Propuesta de tesis de \textbf{doble titulación}\\
+Geología \ + \ Ingeniería Matemática}
+\author{Ignacio Gómez Gómez\\[0.3em]
+{\small Universidad de Chile}\\
+{\small Facultad de Ciencias Físicas y Matemáticas}\\
+{\small Departamento de Geología \quad / \quad Departamento de Ingeniería Matemática}}
+\date{\today}
+
+\begin{document}
+\maketitle
+\vspace{-0.6cm}
+
+\begin{abstract}\noindent
+Esta propuesta formula una tesis que tiene que funcionar \emph{entera} para
+las dos disciplinas: no es un trabajo de geología con un anexo numérico, ni
+un trabajo de problemas inversos con un volcán de adorno. El objeto físico
+es el ascenso de magma por un conducto (modelo bifásico 1D de Slezin y
+Kozono--Koyaguchi, ya implementado en este repositorio). El objeto
+matemático es el operador directo
+$\F(\theta)=(q_{\mathrm{ex}}^\ast(\theta),\,q_{\mathrm{ef}}^\ast(\theta))$
+y su inverso: dados observables de una erupción, qué se puede afirmar
+sobre geometría, sobrepresión, volátiles y estilo, y con qué certeza.
+
+La tesis \textbf{no} es ``hacer una inversión y reportar números''. Es
+caracterizar \textbf{qué es recuperable y qué no}. Hay al menos dos
+no-unicidades estructurales, independientes: (i)~geométrica, demostrada
+en un recorte de lubricación (el $\MER$ ve $R(\cdot)$ sólo a través de
+un funcional escalar $J_4$); (ii)~de estilo eruptivo, ya visible en el
+operador bifásico (un mismo $\theta$ puede devolver solución explosiva,
+efusiva, las dos, o ninguna). La pregunta central es si (i) sobrevive
+al deslizamiento $u_g\neq u_m$, y qué datos restauran unicidad. El caso
+principal es Calbuco 2015; el paper JGR 2025 aporta los demás casos
+(Merapi, Caulle, Villarrica, St.\ Helens, \ldots) para el estilo.
+\end{abstract}
+
+\tableofcontents
+\vspace{0.8em}
+
+% ===========================================================================
+\section{Por qué tiene que ser una sola tesis para las dos carreras}
+\label{sec:doble}
+
+Una tesis de doble titulación no se aprueba si cada profesor puede leer
+sólo ``su'' mitad. Tiene que haber:
+
+\begin{itemize}
+\item una \textbf{pregunta geológica} que no se responde sin el aparato
+  matemático (no basta simular Calbuco otra vez);
+\item una \textbf{pregunta matemática} que no es un ejercicio abstracto
+  (el operador, el dato y la no-unicidad vienen del volcán);
+\item un \textbf{resultado} que ambas comunidades puedan citar: la
+  geología, como advertencia sobre qué se puede inferir de una erupción;
+  la matemática, como caracterización de un inverso mal puesto con
+  dos fuentes de degeneración.
+\end{itemize}
+
+Esa pregunta, escrita para los dos, es:
+
+\begin{quote}
+\textit{Dados los observables de superficie de una erupción ---tasa de
+descarga, estilo (explosivo / efusivo), masa, altura de columna, texturas---,
+¿qué se puede recuperar del estado del magma en profundidad y de la
+geometría del conducto, qué queda estructuralmente indeterminado, y qué
+dato adicional reduce esa indeterminación?}
+\end{quote}
+
+\textbf{Lo que la geología necesita de la tesis.} No otro perfil
+$(P,\phi,u)(z)$ hacia adelante. Una teoría de \emph{inferencia}:
+cuándo el $\MER$ informa sobre el conducto profundo y cuándo no; cuándo
+el estilo es un dato independiente y no un postprocesado; cómo
+discriminar, con Calbuco, entre gatillo interno (segunda ebullición) y
+gatillo por inyección. Eso cambia cómo se interpretan depósitos,
+inclusiones y monitoreo.
+
+\textbf{Lo que la ingeniería matemática necesita de la tesis.} Un
+operador $\F$ bien definido (DAE de índice~1 + tiro), tres preguntas
+clásicas de Hadamard (unicidad, estabilidad, reconstrucción), un
+teorema de degeneración en un recorte, la pregunta abierta de si
+sobrevive en el sistema completo, y un esquema de regularización /
+inversión bayesiana con cuantificación de incertidumbre. Eso es un
+problema inverso de verdad, no un ajuste de curvas.
+
+Las secciones~\ref{sec:geo} y~\ref{sec:math} desarrollan cada lado.
+La~\ref{sec:objetivos} separa objetivos por disciplina. La
+estructura de capítulos (\S\ref{sec:capitulos}) está armada para que
+ningún capítulo sea ``sólo de uno''.
+
+% ===========================================================================
+\section{Resumen ejecutivo}
+\label{sec:resumen}
+
+El modelo directo ya existe. Dado
+$\theta=(R,\,\Delta P,\,c_0,\,T,\,\xi_0,\,\phi_{\mathrm{crit}},\ldots)$,
+los códigos explosivo y efusivo
+(\texttt{RIconduitex5\_5}, \texttt{RIconduitef5\_5})
+resuelven \textbf{el mismo} DAE bifásico
+$\mathbf{y}=(P,\phi,N,\xi,u_m,u_g)$
+y buscan un caudal $q$ que cierre la condición de superficie. El
+observable no es un escalar: es el par
+\begin{equation}
+\label{eq:Fpar}
+\F(\theta)
+=\bigl(q_{\mathrm{ex}}^\ast(\theta),\;q_{\mathrm{ef}}^\ast(\theta)\bigr)
+\in
+\bigl(\R_+\cup\{\varnothing\}\bigr)^2.
+\end{equation}
+Un mismo $\theta$ puede dar solo explosiva, solo efusiva, \textbf{las
+dos}, o ninguna (Castruccio, Rebolledo \& Gómez, 2025). Invertir un
+$\MER$ sin el estilo deja las dos ramas confundidas.
+
+Tres resultados preliminares, obtenidos en un \emph{recorte} de
+lubricación (\texttt{tesis/prototipo/}), definen el esqueleto
+matemático. El recorte \textbf{no} reemplaza al bifásico: sirve para
+demostrar.
+
+\begin{enumerate}
+\item \textbf{Degeneración geométrica $J_4$.}
+  En el régimen viscoso dominado por fricción,
+  $\MER\cdot J_4[R]=\mathrm{const}$, con
+  $J_4[R]=\int_H^{z_f}R(z)^{-4}\,\dd z$.
+  La preimagen de un dato es una hipersuperficie de codimensión~1 en
+  un espacio de funciones. Verificado a precisión de máquina.
+\item \textbf{La no-unicidad es enorme.}
+  Seis geometrías con volúmenes que difieren en $+317\pc$ dan el mismo
+  $\MER$ con error $10^{-7}$. El $90\pc$ de la resistencia está en los
+  últimos metros: el conducto profundo es invisible para el caudal.
+  \textbf{Esto está demostrado en el recorte.} La tesis pregunta si
+  sobrevive en el bifásico.
+\item \textbf{El tiempo separa escalares, no la función $R(\cdot)$.}
+  Agregar $\MER(t)$ reduce el intervalo de $R$ constante de
+  $[8,19]$~m a $[13,18]$~m, y deja $\Delta P$ con sólo una cota
+  superior. Sobre $R(\cdot)$, cada punto de la curva
+  $P_{\mathrm{cam}}\mapsto\MER_{ss}$ devuelve el mismo $J_4$.
+\end{enumerate}
+
+Hay una cuarta no-unicidad, ésta sí en el operador bifásico real:
+\textbf{el estilo}. Merapi y Caulle son el ejemplo geológico: el
+mismo sistema puede alimentar una columna y un domo.
+
+La tesis recomendada, en una frase:
+
+\begin{quote}
+\textit{Identificabilidad y no-unicidad en modelos bifásicos de
+ascenso de magma, con dos degeneraciones (geometría y estilo),
+aplicada a Calbuco 2015 y a los casos del paper JGR 2025.}
+\end{quote}
+
+% ===========================================================================
+\section{Planteamiento del problema}
+\label{sec:planteamiento}
+
+\subsection{El fenómeno}
+
+Una erupción es el vaciado, total o parcial, de un reservorio de magma
+a través de un conducto. En el conducto el magma descomprime: exsuelve
+agua, nuclea y crece burbujas, puede cristalizar microlitos, cambia
+órdenes de magnitud en viscosidad, y ---si la fracción de gas cruza un
+umbral--- se fragmenta y pasa de flujo de líquido con burbujas a flujo
+de gas con partículas. Eso decide si la erupción es \emph{explosiva}
+(columna, tefra) o \emph{efusiva} (domo, lava). El estilo no es un
+adjetivo: es una condición de borde distinta del mismo sistema.
+
+Los observables de superficie ---tasa de descarga másica ($\MER$),
+altura de columna, masa emitida, densidad y vesicularidad de
+piroclastos, deformación, gas--- son funcionales de lo que ocurre
+\emph{adentro}. La pregunta geológica de siempre (``¿cómo era el
+conducto? ¿qué presión había en la cámara? ¿cuánta agua? ¿por qué
+explotó?'') es, matemáticamente, un problema inverso.
+
+\subsection{El operador}
+
+Sea $\Theta$ el espacio de parámetros (puede contener funciones:
+$R(\cdot)$, $\beta(\cdot)$, $P_{\mathrm{cam}}(\cdot)$) y $\mathcal{D}$
+el de datos. El modelo directo define
+\begin{equation}
+\F:\Theta\longrightarrow\mathcal{D},\qquad
+\theta\longmapsto d=\F(\theta).
+\end{equation}
+El dato observado es $d^{\mathrm{obs}}=\F(\theta^\dagger)+\varepsilon$.
+Las tres preguntas de Hadamard:
+
+\begin{enumerate}[label=(P\arabic*)]
+\item \textbf{Unicidad / identificabilidad.}
+  ¿Es $\F$ inyectivo? Si no, caracterizar $\F^{-1}(d)$.
+\item \textbf{Estabilidad.}
+  ¿Es $\F^{-1}$ continuo? ¿Con qué módulo?
+\item \textbf{Reconstrucción.}
+  Algoritmo, regularización, cuantificación de incertidumbre.
+\end{enumerate}
+
+En este problema la respuesta a (P1) es \textbf{no}, y se puede
+demostrar en un recorte. Hay además no-unicidad de estilo en el
+operador completo. Eso no es un defecto del código: es el contenido
+de la tesis.
+
+\subsection{Qué no es esta tesis}
+
+\begin{itemize}
+\item No es reescribir \texttt{RIconduitex5\_5.py} ni
+  \texttt{RIconduitef5\_5.py}. Esos solvers \emph{son} el operador
+  directo.
+\item No es reemplazar el bifásico por un modelo de una sola
+  velocidad. El recorte de \texttt{tesis/prototipo} es un
+  laboratorio para teoremas.
+\item No es ``correr MCMC hasta que salga un radio''. Un número sin
+  barras de error, en un inverso degenerado, no significa nada.
+\item No es un modelo 3D de conducto. $L/R\sim 400$ en Calbuco; la
+  axisimetría captura la física. El 3D no paga frente al costo, y
+  el inverso se vuelve intratable.
+\end{itemize}
+
+% ===========================================================================
+\section{El lado geológico}
+\label{sec:geo}
+
+\subsection{Por qué el conducto importa}
+
+El conducto es el filtro entre la cámara y la superficie. Su radio,
+su rugosidad, su posible ensanchamiento sineruptivo y el estado del
+magma que lo recorre ($c_0$, $T$, $\xi$, $\phi$) controlan el
+$\MER$ y el estilo. Dos erupciones con la misma cámara pueden verse
+muy distintas si cambia el conducto; dos conductos distintos pueden
+verse iguales en superficie (ésa es la degeneración $J_4$).
+
+La geología de terreno lee el conducto \emph{después}: depósitos,
+clastos líticos, texturas de borde frente a centro, geometría del
+cráter, diques aflorantes. El modelo de conducto lee el conducto
+\emph{durante}. El problema inverso es el puente entre las dos
+lecturas.
+
+\subsection{Estilo eruptivo: un dato, no un postprocesado}
+
+La distinción explosivo / efusivo se ha tratado a menudo como un
+umbral empírico (contenido de agua, viscosidad, $\MER$). El modelo
+bifásico la convierte en un hecho matemático: el mismo DAE admite
+dos cierres de superficie.
+
+\begin{center}
+\small
+\begin{tabular}{@{}lll@{}}
+\toprule
+ & explosivo (\texttt{ex}) & efusivo (\texttt{ef}) \\
+\midrule
+$P(0)$ & $P_{\mathrm{atm}}$ \textbf{o} choque $u_g\approx\sqrt{\Rv T}$
+  & $P_{\mathrm{atm}}$ \\
+$\phi(0)$ & $\phi\ge\phi_{\mathrm{crit}}$ (fragmentó)
+  & $\phi\le\phi_{\mathrm{crit}}$ (no fragmentó) \\
+$z_{\mathrm{exit}}$ & $\ge -5\,\mathrm{m}$ & $\in(-2,0]$ \\
+búsqueda de $v_{\mathrm{in}}$ & $[0.1,50]$, guess $10\,\mathrm{m\,s^{-1}}$
+  & $[10^{-5},5]$, guess $0.1\,\mathrm{m\,s^{-1}}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{0.3em}
+Para un mismo $\theta$ el par~\eqref{eq:Fpar} puede ser
+$(q,0)$, $(0,q)$, $(q_{\mathrm{ex}},q_{\mathrm{ef}})$ o
+$(\varnothing,\varnothing)$. Eso ya está en el paper
+(Castruccio \emph{et al.}, 2025) y en el notebook
+\texttt{mainconduit\_ambos.ipynb}: Merapi y Caulle son los casos
+donde las dos ramas conviven. \textbf{El dato observado no es
+sólo un $\MER$. Es el par $(\MER,\,\mathrm{estilo})$.}
+
+Consecuencia para el inverso: si se invierte sólo el caudal, las
+dos ramas se confunden. Si se invierte el par, se identifica la
+rama, pero $R$ y $\Delta P$ siguen sin ser únicos ---en el paper
+ni siquiera son datos: los calcula un cierre de estabilidad del
+conducto.
+
+\subsection{Calbuco, abril de 2015}
+
+Caso principal. Erupción sub-Pliniana en dos fases, andesita
+basáltica, muy bien documentada, chilena, y ya parametrizada en
+este repositorio (\texttt{calbuco2015d.py}).
+
+\begin{center}
+\footnotesize
+\begin{tabular}{@{}p{0.28\textwidth}p{0.38\textwidth}p{0.26\textwidth}@{}}
+\toprule
+observable & valor & fuente \\
+\midrule
+volumen total (no DRE) & $0.27$--$0.56\,\mathrm{km}^3$
+  & Romero; Castruccio; Van Eaton; Pardini \\
+reparto de fases & $\sim 38\pc$ / $\sim 62\pc$
+  & Castruccio et al.\ (2016) \\
+masa fase 1 / 2 & $8\times10^{10}\,\mathrm{kg}$ en $1.5\,\mathrm{h}$ /
+  $3.2\times10^{11}\,\mathrm{kg}$ en $6\,\mathrm{h}$
+  & ídem \\
+$\MER$ media & $1.4\times10^7$ y $1.5\times10^7\,\mathrm{kg\,s^{-1}}$
+  & ídem \\
+$\MER$ máx.\ (isopletas) & $2.4$ y $2.7\times10^7\,\mathrm{kg\,s^{-1}}$
+  & ídem \\
+altura de columna & $15$--$17\,\mathrm{km}$ sobre el cráter
+  & SERNAGEOMIN; Van Eaton; Romero \\
+composición & $54$--$55\pc$ SiO$_2$ (depósitos);
+  $62.72\pc$ en el input del modelo
+  & Romero; \texttt{calbuco2015d} \\
+almacenamiento & $8$--$12\,\mathrm{km}$, $900$--$950\,^{\circ}\mathrm{C}$,
+  $5.5$--$6.5\,\mathrm{wt\pc}$ H$_2$O
+  & Arzilli (2019); Morgado (2019) \\
+deformación & co-eruptiva detectada; pre-eruptiva bajo ruido
+  & Delgado et al.\ (2017) \\
+pluma y rayos & serie temporal
+  & Van Eaton et al.\ (2016) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Dos hipótesis \emph{publicadas y contrapuestas} sobre el gatillo:
+
+\begin{itemize}
+\item \textbf{Arzilli et al.\ (2019):} gatillo interno. Cristalización
+  prolongada $\to$ segunda ebullición $\to$ sobrepresurización, sin
+  intrusión de magma fresco.
+\item \textbf{Morgado et al.\ (2019):} calentamiento localizado por
+  inyección de magma caliente.
+\end{itemize}
+
+Ambas predicen historias $P_{\mathrm{cam}}(t)$ distintas y por tanto
+curvas $\MER(t)$ distintas. Discriminarlas con factores de Bayes es
+un resultado geológico concreto, del tipo que un inverso bien
+planteado puede responder. Van Eaton et al.\ (2016) aportan la serie
+temporal más usable (altura de pluma y actividad eléctrica).
+
+\textbf{Inconsistencia que hay que cerrar con el profesor de
+geología.} El input del código usa $T=970\,^{\circ}\mathrm{C}$,
+$c_0=4\,\mathrm{wt\pc}$, $H=-7\,\mathrm{km}$. La petrología reciente
+sugiere $900$--$950\,^{\circ}\mathrm{C}$, $5.5$--$6.5\,\mathrm{wt\pc}$
+y $8$--$12\,\mathrm{km}$. La viscosidad de Giordano es
+exponencialmente sensible a $T$ y $c_d$. Las previas de la inversión
+no se pueden fijar sin resolver esto.
+
+\subsection{Los otros casos (paper JGR 2025)}
+
+El paper (Castruccio, Rebolledo \& Gómez, 2025) barre composición,
+$T$, cristales y agua, y muestra que el estilo y el $\MER$ salen del
+mismo modelo. Los \texttt{.m} están en \texttt{casos/}, sin editar.
+Sirven para la no-unicidad de estilo y como banco de prueba del
+operador~\eqref{eq:Fpar}.
+
+\begin{center}
+\footnotesize
+\begin{tabular}{@{}p{0.22\textwidth}p{0.22\textwidth}p{0.32\textwidth}c@{}}
+\toprule
+erupción & estilo observado & por qué entra & geom. \\
+\midrule
+Calbuco 2015 & sub-Pliniana & caso inverso principal & cil. \\
+Vesuvius 79 & Pliniana & extremo explosivo, $c_0$ alto & cil. \\
+Huaynaputina 1600 & Pliniana & ídem, riolita & cil. \\
+Caulle 2011 & sub-Pliniana $\to$ lava & \textbf{las dos ramas} & cil. \\
+Merapi 2010 & explosiva + domo & \textbf{las dos ramas} & cil. \\
+St.\ Helens 2004 & domo & extremo efusivo (Anderson--Segall) & cil. \\
+Villarrica 2015 & hawaiana / estromboliana & Henry basáltico, dique & dique \\
+Pinatubo, Quizapu & Plinianas & extras, $R$ grande & cil. \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Villarrica usa $C_1=6.80\times10^{-8}$, $\beta=0.7$ y geometría de
+dique. El resto, Henry silíceo y cilindro. En Vesuvius y
+Huaynaputina el \texttt{.m} deja $R$ y $\Delta P$ comentados: el
+catálogo usa $16\,\mathrm{m}$ / $5\,\mathrm{MPa}$ como partida, no
+como dato.
+
+\subsection{Qué aportaría esto a la volcanología}
+
+\begin{enumerate}
+\item Una \textbf{advertencia metodológica demostrable}: inferir el
+  conducto profundo desde el $\MER$ es, en el recorte, inferir la
+  previa. Si eso sobrevive en el bifásico, cambia cómo se leen
+  radios ``invertidos'' en la literatura.
+\item Tratar el \textbf{estilo como dato} del inverso, no como
+  etiqueta a posteriori. Eso conecta el paper 2025 con la tesis.
+\item El primer intento de inversión bayesiana con modelo físico de
+  una erupción \textbf{explosiva} (la línea Anderson--Segall / Wong
+  es toda efusiva: St.\ Helens 2004--2008).
+\item Un caso chileno, con implicancias de amenaza (columnas de
+  $15$--$17\,\mathrm{km}$, aeropuertos, lahares). El diseño óptimo
+  de observables (qué medir para reducir más la posterior) es
+  directamente útil para monitoreo.
+\item Discriminar gatillo interno vs.\ inyección en Calbuco, si los
+  datos temporales alcanzan.
+\end{enumerate}
+
+\subsection{Lo que la geología \emph{no} le pide a esta tesis}
+
+No le pide un mapa 3D del sistema de alimentación, ni un modelo de
+columna eruptiva, ni rehacer la petrología de Calbuco. Le pide
+decir, con el modelo de conducto que ya usamos, \emph{qué parte de
+la historia profunda queda determinada por los depósitos y el
+monitoreo, y qué parte no}.
+
+% ===========================================================================
+\section{El lado de ingeniería matemática}
+\label{sec:math}
+
+\subsection{Tipo de problema}
+
+Es un problema inverso para un DAE de índice~1 con un parámetro de
+tiro, y ---si se deja $R(\cdot)$ libre--- un problema inverso en
+dimensión infinita. El dato es de frontera (superficie). La
+incógnita puede ser un escalar ($\Delta P$, $c_0$), un par
+$(R,\Delta P)$, o una función $R(\cdot)$.
+
+Formulación determinista:
+\begin{equation}
+\label{eq:tikhonov}
+\theta_\alpha\in\arg\min_{\theta\in\Theta}
+\tfrac12\bigl\|\F(\theta)-d^{\mathrm{obs}}\bigr\|_{\Sigma^{-1}}^2
++\alpha\,\mathcal{R}(\theta),
+\end{equation}
+con $\mathcal{R}$ de Tikhonov, de variación total (geometrías tipo
+NC2 de Aravena) o de Sobolev. Elección de $\alpha$ por Morozov o
+GCV.
+
+Formulación bayesiana (la adecuada aquí):
+\begin{equation}
+\label{eq:bayes}
+\pi(\theta\mid d^{\mathrm{obs}})
+\propto
+\exp\Bigl(-\tfrac12\bigl\|\F(\theta)-d^{\mathrm{obs}}\bigr\|_{\Sigma^{-1}}^2\Bigr)
+\cdot\pi_0(\theta).
+\end{equation}
+Razones geológicas concretas: la petrología entrega previas reales
+(inclusiones $\to c_0$; fases $\to T$ y profundidad; CSD $\to\xi$);
+el $\MER$ se conoce típicamente salvo un factor~$2$, asimétrico.
+Una estimación puntual sin posterior no sirve. Es el camino de
+Anderson \& Segall (2013) y Wong et al.\ (2017, 2020), todavía no
+aplicado a un caso explosivo ni a $R(\cdot)$ como función.
+
+\subsection{El operador directo, escrito}
+
+El estado en cada $z\in[H,0]$ es
+\begin{equation}
+\mathbf{y}(z)=\bigl(P,\;\phi,\;N,\;\xi,\;u_m,\;u_g\bigr).
+\end{equation}
+Las velocidades son algebraicas (masa + $q$ constante). $P$,
+$\phi$, $N$ y $\xi$ son diferenciales. El sistema es
+\begin{equation}
+M\mathbf{y}'=F(\mathbf{y};q),\qquad
+M=\mathrm{diag}(1,1,1,1,0,0).
+\end{equation}
+Masa:
+\begin{equation}
+q=\rho_m(1-\phi)u_m+\rho_g\phi u_g,\qquad
+\rho_g=P/(\Rv T),\qquad
+n=\frac{\rho_g\phi u_g}{q}.
+\end{equation}
+Momentum de cada fase (Kozono \& Koyaguchi, 2009):
+\begin{align}
+\rho_m(1-\phi)u_m u_m'
+&=-(1-\phi)P'-\rho_m(1-\phi)g+F_{mg}-F_{mw},\\
+\rho_g\phi u_g u_g'
+&=-\phi P'-\rho_g\phi g-F_{mg}-F_{gw}.
+\end{align}
+Sustituir $u_m(P,\phi,\xi;q)$ y $u_g$ da un $2\times 2$ para
+$(P',\phi')$. Solubilidad de Henry $c_s(P)=C_1 P^\beta$; cinética
+de cristales de primer orden; coalescencia tipo Slezin; viscosidad
+Giordano $\times$ \texttt{fvrel} $\times$ Llewellin; cuatro
+regímenes de arrastre. La formulación completa está en
+la nota \texttt{matematica\_modelo\_bifasico}. Eso \textbf{es}
+el operador. No se recorta para invertir: se recorta para
+demostrar.
+
+El caudal $q$ no es dato: es el parámetro de un problema de tiro.
+Hay dos cierres, \S\ref{sec:geo}. Éxito numérico: el contador de
+iteraciones $<49$.
+
+\subsection{Tres fuentes de no-unicidad (hay que no mezclarlas)}
+
+\begin{enumerate}
+\item \textbf{Geométrica ($J_4$).}
+  Demostrada en el recorte $u_m=u_g$. Pregunta abierta en el
+  bifásico. Es no-inyectividad de $\F$ respecto de $R(\cdot)$ a
+  dato fijo.
+\item \textbf{De estilo.}
+  Ya en el bifásico: $\F(\theta)$ es un par, no un escalar. Misma
+  $\theta$, dos $q$ posibles. Distinta de (1).
+\item \textbf{Multiplicidad de estados estacionarios.}
+  Curva sigmoidal $p_{\mathrm{ch}}$--$q$ (Melnik \& Sparks 1999;
+  Kozono \& Koyaguchi 2012): a \emph{parámetros fijos}, varios $q$.
+  Es no-unicidad del \emph{directo}, no del inverso. Complementaria.
+\end{enumerate}
+
+Anderson \& Segall (2013) ya notan que sus datos determinan
+$R^4/8\eta$, no $R$ y $\eta$ por separado. Lo que no está hecho:
+tratar $R(\cdot)$ como función, caracterizar el espacio nulo,
+preguntar si sobrevive al slip, y tratar el estilo como segunda
+degeneración.
+
+\subsection{El recorte, y el teorema}
+
+Para demostrar (P1) hace falta separar variables. Se recorta el
+bifásico ---no se cambia el volcán---: $u_m=u_g$, $\xi$ fijo,
+exsolución en equilibrio, dominio hasta $z_f$. Queda
+\begin{equation}
+\label{eq:lub}
+\frac{\dd P}{\dd z}
+=-\rho(P)\,g-\frac{8\mu(P)\,\MER}{\pi\rho(P)\,R(z)^4},
+\end{equation}
+con $P(H)=P_{\mathrm{cam}}$ y $P(z_f)=P_{\mathrm{frag}}$.
+
+\begin{teorema}[Degeneración geométrica]
+En el régimen dominado por fricción ($\rho g$ despreciable),
+\begin{equation}
+\label{eq:J4}
+\MER\cdot J_4[R]
+=\frac{\pi}{8}\Phi(P_{\mathrm{cam}},P_{\mathrm{frag}}),\qquad
+J_4[R]=\int_H^{z_f}R(z)^{-4}\,\dd z,\qquad
+\Phi=\int_{P_{\mathrm{frag}}}^{P_{\mathrm{cam}}}\frac{\rho}{\mu}\,\dd P.
+\end{equation}
+El $\MER$ depende de $R(\cdot)$ \textbf{únicamente} a través de
+$J_4[R]$.
+\end{teorema}
+
+\begin{proof}
+Despreciar $\rho g$ en~\eqref{eq:lub} y separar variables. El lado
+izquierdo no depende de $R(\cdot)$.
+\end{proof}
+
+\begin{corolario}
+$\F_{\mathrm{recorte}}$ no es inyectivo en $R(\cdot)$. El conjunto
+de nivel $\{R:J_4[R]=c\}$ es de dimensión infinita.
+\end{corolario}
+
+\begin{corolario}[Espacio nulo]
+$DJ_4[R]\,\delta R=-4\int R^{-5}\delta R\,\dd z$, luego
+\[
+\mathcal{N}_R
+=\Bigl\{\delta R\in C([H,z_f]):
+\int_H^{z_f}R^{-5}\delta R\,\dd z=0\Bigr\}
+\]
+es un subespacio cerrado de \textbf{codimensión~1}.
+\end{corolario}
+
+El resultado no es un artefacto de Poiseuille. Si la fricción
+factoriza $P'=-F(P)\,f(\MER)\,R^{-n}$, el dato ve sólo
+$J_n[R]=\int R^{-n}\dd z$ ($n=4$ laminar, $19/4$ Blasius, $5$
+Darcy--Weisbach).
+
+\begin{proposicion}
+Bajo las hipótesis del teorema, la curva
+$P_{\mathrm{cam}}\mapsto\MER_{ss}$ determina $J_4[R]$ y nada más
+de $R(\cdot)$.
+\end{proposicion}
+
+\begin{obs}
+El arrastre $F_{mg}$ y el slip $u_g-u_m$ \emph{podrían} romper la
+degeneración: introducen el radio de burbuja $r_b(\phi,N)$, una
+escala que el recorte no tiene. Ésa es la pregunta matemática
+central, no un resultado cerrado.
+\end{obs}
+
+\subsection{Identificabilidad práctica}
+
+Aunque $\F$ no sea inyectivo, algunos parámetros pueden estar
+prácticamente identificados. Herramientas:
+
+\begin{itemize}
+\item matriz de sensibilidad / Jacobiano
+  $D\F[\theta^\dagger]$, SVD, valores singulares
+  (grado de mal planteamiento);
+\item matriz de información de Fisher
+  $I(\theta)=D\F^{\mathsf T}\Sigma^{-1}D\F$;
+\item perfiles de verosimilitud (Raue et al., 2009): para cada
+  coordenada $\theta_i$,
+  $\min\{\,{-}2\log L:\theta_i=\mathrm{fijo}\,\}$
+  y umbral $\chi^2_{1,0.95}$.
+\end{itemize}
+
+En el recorte, en el punto $(R,\Delta P)=(16\,\mathrm{m},\,5\,\mathrm{MPa})$,
+\[
+J
+=\frac{\p(\log\MER,\,\log G)}{\p(\log R,\,\log\Delta P)}
+=\begin{pmatrix}4.000&0.195\\4.000&0.115\end{pmatrix},
+\quad
+G=\frac{\dd\MER}{\dd P_{\mathrm{cam}}}.
+\]
+El $4.000$ es Poiseuille. El $0.195$ es chico porque $\Delta P$ es
+una fracción del empuje (el resto es flotabilidad): la compensación
+local es $\Delta P\sim R^{-20.5}$. Con ruido realista
+$\sigma_{\log\MER}=\ln 2/2$,
+
+\begin{center}
+\small
+\begin{tabular}{@{}lcc@{}}
+\toprule
+datos & IC $95\pc$ de $R$ & IC $95\pc$ de $\Delta P$ \\
+\midrule
+sólo estacionario & $[8,19]\,\mathrm{m}$ (abierto)
+  & $[0.2,250]\,\mathrm{MPa}$ (todo el rango) \\
+estacionario + $\MER(t)$ & $[13,18]\,\mathrm{m}$
+  & $[0.25,44]\,\mathrm{MPa}$ (sólo cota superior) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Éste es un resultado, no un fracaso: el tiempo identifica el radio
+escalar y acota $\Delta P$ por arriba. Para acotarla por abajo hacen
+falta deformación o gas.
+
+\subsection{Cuándo el término transiente importa}
+
+Hay que no confundir ``el dato depende del tiempo'' con ``el
+conducto está fuera de equilibrio''. El criterio es un Deborah
+$\mathrm{De}=\tau_{\mathrm{conducto}}/\tau_{\mathrm{forzamiento}}$.
+En el recorte, medido: $\tau_{\mathrm{hidr}}=8\,\mathrm{s}$,
+$\tau_{\mathrm{resid}}=6\,\mathrm{min}$,
+$\tau_{\mathrm{cam}}=5.83\,\mathrm{h}$ ($V=50\,\mathrm{km}^3$),
+luego $\mathrm{De}=5.7\times10^{-4}$. El error del
+cuasi-estacionario es $0.08\pc$ en $\MER(t)$ para Calbuco. Cruza
+$1\pc$ a $\mathrm{De}\approx 0.09$ (forzamientos $\lesssim 90\,\mathrm{s}$).
+
+Pero el $\tau$ que de verdad puede volver transiente una erupción
+no es el hidráulico: es exsolución en desequilibrio
+($10^1$--$10^3\,\mathrm{s}$), cristalización de microlitos
+($10^4$--$10^6\,\mathrm{s}$), escape de gas
+($10^3$--$10^5\,\mathrm{s}$). Con $\tau\sim10^4\,\mathrm{s}$, una
+fase de $6\,\mathrm{h}$ pasa a $\mathrm{De}\approx 0.5$.
+
+\textbf{Consecuencia:} lo invertible depende del régimen. En
+cuasi-estacionario los datos informan geometría y cámara, y
+\textbf{nada} sobre cinética. Sólo con $\mathrm{De}\gtrsim 0.1$ las
+constantes de tasa son observables. Calbuco está cómodo en el
+primero si se mira la hidráulica, y en la frontera si se mira la
+cristalización. Un domo cíclico está en el segundo \emph{por
+construcción} (el período lo fija la cinética).
+
+\subsection{Una joya opcional: Webster y el espectro}
+
+Linealizando flujo compresible en un tubo de sección $A(z)$ se
+obtiene la ecuación de Webster, que con $p=A^{-1/2}\psi$ es
+Sturm--Liouville con potencial
+$V=(A^{1/2})''/A^{1/2}$. El teorema de dos espectros de Borg
+(1946): \textbf{una sola familia espectral no determina $V$}. El
+espectro de resonancia (LP, tremor) no determina la geometría.
+Aun conociendo $V$, $(A^{1/2})''=VA^{1/2}$ tiene un espacio de
+dimensión~2: hay una familia biparamétrica de secciones
+acústicamente indistinguibles. Como en volcanología se infieren
+radios desde LP, exhibir esa familia con parámetros realistas es
+una advertencia fuerte y matemáticamente limpia. Puede ser
+capítulo o sección, según el profesor de matemáticas.
+
+\subsection{Lo que la matemática \emph{no} le pide a esta tesis}
+
+No le pide existencia y unicidad del DAE directo en un espacio de
+Sobolev abstracto (el código ya integra con IDA). Le pide
+\emph{el inverso}: inyectividad, módulo de estabilidad,
+regularización, y un algoritmo que respete la degeneración en vez
+de esconderla.
+
+% ===========================================================================
+\section{Qué hay construido}
+\label{sec:construido}
+
+\begin{center}
+\small
+\begin{tabular}{@{}p{0.28\textwidth}p{0.38\textwidth}p{0.26\textwidth}@{}}
+\toprule
+módulo & formulación & estado \\
+\midrule
+\texttt{RIconduitex5\_5.py} &
+  DAE 6 variables, tiro explosivo &
+  funciona; IDA (\texttt{scikits.odes}) \\
+\texttt{RIconduitef5\_5.py} &
+  \textbf{el mismo DAE}, tiro efusivo &
+  funciona; el par $(q_{\mathrm{ex}},q_{\mathrm{ef}})$ \\
+\texttt{mainconduit\_ambos.ipynb} &
+  tira las dos ramas, 6 figuras encima &
+  listo; corre donde ya corre \texttt{mainconduit5\_5} \\
+\texttt{RIconduit1D\_transient.py} &
+  transporte $(\phi,N,\xi)$ + $P$ cuasi-estática; IMEX &
+  funciona; sólo numpy \\
+\texttt{RIconduit2D\_FD.py} &
+  $u_m(r)$ por FD, Thomas + Picard &
+  funciona; sólo numpy \\
+\texttt{casos/} + \texttt{catalogo.py} &
+  9 erupciones del paper 2025 &
+  inputs sin editar \\
+\texttt{tesis/prototipo/} &
+  recorte de lubricación, exp.\ 1--4 &
+  teorema $J_4$ + identificabilidad \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Tres observaciones que hay que poner sobre la mesa:
+
+\begin{itemize}
+\item \textbf{Los tres solvers grandes están desacoplados.}
+  El 2D no usa el transiente. Un inverso serio necesita
+  \textbf{un} operador. El de la tesis es el DAE bifásico; el
+  transiente y el 2D son variantes, no otro proyecto.
+\item \textbf{$\F$ no es diferenciable.}
+  Hay $\max(0,\cdot)$, cambios de régimen, criterios de choque,
+  bisecciones. Eso descarta gradiente hasta regularizar la
+  fragmentación.
+\item \textbf{Inconsistencias entre versiones}
+  ($\phi_{\mathrm{crit}}$ por capilaridad en el estacionario,
+  $0.75$ fijo en el transiente; permeabilidad definida y no
+  acoplada). Antes de invertir hay que fijar \textbf{una} física.
+\end{itemize}
+
+Ninguna es un defecto del trabajo previo: son el primer capítulo
+natural (convertir un código de simulación en un código de
+inversión).
+
+% ===========================================================================
+\section{Estado del arte y nicho}
+\label{sec:arte}
+
+Revisión anotada en \texttt{tesis/ESTADO\_DEL\_ARTE.md}. Aquí el
+nicho, en una tabla.
+
+\begin{center}
+\small
+\begin{tabular}{@{}p{0.22\textwidth}p{0.34\textwidth}p{0.36\textwidth}@{}}
+\toprule
+dimensión & qué hay & qué falta \\
+\midrule
+tiempo &
+  Melnik \& Sparks; La Spina et al.; Wong \& Segall 2019 &
+  usarlo \textbf{para invertir}, no sólo simular; cuantificar
+  cuánta información aporta \\
+radial (2D) &
+  Massol \& Jaupart; Collier \& Neuberg &
+  nadie lo usó en un inverso; la pared como incógnita (Robin)
+  está virgen \\
+3D &
+  escaso; $L/R$ enorme &
+  no recomendado \\
+geometría $R(z)$ &
+  DOMEFLOW; Aravena; Costa (estudio \emph{directo}) &
+  nadie la trató como \textbf{incógnita}; nadie caracterizó el
+  nulo \\
+inverso bayesiano &
+  Anderson \& Segall 2013; Wong et al.\ 2017, 2020
+  (todos \textbf{efusivos}) &
+  ningún caso explosivo sub-Pliniano; ningún análisis
+  estructural de no-unicidad; ningún caso chileno;
+  el estilo no entra como dato \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{0.4em}
+\textbf{El nicho es la intersección:} geometría (y estilo) como
+incógnitas de un inverso, degeneración demostrada, datos que la
+reducen, erupción explosiva chilena. Álvaro Aravena trabaja la
+geometría no cilíndrica en el directo: contacto natural y posible
+evaluador.
+
+La no-unicidad que documenta la literatura clásica (Slezin 2003;
+Melnik 2000; Kozono \& Koyaguchi 2012) es respecto de la tasa a
+parámetros fijos. La de esta tesis es la otra flecha: respecto de
+los parámetros y de $R(\cdot)$ a dato fijo.
+
+% ===========================================================================
+\section{Pregunta de investigación e hipótesis}
+\label{sec:pregunta}
+
+\paragraph{Pregunta principal.}
+¿Es inyectivo el operador bifásico $\F$ respecto de la geometría
+$R(\cdot)$ y respecto del estilo, y qué observables restauran
+unicidad o, al menos, identificabilidad práctica?
+
+\paragraph{Preguntas derivadas.}
+\begin{enumerate}
+\item ¿Sobrevive $J_4$ (o un $J_n$) cuando $u_g\neq u_m$?
+\item El estilo, ¿es un funcional independiente de $R(\cdot)$, o
+  está acoplado a la misma degeneración?
+\item ¿Cuánto reduce $\MER(t)$ el nulo, comparado con un $\MER$
+  escalar? ¿Y un perfil de porosidad de piroclastos? ¿Y
+  deformación?
+\item En Calbuco 2015, ¿qué cota sobre $\Delta P$ imponen los
+  datos, y qué hipótesis de gatillo es más verosímil?
+\item ¿En qué régimen (Deborah) las constantes de tasa son
+  observables?
+\end{enumerate}
+
+\paragraph{Hipótesis de trabajo.}
+\begin{enumerate}
+\item En el bifásico la degeneración geométrica \emph{sobrevive},
+  quizá con un funcional distinto de $J_4$ (el slip introduce
+  $r_b$, pero la fricción de pared sigue factorizando en
+  $R^{-2}$). El nulo puede dejar de ser de codimensión~1, pero no
+  se espera unicidad.
+\item El tiempo no recupera $R(\cdot)$; sí separa $(R,\Delta P)$
+  cuando $R$ es constante.
+\item El estilo es una no-unicidad \emph{ortogonal} a $J_4$: se
+  levanta observando si fragmentó, no midiendo mejor el $\MER$.
+\item Calbuco, hidráulicamente, es cuasi-estacionario: los datos
+  no identifican $\tau_c$. Si se quiere invertir cinética, el
+  caso tiene que ser un domo cíclico (St.\ Helens 2004, Merapi).
+\end{enumerate}
+
+% ===========================================================================
+\section{Objetivos}
+\label{sec:objetivos}
+
+\subsection{Objetivo general}
+
+Caracterizar la identificabilidad del modelo bifásico de conducto
+---qué parámetros y qué funciones son recuperables desde
+observables de erupción, y cuáles no--- y aplicarlo a Calbuco 2015
+y a los casos del paper 2025, de modo que el resultado sea a la
+vez un teorema (o un contraejemplo numérico preciso) y una
+interpretación volcanológica.
+
+\subsection{Objetivos específicos de Geología}
+
+\begin{enumerate}[label=G\arabic*.]
+\item Fijar, con evidencia petrológica, las previas de
+  $\theta$ para Calbuco (reconciliar $T$, $c_0$, $H$ del código
+  con Arzilli / Morgado) y el vector de datos
+  $d^{\mathrm{obs}}$ (MER por fases, masa, columna, texturas,
+  deformación, pluma).
+\item Interpretar el par $(q_{\mathrm{ex}},q_{\mathrm{ef}})$ como
+  dato de estilo, y mapear en los casos del paper 2025 cuándo el
+  modelo predice las dos ramas (Caulle, Merapi) de acuerdo con lo
+  observado.
+\item Decir qué se puede afirmar, y qué no, sobre el conducto
+  profundo de Calbuco a partir del $\MER$; en particular, una
+  cota sobre $\Delta P$ y una discusión honesta de $R(\cdot)$.
+\item Si los datos temporales alcanzan, comparar las dos
+  hipótesis de gatillo por factores de Bayes.
+\item Traducir el resultado a una recomendación de monitoreo:
+  qué observable adicional reduce más la posterior (diseño
+  óptimo, en versión geológica).
+\end{enumerate}
+
+\subsection{Objetivos específicos de Ingeniería Matemática}
+
+\begin{enumerate}[label=M\arabic*.]
+\item Escribir $\F$ como operador entre espacios (escalares y,
+  para $R(\cdot)$, un Sobolev o $BV$): dominio, dato, regularidad
+  a trozos por los cambios de régimen.
+\item Demostrar el teorema $J_4$ y la caracterización del nulo en
+  el recorte (hecho); estudiar el decaimiento de valores
+  singulares de $D\F$ (grado de mal planteamiento).
+\item Responder, numérica o analíticamente, si la degeneración
+  sobrevive en el DAE bifásico. Entregable: contraejemplo
+  (dos $R(\cdot)$ con el mismo par $(q_{\mathrm{ex}},q_{\mathrm{ef}})$)
+  o enunciado de unicidad condicional.
+\item Construir la tabla de identificabilidad (Fisher + perfiles
+  de verosimilitud) de los parámetros finitos frente a cada
+  conjunto de datos: estacionario, $\MER(t)$, estilo, texturas.
+\item Plantear y resolver~\eqref{eq:tikhonov} o~\eqref{eq:bayes}
+  para Calbuco, con regularización que respete el nulo (no
+  pretender recuperar lo que $J_4$ esconde).
+\item (Si el profesor de matemáticas lo pide.) Familia de Webster
+  / Borg, o el adjunto del transiente, o el coeficiente de Robin
+  en la pared.
+\end{enumerate}
+
+\subsection{Objetivos compartidos (los que amarran la doble titulación)}
+
+\begin{enumerate}[label=C\arabic*.]
+\item Un solo operador directo, el bifásico, con las dos ramas de
+  tiro, y una decisión explícita sobre transiente y 2D.
+\item Un capítulo de no-unicidad que un geólogo pueda citar
+  (``el conducto profundo no se ve'') y un matemático pueda
+  verificar (el funcional, el nulo, el experimento).
+\item Un capítulo de Calbuco que un matemático pueda leer como
+  inversión con incertidumbre, y un geólogo como interpretación
+  del sistema de 2015.
+\end{enumerate}
+
+% ===========================================================================
+\section{Metodología}
+\label{sec:metodo}
+
+\subsection{El operador no se reescribe}
+
+Se llama a \texttt{RIconduitex5\_5\_f} y \texttt{RIconduitef5\_5\_f}.
+El notebook \texttt{mainconduit\_ambos.ipynb} es el laboratorio de
+las dos ramas. El recorte queda para teoremas y para explorar el
+inverso a bajo costo (miles de evaluaciones, sin IDA).
+
+\subsection{Etapa 0 --- Un operador invertible}
+
+\begin{itemize}
+\item Fijar $\phi_{\mathrm{crit}}$, permeabilidad, cinética: una
+  física.
+\item Regularizar la fragmentación (transición suave en $\phi$)
+  para que $\F$ sea al menos Lipschitz, idealmente
+  diferenciable a trozos.
+\item Tests de regresión contra los solvers actuales.
+\item Decidir si el transiente se usa como operador o sólo como
+  generador de $\MER(t)$ cuasi-estacionario (el Deborah de
+  Calbuco sugiere lo segundo para hidráulica).
+\end{itemize}
+
+\subsection{Etapa 1 --- Teoría de no-unicidad}
+
+\begin{itemize}
+\item Redacción formal de $J_4$ (ya está en
+  \texttt{tesis/nota\_problema\_inverso.pdf}).
+\item Construcción explícita de la familia $\{R:J_4[R]=c\}$
+  (cilindro, NC2, ensanche basal, constricción).
+\item Webster--Borg si entra.
+\item Pregunta bifásica: buscar dos geometrías con el mismo
+  $J_4$ (o el mismo factor de escala del recorte) y comparar
+  $(q_{\mathrm{ex}},q_{\mathrm{ef}})$ y los perfiles
+  $\mathbf{y}(z)$. Si coinciden, la degeneración sobrevivió. Si
+  no, medir en qué norma se separan y qué observable la ve
+  (candidato: $\phi(0)$, $u_g-u_m$, $z_f$).
+\end{itemize}
+
+\subsection{Etapa 2 --- Identificabilidad}
+
+Barrido de parámetros alrededor de Calbuco y de Merapi / Caulle
+(las dos ramas). Para cada subconjunto de datos, perfiles de
+verosimilitud y SVD de $D\F$. Ruido:
+$\sigma_{\log\MER}=\ln 2/2$ (factor~2), más un error de
+clasificación de estilo (probabilidad de etiquetar mal una rama
+fronteriza). Entregable: una tabla ``parámetro $\times$ dato
+$\to$ identificado / acotado / invisible''.
+
+\subsection{Etapa 3 --- Inversión de Calbuco}
+
+Previas $\pi_0$ de la petrología. Verosimilitud sobre
+$(\MER_1,\MER_2,\mathrm{masa},H_{\mathrm{columna}},\mathrm{estilo})$.
+Muestreo: MCMC si $\F$ es barato (o emulador); si no, algoritmo
+de vecindad de Sambridge + remuestreo, como Wong et al.\ (2020).
+Verificación predictiva posterior. Comparación con las cotas
+independientes de Arzilli / Morgado / Delgado.
+
+\subsection{Etapa 4 --- Geometría como incógnita funcional}
+
+Sintéticos: generar un $d$ con una geometría NC2, invertir con
+Tikhonov / TV, mostrar que el mínimo no es único y que el
+regularizador elige un representante (el más suave, o el de
+menor TV). Reales: si hay evidencia de geometría (cráter,
+líticos), usarla como previa, no como ``verdad''.
+
+\subsection{Herramientas}
+
+Python, \texttt{numpy}/\texttt{scipy}, IDA vía
+\texttt{scikits.odes}, emulador si hace falta (proceso gaussiano).
+El prototipo ya corre sin IDA. No se introduce un framework nuevo
+salvo que el muestreo lo exija.
+
+% ===========================================================================
+\section{Catálogo de problemas (de dónde se elige el núcleo)}
+\label{sec:catalogo}
+
+Las ideas marcadas con $\star$ salieron de conversar el lado
+geológico. Dificultad $=$ infraestructura, no calendario.
+
+\paragraph{Familia A --- Parámetros (dimensión finita).}
+A1$^\star$ $\Delta P$ (y con ella $P(z)$); A2$^\star$ $c_0$ y
+$\xi$; A3 $z_f$ y $\phi_{\mathrm{crit}}$; A4 constantes de
+$k(\phi)$. Precisión sobre A1: $P(z)$ no es un dato extra, la
+produce el directo. Lo defendible es
+\textit{``qué cota superior sobre $\Delta P$ imponen los
+observables, y qué dato la acotaría por abajo''}.
+
+\paragraph{Familia B --- Funciones.}
+B1$^{\star\star}$ $R(z)$: \textbf{núcleo}. B2 coeficiente de
+Navier $\beta(z)$ en la pared (Robin; teoría de unicidad y
+estabilidad logarítmica: Chaabane--Jaoua, Inglese, Sincich);
+extensión natural del 2D. B3 $\phi(z,0)$ desde una serie de
+porosidad de piroclastos. B4 $k(\phi)$ como función.
+
+\paragraph{Familia C --- Historias.}
+C1 $P_{\mathrm{cam}}(t)$ desde $\MER(t)$: problema lateral
+parabólico, mal puesto clásico (Eldén--Berntsson--Regińska). C2
+recarga $Q_{\mathrm{in}}(t)$. C3 tasa de descompresión desde MND
+(balance poblacional): conexión directa con petrología de
+terreno.
+
+\paragraph{Familia D --- Teoría.}
+D1$^\star$ $J_4$ (hecho). D2$^\star$ Webster--Borg. D3
+multiplicidad sigmoidal como segunda fuente.
+
+\paragraph{Familia E --- Método.}
+E1$^\star$ unificar y regularizar (prerrequisito). E2 adjunto.
+E3 selección de criterio de fragmentación (factores de Bayes).
+E4 desequilibrio y Darcy (Wong: la permeabilidad controla el
+flujo). E5 emulador. E6 diseño óptimo de experimentos. E7
+geometría compleja (dique $\to$ cilindro, NC2/NC3 de Aravena).
+
+El núcleo recomendado es D1 + pregunta bifásica + A1--A3 sobre
+Calbuco + B1 en sintéticos + el estilo como dato. B2, C1 y D2 son
+artículos extras si alcanzan.
+
+% ===========================================================================
+\section{Estructura de la tesis (capítulos)}
+\label{sec:capitulos}
+
+Pensada para que cada capítulo tenga una frase geológica y una
+frase matemática.
+
+\paragraph{Cap.\ 1 --- El volcán y el operador.}
+Geología: conducto, estilo, Calbuco, el paper 2025.
+Matemática: el DAE, los dos tiros, $\F$ como~\eqref{eq:Fpar}.
+Entregable: el operador único (E1).
+
+\paragraph{Cap.\ 2 --- No-unicidad geométrica.}
+Geología: seis conductos, $+317\pc$ de volumen, el mismo caudal;
+el profundo no se ve.
+Matemática: teorema $J_4$, nulo de codimensión~1, SVD.
+Entregable: el teorema y las figuras del prototipo, pasados en
+limpio.
+
+\paragraph{Cap.\ 3 --- ¿Sobrevive en el bifásico? Estilo.}
+Geología: Merapi, Caulle, las dos ramas; el estilo como
+observable.
+Matemática: contraejemplo o unicidad; el par
+$(q_{\mathrm{ex}},q_{\mathrm{ef}})$ como segunda degeneración.
+Entregable: la respuesta a la pregunta central.
+
+\paragraph{Cap.\ 4 --- Identificabilidad y el tiempo.}
+Geología: qué se gana con series (Van Eaton; fases de Calbuco);
+cuándo hace falta el transiente (Deborah).
+Matemática: Fisher, perfiles, comparación 1D / transiente / 2D.
+Entregable: la tabla parámetro $\times$ dato.
+
+\paragraph{Cap.\ 5 --- Inversión de Calbuco 2015.}
+Geología: posteriores sobre $\Delta P$, $c_0$, $z_f$; gatillo;
+lectura de depósitos y deformación.
+Matemática:~\eqref{eq:bayes}, muestreo, predictiva posterior.
+Entregable: el caso real.
+
+\paragraph{Cap.\ 6 --- Geometría como incógnita funcional.}
+Geología: NC2/NC3, ensanchamiento sineruptivo (Aravena).
+Matemática: Tikhonov / TV, no-unicidad numérica del mínimo.
+Entregable: sintéticos +, si hay previa geométrica, Calbuco.
+
+\paragraph{Cap.\ 7 --- Conclusiones para las dos disciplinas.}
+Qué puede afirmar un volcanólogo; qué teorema queda; qué se
+mediraría mañana.
+
+Si alcanza: apéndice o capítulo corto de Webster (D2) o de Robin
+(B2).
+
+% ===========================================================================
+\section{Plan de trabajo}
+\label{sec:plan}
+
+Sin fechas de calendario. Orden por dependencia; cada etapa tiene
+un entregable que se puede mostrar.
+
+\begin{center}
+\small
+\begin{tabular}{@{}clp{0.62\textwidth}@{}}
+\toprule
+ & etapa & entregable \\
+\midrule
+0 & consolidación &
+  un $\F$, tests de regresión, fragmentación regularizada,
+  decisión sobre inconsistencias \\
+1 & teoría &
+  $J_4$ + nulo + familia de formas; (opcional) Webster \\
+2 & bifásico y estilo &
+  sí/no sobrevive $J_4$; mapa de ramas en los casos 2025 \\
+3 & identificabilidad &
+  tabla Fisher / verosimilitud; Deborah de Calbuco vs.\ un domo \\
+4 & Calbuco &
+  posteriores + comparación con petrología + (si alcanza)
+  factores de Bayes del gatillo \\
+5 & $R(\cdot)$ &
+  inversión regularizada en sintéticos; efecto del
+  regularizador \\
+6 & escritura &
+  manuscrito; un artículo candidato (caps.\ 2--3: la
+  no-unicidad que la volcanología no ha formalizado) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Los capítulos 2 y 3 ya tienen resultados preliminares. 4 y 5 son
+incrementales. Si hay que recortar, se recorta 6 antes que 3: el
+núcleo es la identificabilidad, no la geometría más bonita.
+
+% ===========================================================================
+\section{Productos esperados}
+
+\begin{itemize}
+\item Tesis de doble titulación, con los siete capítulos de
+  \S\ref{sec:capitulos}.
+\item Un artículo (caps.\ 2--3): degeneración geométrica +
+  pregunta bifásica + estilo como segunda no-unicidad.
+\item Un artículo (cap.\ 5), si Calbuco cierra: inversión
+  bayesiana de una sub-Pliniana chilena.
+\item Código: el operador único, el notebook de ambas ramas, el
+  prototipo reproducible (ver \texttt{tesis/prototipo}).
+\item Una nota corta para monitoreo (E6), si el diseño óptimo
+  sale limpio: qué conviene medir.
+\end{itemize}
+
+% ===========================================================================
+\section{Riesgos}
+
+\begin{center}
+\small
+\begin{tabular}{@{}p{0.42\textwidth}p{0.50\textwidth}@{}}
+\toprule
+riesgo & mitigación \\
+\midrule
+$\F$ es caro y MCMC no converge &
+  emulador (E5) o vecindad de Sambridge, como Wong 2020 \\
+\texttt{scikits.odes} no compila &
+  el prototipo es numpy/scipy; portar el DAE a un solver
+  puro si hace falta \\
+Calbuco no restringe el modelo &
+  \textbf{ése es el resultado}: se reporta como
+  identificabilidad y se complementa con sintéticos \\
+los switches impiden gradientes &
+  regularizar (E1); si falla, métodos sin derivadas \\
+el alcance crece &
+  el núcleo son caps.\ 2--3; 4 y 5 son incrementales \\
+un profesor lee ``esto es de la otra carrera'' &
+  cada capítulo tiene frase G y frase M (\S\ref{sec:capitulos});
+  los objetivos están partidos (\S\ref{sec:objetivos}) \\
+el recorte se confunde con el modelo &
+  ya está escrito en la nota y aquí: se invierte el bifásico;
+  el recorte sólo demuestra \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+% ===========================================================================
+\section{Preguntas para la reunión}
+\label{sec:preguntas}
+
+\paragraph{Para el profesor de matemáticas.}
+\begin{enumerate}
+\item ¿Determinista (Tikhonov, tasas bajo condición de fuente) o
+  bayesiano (posterior, MCMC)? El cap.\ 6 admite ambos; cambia
+  el sabor.
+\item ¿Adjunto (E2) o diferencias finitas y pocos parámetros?
+\item ¿Le basta $J_4$ como teorema central, o quiere unicidad
+  condicional (bajo qué datos $R(\cdot)$ \emph{sí} queda)?
+\item Webster--Borg: ¿capítulo o sección?
+\end{enumerate}
+
+\paragraph{Para el profesor de geología.}
+\begin{enumerate}
+\item ¿El objetivo es $\Delta P$ en la cámara o el perfil
+  $P(z)$? (Véase A1.)
+\item ¿Hay serie de porosidad / densidad de piroclastos por
+  unidad estratigráfica en Calbuco? Si la hay, B3 es el inverso
+  mejor condicionado del catálogo.
+\item ¿Hay permeabilidad medida en los clastos? Habilita A4/B4;
+  la literatura dice que es el control de primer orden.
+\item ¿Qué evidencia independiente hay de la geometría del
+  conducto (líticos, cráter, diques)? Previa del cap.\ 6.
+\item ¿Confirmamos $T$ y $c_0$? (Advertencia de
+  \S\ref{sec:geo}.)
+\item Gatillo: ¿le interesa discriminar Arzilli vs.\ Morgado
+  como resultado, o lo deja fuera?
+\end{enumerate}
+
+\paragraph{Para ambos.}
+\begin{enumerate}
+\item ¿El caso es Calbuco, o conviene uno con serie de tiempo
+  larga (un domo)? La identificabilidad dice que las series
+  largas informan más. Es una decisión técnica, no de gusto.
+\item ¿Queremos un caso cuasi-estacionario o uno genuinamente
+  transiente? Determina qué es invertible
+  (\S\ref{sec:math}). Calbuco es lo primero en hidráulica y la
+  frontera en cristalización. Un domo cíclico es lo segundo
+  por construcción.
+\item ¿El estilo (las dos ramas) entra como capítulo propio o
+  como sección del operador?
+\end{enumerate}
+
+% ===========================================================================
+\section{Documentos que acompañan esta propuesta}
+
+\begin{center}
+\small
+\begin{tabular}{@{}ll@{}}
+\toprule
+archivo & rol \\
+\midrule
+\texttt{tesis/propuesta\_tesis\_doble.pdf} &
+  \textbf{este documento} (la propuesta formal) \\
+\texttt{tesis/PROPUESTA.md} &
+  versión de trabajo, catálogo A--E más largo \\
+\texttt{tesis/nota\_problema\_inverso.pdf} &
+  4~pp.: el inverso sobre el bifásico, $J_4$ en el recorte \\
+\texttt{tesis/matematica\_modelo\_bifasico.pdf} &
+  8~pp.: el DAE completo, los dos tiros \\
+\texttt{tesis/ESTADO\_DEL\_ARTE.md} &
+  revisión anotada, DOI verificados \\
+\texttt{tesis/presentacion/propuesta\_tesis.pdf} &
+  Beamer para la reunión \\
+\texttt{tesis/prototipo/} &
+  recorte + experimentos 1--4, reproducible \\
+\texttt{mainconduit\_ambos.ipynb} &
+  laboratorio de las dos ramas \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{0.6em}
+Reproducir los resultados preliminares:
+\begin{verbatim}
+pip install numpy scipy matplotlib
+cd tesis/prototipo
+python3 exp1_no_unicidad_geometria.py
+python3 exp2_el_tiempo_rompe_la_degeneracion.py
+python3 exp3_identificabilidad.py
+python3 exp4_cuando_hace_falta_el_transiente.py
+\end{verbatim}
+
+% ===========================================================================
+\begin{thebibliography}{99}\small
+
+\bibitem{anderson2013} Anderson, K.\ \& Segall, P.\ (2013).
+  \emph{Bayesian inversion of data from effusive volcanic eruptions
+  using physics-based models: Application to Mount St.\ Helens
+  2004--2008}. JGR 118:2017--2037.
+  \href{https://doi.org/10.1002/jgrb.50169}{10.1002/jgrb.50169}
+
+\bibitem{aravena2017} Aravena, A.\ \emph{et al.}\ (2017).
+  \emph{Stability of volcanic conduits during explosive eruptions}.
+  JVGR.
+  \href{https://doi.org/10.1016/j.jvolgeores.2017.03.023}{10.1016/j.jvolgeores.2017.03.023}
+
+\bibitem{aravena2018} Aravena, A.\ \emph{et al.}\ (2018).
+  \emph{Conduit stability effects on intensity and steadiness of
+  explosive eruptions}. Sci.\ Rep.\ 8.
+  \href{https://doi.org/10.1038/s41598-018-22539-8}{10.1038/s41598-018-22539-8}
+
+\bibitem{arzilli2019} Arzilli, F.\ \emph{et al.}\ (2019).
+  \emph{The unexpected explosive sub-Plinian eruption of Calbuco
+  volcano}. JVGR 378:35--50.
+  \href{https://doi.org/10.1016/j.jvolgeores.2019.04.006}{10.1016/j.jvolgeores.2019.04.006}
+
+\bibitem{barmin2002} Barmin, A., Melnik, O.\ \& Sparks, R.S.J.\ (2002).
+  \emph{Periodic behavior in lava dome eruptions}. EPSL 199:173--184.
+
+\bibitem{borg1946} Borg, G.\ (1946).
+  \emph{Eine Umkehrung der Sturm--Liouvilleschen Eigenwertaufgabe}.
+  Acta Math.\ 78:1--96.
+
+\bibitem{castruccio2016} Castruccio, A.\ \emph{et al.}\ (2016).
+  \emph{Eruptive parameters and dynamics of the April 2015
+  sub-Plinian eruptions of Calbuco volcano}. Bull.\ Volcanol.\ 78(9).
+  \href{https://doi.org/10.1007/s00445-016-1058-8}{10.1007/s00445-016-1058-8}
+
+\bibitem{castruccio2025} Castruccio, A., Rebolledo, A.\ \& Gómez, I.\ (2025).
+  \emph{The influence of melt composition, temperature, crystallinity
+  and water content on eruptive style and eruption rate}.
+  JGR Solid Earth 130, e2024JB030599.
+  \href{https://doi.org/10.1029/2024JB030599}{10.1029/2024JB030599}
+
+\bibitem{costa2007} Costa, A., Melnik, O.\ \& Sparks, R.S.J.\ (2007).
+  \emph{Controls of conduit geometry and wallrock elasticity on lava
+  dome eruptions}. EPSL 260:137--151.
+
+\bibitem{delgado2017} Delgado, F.\ \emph{et al.}\ (2017).
+  deformación InSAR de Calbuco 2015.
+
+\bibitem{dmv2008} de' Michieli Vitturi, M.\ \emph{et al.}\ (2008).
+  \emph{Effects of conduit geometry on magma ascent dynamics}.
+  EPSL 272:567--578.
+
+\bibitem{giordano2008} Giordano, D., Russell, J.K.\ \& Dingwell, D.B.\ (2008).
+  \emph{Viscosity of magmatic liquids: a model}. EPSL 271:123--134.
+
+\bibitem{hadamard1923} Hadamard, J.\ (1923).
+  \emph{Lectures on Cauchy's Problem in Linear Partial Differential
+  Equations}. Yale University Press.
+
+\bibitem{kozono2009} Kozono, T.\ \& Koyaguchi, T.\ (2009).
+  \emph{Effects of relative motion between gas and liquid on
+  1-dimensional steady flow in silicic volcanic conduits}.
+  JVGR 180:37--48.
+  \href{https://doi.org/10.1016/j.jvolgeores.2008.11.006}{10.1016/j.jvolgeores.2008.11.006}
+
+\bibitem{kozono2012} Kozono, T.\ \& Koyaguchi, T.\ (2012).
+  \emph{Effects of gas escape and crystallization on the complexity
+  of conduit flow dynamics}. JGR.
+  \href{https://doi.org/10.1029/2012JB009343}{10.1029/2012JB009343}
+
+\bibitem{laspina2017} La Spina, G.\ \emph{et al.}\ (2017).
+  \emph{Transient numerical model of magma ascent dynamics}.
+  JVGR 336:118--139.
+
+\bibitem{massol2001} Massol, H., Jaupart, C.\ \& Pepper, T.W.\ (2001).
+  \emph{Ascent and decompression of viscous vesicular magma}.
+  JGR 106:16223--16240.
+
+\bibitem{melnik1999} Melnik, O.\ \& Sparks, R.S.J.\ (1999).
+  \emph{Nonlinear dynamics of lava dome extrusion}. Nature 402:37--41.
+
+\bibitem{morgado2019} Morgado, E.\ \emph{et al.}\ (2019).
+  petrología de Calbuco 2015 (hipótesis de inyección).
+
+\bibitem{raue2009} Raue, A.\ \emph{et al.}\ (2009).
+  \emph{Structural and practical identifiability analysis \ldots
+  by exploiting the profile likelihood}. Bioinformatics 25:1923--1929.
+  \href{https://doi.org/10.1093/bioinformatics/btp358}{10.1093/bioinformatics/btp358}
+
+\bibitem{romero2016} Romero, J.E.\ \emph{et al.}\ (2016).
+  \emph{Eruption dynamics of the 22--23 April 2015 Calbuco Volcano}.
+  JVGR 317:15--29.
+
+\bibitem{slezin2003} Slezin, Yu.B.\ (2003).
+  \emph{The mechanism of volcanic eruptions (a steady state approach)}.
+  JVGR 122:7--50.
+
+\bibitem{stuart2010} Stuart, A.M.\ (2010).
+  \emph{Inverse problems: a Bayesian perspective}.
+  Acta Numerica 19:451--559.
+  \href{https://doi.org/10.1017/S0962492910000061}{10.1017/S0962492910000061}
+
+\bibitem{vaneaton2016} Van Eaton, A.R.\ \emph{et al.}\ (2016).
+  \emph{Volcanic lightning and plume behavior \ldots Calbuco}.
+  GRL.
+  \href{https://doi.org/10.1002/2016GL068076}{10.1002/2016GL068076}
+
+\bibitem{wong2017} Wong, Y.Q.\ \emph{et al.}\ (2017).
+  \emph{Constraining the magmatic system at Mount St.\ Helens
+  \ldots including gas escape and crystallization}. JGR 122:7789--7812.
+  \href{https://doi.org/10.1002/2017JB014343}{10.1002/2017JB014343}
+
+\bibitem{wong2019} Wong, Y.Q.\ \& Segall, P.\ (2019).
+  \emph{Numerical analysis of time-dependent conduit magma flow
+  \ldots Mount St.\ Helens 2004--2008}. JGR.
+  \href{https://doi.org/10.1029/2019JB017585}{10.1029/2019JB017585}
+
+\bibitem{wong2020} Wong, Y.Q.\ \emph{et al.}\ (2020).
+  \emph{Joint inversions of ground deformation, extrusion flux,
+  and gas emissions \ldots}. G-Cubed.
+  \href{https://doi.org/10.1029/2020GC009343}{10.1029/2020GC009343}
+
+\end{thebibliography}
+
+\end{document}
