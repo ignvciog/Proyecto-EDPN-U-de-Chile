@@ -27,6 +27,7 @@ build/
 !tesis/presentacion/img/**
 !tesis/presentacion/propuesta_tesis.pdf
 !tesis/nota_problema_inverso.pdf
+!tesis/matematica_modelo_bifasico.pdf
 
 # Cache regenerable del prototipo
 tesis/prototipo/cache/

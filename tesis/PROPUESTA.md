@@ -3,8 +3,9 @@
 **Doble titulación: Geología + Ingeniería Matemática**
 Continuación del proyecto de conducto volcánico 1D/2D (Calbuco 2015) de este repositorio.
 
-Nota corta para la reunión: [`nota_problema_inverso.pdf`](nota_problema_inverso.pdf)
-(el modelo que se invierte es el bifásico; el prototipo es un recorte).
+Nota corta para la reunión: [`nota_problema_inverso.pdf`](nota_problema_inverso.pdf).
+Matemática del modelo bifásico (el que se invierte):
+[`matematica_modelo_bifasico.pdf`](matematica_modelo_bifasico.pdf).
 
 ---
 

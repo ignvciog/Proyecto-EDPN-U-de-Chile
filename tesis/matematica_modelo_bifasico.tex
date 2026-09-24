@@ -1,0 +1,566 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish,es-noshorthands]{babel}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{booktabs}
+\usepackage{microtype}
+\usepackage{enumitem}
+\usepackage[colorlinks=true,linkcolor=black,citecolor=black,urlcolor=blue]{hyperref}
+
+\newcommand{\pc}{\ifmmode\text{\,\%}\else\,\%\fi}
+\newcommand{\MER}{\mathrm{MER}}
+\newcommand{\dd}{\,\mathrm{d}}
+\newcommand{\p}{\partial}
+\newcommand{\Rv}{R_v}
+
+\title{\vspace{-1.4cm}\textbf{Formulación matemática del modelo bifásico\\ de ascenso de magma}\\[0.25em]
+\large El operador directo de \texttt{RIconduitex5\_5}}
+\author{Ignacio Gómez Gómez}
+\date{\today}
+
+\begin{document}
+\maketitle
+\vspace{-0.9cm}
+
+\begin{abstract}\noindent
+Se escribe el modelo de conducto que ya está implementado
+(\texttt{RIconduitex5\_5.py}), no un recorte. Es un flujo bifásico
+estacionario unidimensional, isotermo, de sección constante, con dos
+velocidades y arrastre, en el marco de Slezin (2003) y Kozono \&
+Koyaguchi (2009). El estado es
+$\mathbf{y}=(P,\phi,N,\xi,u_m,u_g)$. Las dos velocidades son
+algebraicas; $P$, $\phi$, $N$ y $\xi$ cumplen un DAE. El caudal másico
+$q$ se determina por un problema de tiro. Ése es el operador directo
+que se quiere invertir.
+\end{abstract}
+
+\tableofcontents
+\vspace{0.6em}
+
+\section{Dominio, fases e hipótesis}
+
+El conducto es el intervalo $z\in[H,0]$, con $z$ creciente hacia la
+superficie ($H<0$ es el techo de la cámara). La sección es constante:
+cilindro de radio $R$, o dique de semi-ancho $R$. El flujo es
+estacionario e isotermo. Hay dos fases con \textbf{velocidad propia}:
+
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+\toprule
+fase & densidad & velocidad \\
+\midrule
+fundido (silicato $+$ cristales $+$ agua disuelta) & $\rho_m$ (constante) & $u_m(z)$ \\
+gas (vapor de agua) & $\rho_g=P/(\Rv T)$ & $u_g(z)$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+$\phi(z)$ es la fracción volumétrica de gas. La fracción volumétrica
+de fundido es $1-\phi$. Los cristales viven en el fundido: $\xi(z)$ es
+su fracción en la fase condensada. $N(z)$ es el número de burbujas por
+unidad de volumen de fundido.
+
+Hipótesis que el código impone y que hay que tener a la vista:
+
+\begin{itemize}[leftmargin=1.2em,itemsep=0.2em]
+\item una sola presión (las dos fases están en equilibrio mecánico
+  local: no hay $P_g\neq P_m$);
+\item $\rho_m$ se calcula una vez, a la presión y al agua disuelta de
+  la base, y se mantiene constante (Bottinga \& Weill 1970); el
+  comentario de \texttt{calbuco2015d.py} deja explícito que $\xi$
+  \emph{aún no} entra en esa densidad;
+\item el agua disuelta está en equilibrio con $P$ (no hay ecuación de
+  retraso para $c_d$);
+\item $T$ es uniforme;
+\item el área transversal no depende de $z$.
+\end{itemize}
+
+Caso base (Calbuco 2015, \texttt{calbuco2015d.py}):
+$H=-7000\,\mathrm{m}$, $R=16\,\mathrm{m}$,
+$\Delta P=5\,\mathrm{MPa}$, $c_0=0.04$, $T=1243.15\,\mathrm{K}$,
+$\xi_0=0.25$.
+
+\section{Variables de estado}
+
+El estado en cada $z$ es el vector de seis componentes
+\begin{equation}
+\label{eq:estado}
+\mathbf{y}(z)=\bigl(P(z),\;\phi(z),\;N(z),\;\xi(z),\;u_m(z),\;u_g(z)\bigr).
+\end{equation}
+Las dos últimas son \emph{algebraicas}: quedan determinadas por la
+conservación de masa una vez conocidos $(P,\phi,\xi)$ y el caudal
+$q$. Las cuatro primeras son diferenciales. El sistema es un DAE de
+índice~1,
+\begin{equation}
+\label{eq:DAE}
+M\,\mathbf{y}'=F(\mathbf{y};q),\qquad
+M=\mathrm{diag}(1,1,1,1,0,0).
+\end{equation}
+
+\section{Conservación de masa}
+
+Como el área es constante y el flujo es estacionario, el caudal másico
+por unidad de área es un escalar,
+\begin{equation}
+\label{eq:q}
+q
+=\rho_m(1-\phi)\,u_m
++\rho_g\,\phi\,u_g
+=\mathrm{const}.
+\end{equation}
+Ese $q$ es el $\MER$ por unidad de área; para un cilindro,
+$\MER=\pi R^2 q$. Se descompone en la fracción másica de gas exsuelto
+\begin{equation}
+\label{eq:n}
+n
+:=\frac{\rho_g\,\phi\,u_g}{q},
+\qquad
+1-n
+=\frac{\rho_m(1-\phi)\,u_m}{q},
+\end{equation}
+y se despejan las velocidades
+\begin{equation}
+\label{eq:vel}
+u_m
+=\frac{q\,(1-n)}{(1-\phi)\,\rho_m},
+\qquad
+u_g
+=\frac{q\,n}{\phi\,\rho_g}.
+\end{equation}
+Esto es exactamente \texttt{result[4]} y \texttt{result[5]} del
+código. $n$ no es una incógnita extra: es una función algebraica de
+$(P,\xi)$, dada por la solubilidad (sección~\ref{sec:sol}).
+
+En la base, si aún no hay gas exsuelto, $n=0$, $\phi=0$ y
+$u_m=u_g=v_{\mathrm{in}}$, con $q=v_{\mathrm{in}}\rho_m$. Si ya hay
+gas,
+\begin{equation}
+\rho_{t,i}
+=\frac{P_i\rho_m}{\rho_m \Rv T\,n_i+P_i(1-n_i)},
+\qquad
+\phi_i
+=\Biggl(1+\frac{P_i}{n_i\Rv T}\frac{1-n_i}{\rho_m}\Biggr)^{-1},
+\qquad
+q=v_{\mathrm{in}}\rho_{t,i}.
+\end{equation}
+
+\section{Conservación de momentum}
+\label{sec:mom}
+
+Con $z$ creciente hacia arriba, el balance de momentum de cada fase
+es el de Kozono \& Koyaguchi (2009):
+\begin{align}
+\rho_m(1-\phi)\,u_m\frac{\dd u_m}{\dd z}
+&=-(1-\phi)\frac{\dd P}{\dd z}
+-\rho_m(1-\phi)\,g
++F_{mg}-F_{mw},
+\label{eq:mom-m}\\[0.3em]
+\rho_g\phi\,u_g\frac{\dd u_g}{\dd z}
+&=-\phi\frac{\dd P}{\dd z}
+-\rho_g\phi\,g
+-F_{mg}-F_{gw}.
+\label{eq:mom-g}
+\end{align}
+$F_{mw}$ es la fricción pared--fundido, $F_{gw}$ la pared--gas y
+$F_{mg}$ el arrastre gas--fundido (fuerza por unidad de volumen
+\emph{sobre el fundido}; sobre el gas va con signo contrario).
+
+Las velocidades~\eqref{eq:vel} dependen de $P$ y $\phi$ (y de $\xi$,
+que entra en $n$). Al sustituir $\dd u_m/\dd z$ y $\dd u_g/\dd z$ en
+\eqref{eq:mom-m}--\eqref{eq:mom-g} queda un sistema lineal $2\times2$
+para $(\dd P/\dd z,\,\dd\phi/\dd z)$. El código lo resuelve en la
+forma
+\begin{equation}
+\label{eq:22}
+\frac{\dd\phi}{\dd z}
+=\frac{-e\,b+d\,f}{ad-bc},
+\qquad
+\frac{\dd P}{\dd z}
+=\frac{-e\,a+f\,c}{ad-bc},
+\end{equation}
+con los coeficientes de \texttt{momenteq}
+\begin{align}
+a&=\rho_g u_g^2, &
+b&=\phi-\frac{u_g^2\phi}{\Rv T}+\frac{\p n}{\p P}\,q\,u_g,
+\label{eq:coef}\\
+c&=\rho_m u_m^2, &
+d&=\frac{\p n}{\p P}\,q\,u_m-(1-\phi),\nonumber\\
+e&=-\rho_m(1-\phi)\,g+F_{mg}-F_{mw}, &
+f&=\rho_g\phi\,g+F_{mg}+F_{gw}.\nonumber
+\end{align}
+La cantidad $f$ es menos el lado derecho de~\eqref{eq:mom-g} sin el
+término de presión: el signo de $F_{mg}$ en $e$ y en $f$ es el mismo
+\emph{después} de haber pasado~\eqref{eq:mom-g} al otro lado. El
+arrastre, en la física, es opuesto en las dos fases.
+
+Los términos con $\p n/\p P$ vienen de derivar~\eqref{eq:vel} respecto
+de $P$ a través de $n=n(P,\xi)$ y de $\rho_g=P/(\Rv T)$. Sin ellos el
+sistema no sería consistente con la exsolución.
+
+\section{Solubilidad y gas exsuelto}
+\label{sec:sol}
+
+Ley de Henry,
+\begin{equation}
+\label{eq:henry}
+c_s(P)=C_1 P^\beta,
+\qquad
+C_1=4.11\times10^{-6},
+\quad
+\beta=\tfrac12,
+\end{equation}
+con $P$ en pascales y $c_s$ en fracción másica del fundido. El agua
+total del sistema es $c_0$. Los cristales no disuelven agua: el
+contenido de agua ``disponible'' en la fase condensada se corrige por
+$\xi$. El código usa
+\begin{equation}
+\label{eq:test}
+\mathrm{test}
+=(1-\xi_0)\,c_0-(1-\xi)\,C_1 P^\beta.
+\end{equation}
+Si $\mathrm{test}\le0$ el magma está subsaturado: $n=0$. Si
+$\mathrm{test}>0$,
+\begin{equation}
+\label{eq:fg}
+n(P,\xi)
+=\frac{(1-\xi_0)\,c_0-(1-\xi)\,C_1 P^\beta}{1-C_1 P^\beta}.
+\end{equation}
+La derivada $\p n/\p P$ que entra en~\eqref{eq:coef} es la de la
+regla del cociente sobre~\eqref{eq:fg}, e incluye
+$\p\xi/\p P$ vía la cinética (sección~\ref{sec:xtal}). Con
+$A=(1-\xi_0)c_0-(1-\xi)C_1P^\beta$ y $B=1-C_1P^\beta$,
+\begin{equation}
+\frac{\p n}{\p P}
+=\frac{A_P B-A B_P}{B^2},
+\qquad
+A_P=\frac{\p\xi}{\p P}\,C_1P^\beta-(1-\xi)C_1\beta P^{\beta-1},
+\qquad
+B_P=-C_1\beta P^{\beta-1}.
+\end{equation}
+En el código es \texttt{dfgdp}.
+
+\section{Cristales}
+\label{sec:xtal}
+
+Hay una fracción inicial de fenocristales $\xi_0$ y un techo
+$\xi_{\max}$. La fracción de equilibrio a la presión $P$ se interpola
+con el agua ya exsuelta,
+\begin{equation}
+\label{eq:xteo}
+f_2=\max\Biggl(0,\;
+\frac{(1-\xi_0)c_0-(1-\xi)C_1 P^\beta}
+{(1-\xi_0)c_0-(1-\xi_{\max})C_1 P_{\mathrm{atm}}^\beta}\Biggr),
+\qquad
+\xi_{\mathrm{eq}}
+=\xi_0+(\xi_{\max}-\xi_0)f_2,
+\end{equation}
+y se cierra con $f_3=\max(0,\,1-\xi/\xi_{\mathrm{eq}})$. La tasa es
+de primer orden, con tiempo característico $\tau_c$
+(\texttt{tcar}${}=2\,\mathrm{h}$):
+\begin{equation}
+\label{eq:dxdt}
+\frac{\dd\xi}{\dd t}
+=\max\Biggl(0,\;
+\frac{(\xi_{\max}-\xi_0)\,f_2 f_3}{\tau_c}\Biggr).
+\end{equation}
+A lo largo del conducto, $\dd\xi/\dd z=(\dd\xi/\dd t)/u_m$. El código
+usa esa forma en el régimen $n_{\mathrm{eq}}=3$; en los regímenes
+$1$ y $2$ escribe $\dd\xi/\dd z$ \emph{sin} dividir por $u_m$ (hay un
+comentario ``Preguntar'' en \texttt{momenteq}). La forma
+físicamente consistente es la primera.
+
+\section{Burbujas: radio y coalescencia}
+
+El radio de burbuja compatible con $\phi$ y $N$ es
+\begin{equation}
+\label{eq:rb}
+r_b
+=\Biggl(\frac{\phi}{\tfrac43\pi N(1-\phi)}\Biggr)^{1/3},
+\end{equation}
+es decir, $N$ está medida por unidad de volumen de fundido:
+$\phi=N\cdot(\tfrac43\pi r_b^3)\cdot(1-\phi)$.
+
+La coalescencia sigue una ley de tipo Slezin. Mientras
+$r_b<\tfrac12 R$ y $\phi<\phi_{\mathrm{crit}}$,
+\begin{equation}
+\label{eq:dNdt}
+\begin{aligned}
+\frac{\dd N}{\dd t}
+&=-N^{2/3}\,(1-\phi)^{-1/3}
+\cdot\frac19\frac{(\rho_m-\rho_g)g}{\mu}
+\cdot\Biggl(\frac{3\phi}{4\pi}\Biggr)^{2/3}\\
+&\qquad\cdot(F_1^2-F_2^2)
+\cdot\Biggl(1-(F_1+F_2)
+\Biggl(\frac{3\phi\cdot\pi/(6\phi_{\mathrm{crit}})}{4\pi}\Biggr)^{1/3}\Biggr)^{-1}\\
+&\qquad\cdot F_c\,(1-\phi/\phi_{\mathrm{crit}})\,(R-r_b)/R,
+\end{aligned}
+\end{equation}
+con $F_1=1.8$, $F_2=0.2$ (tamaños relativos de la población bimodal)
+y $F_c\in[0,1]$ la eficiencia. Si no se cumple la guarda,
+$\dd N/\dd t=0$. A lo largo del conducto,
+\begin{equation}
+\frac{\dd N}{\dd z}=\frac{1}{u_m}\frac{\dd N}{\dd t}.
+\end{equation}
+$N$ en la base se fija por la tasa de descompresión (Toramaru):
+$\log_{10}N=1.5\log_{10}(\dot P)+5$, con
+$\dot P=-(\dd P/\dd z)\,v_{\mathrm{in}}$, y un suelo $N=10^8$ si hay
+exsolución ya en la entrada.
+
+\section{Fuerzas}
+
+\subsection{Fricción con la pared}
+
+En el tramo viscoso $F_{gw}=0$ y
+\begin{equation}
+\label{eq:Fmw}
+F_{mw}
+=c_g\,\frac{\mu\,u_m}{R^2},
+\qquad
+c_g
+=\begin{cases}
+8 & \text{cilindro (Poiseuille)},\\
+3 & \text{dique}.
+\end{cases}
+\end{equation}
+Tras la fragmentación $F_{mw}=0$ y aparece
+\begin{equation}
+F_{gw}=0.01\,\frac{\rho_g\,|u_g|\,u_g}{4R}.
+\end{equation}
+
+\subsection{Arrastre gas--fundido}
+
+Depende del régimen, marcado por la fracción de gas. Se definen dos
+umbrales de permeabilidad $\phi_1<\phi_2$ y el umbral de
+fragmentación $\phi_{\mathrm{crit}}$ (sección~\ref{sec:reg}).
+$Re_b=2 r_b\rho_g|u_g-u_m|/\mu_g$ con $\mu_g=10^{-5}\,\mathrm{Pa\,s}$.
+
+\paragraph{Régimen 1 ($\phi<\phi_1$).}
+Stokes,
+\begin{equation}
+F_{mg}=\frac{3\mu}{r_b^2}\,(u_g-u_m)\,\phi(1-\phi).
+\end{equation}
+
+\paragraph{Régimen 2 ($\phi_1\le\phi<\phi_2$).}
+Interpolación $\theta=(\phi-\phi_1)/(\phi_2-\phi_1)$. Si $Re_b>2200$,
+entre Stokes y arrastre inercial; si no, entre Stokes y Darcy, con
+permeabilidad
+$k=0.131\,r_b^2(\phi-\phi_1+0.05)^{2.1}$:
+\begin{equation}
+F_{mg}
+=\Biggl(\frac{\mu_g}{k}\Biggr)^\theta
+\Biggl(\frac{3\mu}{r_b^2}\Biggr)^{1-\theta}
+(u_g-u_m)\,\phi(1-\phi)
+\end{equation}
+(y el análogo inercial con $0.33\rho_g|u_g-u_m|/(4r_b)$ en lugar de
+$\mu_g/k$).
+
+\paragraph{Régimen 3 ($\phi_2\le\phi<\phi_{\mathrm{crit}}$).}
+El extremo $\theta=1$ de lo anterior: Darcy o inercial, sin
+mezclar con Stokes.
+
+\paragraph{Régimen 4 ($\phi\ge\phi_{\mathrm{crit}}$, fragmentado).}
+El fundido ya no es continuo. El arrastre es el de una partícula en
+gas ($r_a=10^{-3}\,\mathrm{m}$, $c_d=0.8$), interpolado en una capa
+de ancho $0.05$ en $\phi$:
+\begin{equation}
+F_{mg}
+=\frac{3c_d}{8r_a}\,\rho_g\,|u_g-u_m|(u_g-u_m)\,\phi(1-\phi)
+\end{equation}
+cuando $\phi\ge\phi_{\mathrm{crit}}+0.05$.
+
+\section{Reología}
+
+La viscosidad del fundido es la de Giordano \emph{et al.} (2008),
+función de la composición anhidra, del agua disuelta $c_d$ y de $T$.
+Si el magma está saturado, $c_d=C_1 P^\beta$; si no, $c_d=c_0$. Los
+cristales multiplican por un factor relativo
+$\theta_\xi=\mathtt{fvrel}(\xi,\xi_0,\dot\gamma)$, con
+$\dot\gamma=u_m/R$. El caso base usa el medio efectivo de dos sólidos
+(\texttt{em2s}):
+\begin{equation}
+\theta_\xi
+=\Bigl(1-\frac{\xi_0}{\phi_{\max,1}}\Bigr)^{-2.5}
+\Bigl(1-\frac{\xi-\xi_0}{(1-\xi_0)\phi_{\max,2}}\Bigr)^{-2.5},
+\end{equation}
+con $\phi_{\max,i}=0.656\exp\bigl(-(\log_{10}r_i)^2/(2\cdot1.08^2)\bigr)$
+y razones de aspecto $r_1=4$, $r_2=8$.
+
+Las burbujas corrigen otra vez, a la manera de Llewellin, con el
+número de capilaridad $Ca=r_b\mu_\ell\dot\gamma/3$:
+\begin{equation}
+\label{eq:mubub}
+\mu
+=\Biggl(\tfrac12(A-B)\bigl(1-\mathrm{erf}(c_1\log Ca+c_2)\bigr)+B\Biggr)
+\theta_\xi\,\mu_{\mathrm{fundido}},
+\end{equation}
+donde $A=(1-\phi/\phi_\ast)^{-\phi_\ast}$,
+$B=(1-\phi/\phi_\ast)^{5\phi_\ast/3}$, $\phi_\ast=\phi_{\mathrm{crit}}+0.05$,
+$c_1=-0.2895\phi+0.8132$ y $c_2=\phi$.
+
+\section{Regímenes, fragmentación y condiciones de borde}
+\label{sec:reg}
+
+El umbral de fragmentación no es un dato fijo. Se calcula un número
+de capilaridad de referencia a $\phi\approx0.2$ y
+\begin{equation}
+\label{eq:phicrit}
+\phi_{\mathrm{crit}}
+=\frac{\ell_+-\ell_-}{2}\,\mathrm{erf}\bigl(\log_{10}Ca\bigr)
++\frac{\ell_++\ell_-}{2},
+\end{equation}
+con $\ell_+=0.785$, $\ell_-=0.525$. Los umbrales de permeabilidad
+$\phi_1$, $\phi_2=\phi_1+0.01$ salen de la misma forma, con
+$(\ell_+,\ell_-)=(0.40,0.15)$. El integrador marcha por tramos y
+cambia de régimen al cruzar $\phi_1$, $\phi_2$ y
+$\phi_{\mathrm{crit}}$. Tras la fragmentación se congelan $N$ y $\xi$,
+y el estado diferencial se reduce a $(P,\phi)$.
+
+En la base,
+\begin{equation}
+\label{eq:bc-base}
+P(H)=P_{\mathrm{lit}}(H)+\Delta P
+=\rho_{\mathrm{crust}}g|H|+\Delta P,
+\qquad
+\xi(H)=\xi_0,
+\qquad
+u_m(H)=u_g(H)=v_{\mathrm{in}}.
+\end{equation}
+$v_{\mathrm{in}}$ \textbf{no} es un dato: es el parámetro de tiro. En
+la superficie se pide una de las dos condiciones de Yoshida \&
+Koyaguchi (1999) / Kozono \& Koyaguchi (2009),
+\begin{equation}
+\label{eq:bc-top}
+P(0)=P_{\mathrm{atm}}
+\quad\text{o}\quad
+u_g(0)\approx c_s:=\sqrt{\Rv T}
+\end{equation}
+(la segunda es el estrangulamiento; $c_s$ es la velocidad del sonido
+isoterma del gas). El código acepta la solución si $z_{\mathrm{exit}}\ge-5\,\mathrm{m}$
+y se cumple el choque o $P\approx P_{\mathrm{atm}}$ con
+$\phi\ge\phi_{\mathrm{crit}}$. El $v_{\mathrm{in}}$ que cierra el
+problema se busca por bisección (y, más adelante, una corrección tipo
+secante). El operador directo es
+\begin{equation}
+\label{eq:F}
+\mathcal{F}(\theta)
+=q^\ast(\theta)
+=v_{\mathrm{in}}^\ast(\theta)\,\rho_{t,i}(\theta),
+\end{equation}
+donde $\theta$ reúne $R$, $\Delta P$, $c_0$, $T$, $\xi_0$ y, si se
+abre, $R(\cdot)$.
+
+\section{El DAE, escrito de una vez}
+
+Juntando todo, el modelo estacionario es
+\begin{equation}
+\label{eq:sistema}
+\begin{aligned}
+\frac{\dd P}{\dd z}
+&= \mathcal{P}(P,\phi,N,\xi;q),\\
+\frac{\dd\phi}{\dd z}
+&= \Phi(P,\phi,N,\xi;q),\\
+\frac{\dd N}{\dd z}
+&= \frac{1}{u_m}\Gamma_N(P,\phi,N,\xi),\\
+\frac{\dd\xi}{\dd z}
+&= \frac{1}{u_m}\Gamma_\xi(P,\xi),\\
+0
+&= u_m-\frac{q\bigl(1-n(P,\xi)\bigr)}{(1-\phi)\rho_m},\\
+0
+&= u_g-\frac{q\,n(P,\xi)}{\phi\,\rho_g(P)},
+\end{aligned}
+\end{equation}
+con $\mathcal{P}$ y $\Phi$ dados por~\eqref{eq:22}, $\Gamma_N$
+por~\eqref{eq:dNdt} y $\Gamma_\xi$ por~\eqref{eq:dxdt}. Las fuerzas y
+la viscosidad que entran en $\mathcal{P}$ y $\Phi$ dependen del
+régimen $\phi\lessgtr\phi_1,\phi_2,\phi_{\mathrm{crit}}$. El dato de
+borde~\eqref{eq:bc-base}--\eqref{eq:bc-top} determina $q$.
+
+Eso es el modelo. El recorte monofásico de
+\texttt{tesis/prototipo/} se obtiene de aquí al imponer
+$u_m=u_g$, $\Gamma_N=\Gamma_\xi=0$,
+$n=\max\bigl(0,\,(c_0-C_1P^\beta)/(1-C_1P^\beta)\bigr)$
+y cortar el dominio en la fragmentación. No es otro volcán.
+
+\section{Qué se recupera: el problema inverso}
+
+Los observables de superficie (tasa de descarga, y si se quiere
+$\phi(0)$, $u_g(0)$, $z_f$) son funcionales de la solución
+de~\eqref{eq:sistema}. Invertir es, dado $d^{obs}$, hallar $\theta$
+tal que $\mathcal{F}(\theta)\approx d^{obs}$. Las tres preguntas son
+unicidad, estabilidad y reconstrucción. En el recorte
+$u_m=u_g$ ya se demuestra que $\mathcal{F}$ no es inyectivo en
+$R(\cdot)$. La pregunta de la tesis es si esa degeneración
+\textbf{sobrevive} a $u_g\neq u_m$, que es precisamente lo que
+~\eqref{eq:mom-m}--\eqref{eq:mom-g} tienen y el recorte no.
+
+\section{La versión transiente, en breve}
+
+\texttt{RIconduit1D\_transient.py} transporta las variables internas
+por el conducto,
+\begin{equation}
+\label{eq:trans}
+\frac{\p\phi}{\p t}+u_m\frac{\p\phi}{\p z}=S_\phi,
+\qquad
+\frac{\p N}{\p t}+u_m\frac{\p N}{\p z}=\Gamma_N,
+\qquad
+\frac{\p\xi}{\p t}+u_m\frac{\p\xi}{\p z}=\Gamma_\xi,
+\end{equation}
+y deja la presión en equilibrio hidrostático--viscoso de la mezcla,
+$\dd P/\dd z=-\rho_{\mathrm{mix}}g-c_g\mu u_{\mathrm{mix}}/R^2$. Antes
+de fragmentar usa una sola velocidad (HEM); después, un drift-flux de
+Zuber--Findlay con $v_{\mathrm{slip}}$ de Newton. No es el mismo
+cierre de momentum que~\eqref{eq:mom-m}--\eqref{eq:mom-g}: es una
+variante, no un reemplazo. Un operador inverso serio tiene que
+elegir \emph{uno} de los dos y quedarse con él.
+
+\section{Constantes del caso Calbuco}
+
+\begin{center}
+\small
+\begin{tabular}{@{}llr@{}}
+\toprule
+símbolo & significado & valor \\
+\midrule
+$H$ & techo de cámara & $-7000\,\mathrm{m}$ \\
+$R$ & radio & $16\,\mathrm{m}$ \\
+$\Delta P$ & sobrepresión de entrada & $5\times10^6\,\mathrm{Pa}$ \\
+$c_0$ & agua total & $0.04$ \\
+$T$ & temperatura & $1243.15\,\mathrm{K}$ \\
+$\xi_0$, $\xi_{\max}$ & cristales inicial / techo & $0.25$, $0.50$ \\
+$\tau_c$ & tiempo de cristalización & $2\,\mathrm{h}$ \\
+$C_1$, $\beta$ & Henry & $4.11\times10^{-6}$, $1/2$ \\
+$\Rv$ & constante del vapor & $461.11\,\mathrm{J\,kg^{-1}K^{-1}}$ \\
+$\rho_{\mathrm{crust}}$ & densidad cortical & $2600\,\mathrm{kg\,m^{-3}}$ \\
+$g$ & gravedad & $9.81\,\mathrm{m\,s^{-2}}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{thebibliography}{9}\small
+\bibitem{bottinga1970} Bottinga, Y.\ \& Weill, D.\,F. (1970).
+  \emph{Densities of liquid silicate systems calculated from partial
+  molar volumes of oxide components}. Am.\ J.\ Sci.\ 269:169--182.
+\bibitem{giordano2008} Giordano, D., Russell, J.\,K.\ \& Dingwell,
+  D.\,B. (2008). \emph{Viscosity of magmatic liquids: a model}.
+  EPSL 271:123--134.
+\bibitem{kozono2009} Kozono, T.\ \& Koyaguchi, T. (2009).
+  \emph{Effects of relative motion between gas and liquid on
+  1-dimensional steady flow in silicic volcanic conduits}.
+  JVGR 180:37--48.
+  \href{https://doi.org/10.1016/j.jvolgeores.2008.11.006}{10.1016/j.jvolgeores.2008.11.006}
+\bibitem{llewellin2006} Llewellin, E.\,W.\ \& Manga, M. (2005).
+  \emph{Bubble suspension rheology and implications for conduit flow}.
+  JVGR 143:205--217.
+\bibitem{slezin2003} Slezin, Yu.\,B. (2003).
+  \emph{The mechanism of volcanic eruptions (a steady state approach)}.
+  JVGR 122:7--50.
+\bibitem{yoshida1999} Yoshida, S.\ \& Koyaguchi, T. (1999).
+  \emph{A new regime of volcanic eruption due to the relative motion
+  of magma and liquid}. JVGR 89:215--226.
+\end{thebibliography}
+
+\end{document}
