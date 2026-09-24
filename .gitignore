@@ -26,6 +26,7 @@ build/
 !tesis/prototipo/figuras/*.png
 !tesis/presentacion/img/**
 !tesis/presentacion/propuesta_tesis.pdf
+!tesis/nota_problema_inverso.pdf
 
 # Cache regenerable del prototipo
 tesis/prototipo/cache/

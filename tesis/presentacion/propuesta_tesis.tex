@@ -377,10 +377,11 @@ concreto y demostrable, y es lo que conecta el trabajo previo con la tesis.}}
 \section{Resultados preliminares}
 % ===========================================================================
 
-\begin{frame}{El prototipo: un laboratorio matemático}
-Para no esperar a la unificación de los solvers, construí un \alert{modelo
-reducido} (\texttt{tesis/prototipo/}) que comparte las constitutivas del
-repositorio (\texttt{density.py}, \texttt{viscosity.py}, \texttt{fvrel.py}) y es:
+\begin{frame}{El prototipo: un recorte, no un reemplazo}
+El modelo de la tesis es el \alert{bifásico} (\texttt{RIconduitex5\_5.py}:
+$u_m\neq u_g$, arrastre, cristalización). El prototipo
+(\texttt{tesis/prototipo/}) es un \emph{recorte} monofásico del mismo sistema,
+con las mismas constitutivas, hecho para demostrar teoremas:
 \medskip
 \begin{columns}[T]
 \begin{column}{0.5\textwidth}
@@ -392,7 +393,7 @@ repositorio (\texttt{density.py}, \texttt{viscosity.py}, \texttt{fvrel.py}) y es
 \begin{column}{0.5\textwidth}
 \begin{itemize}\small
   \item[(iii)] \textbf{abierto a $R(z)$ arbitrario};
-  \item[(iv)] consistente con el modelo completo en el régimen viscoso
+  \item[(iv)] consistente con el bifásico en el tramo viscoso
     pre-fragmentación.
 \end{itemize}
 \end{column}
@@ -1097,9 +1098,9 @@ Calbuco 2015.''}
   \item[\textbf{Cap.\ 2 — Teoría de no-unicidad} (D1, D2)] El teorema $J_4$ y el
     espacio nulo. Webster–Sturm–Liouville y la familia biparamétrica de
     conductos acústicamente idénticos.
-  \item[\textbf{Cap.\ 3 — Identificabilidad} ] Fisher y perfiles de verosimilitud
-    para todos los parámetros. Comparación sistemática: estacionario 1D
-    vs.\ transiente 1D vs.\ estacionario 2D.
+  \item[\textbf{Cap.\ 3 — Identificabilidad del bifásico} ] ¿La degeneración
+    $J_4$ sobrevive a $u_g-u_m$? Fisher y perfiles sobre
+    \texttt{RIconduitex5\_5.py}. Estacionario vs.\ transiente vs.\ 2D.
     \alert{Conecta el trabajo previo con la tesis.}
   \item[\textbf{Cap.\ 4 — Inversión bayesiana de Calbuco} (A1–A3)] Previas de
     Castruccio \emph{et al.} (2016); posterior sobre $\Delta P$, $R$, $c_0$,

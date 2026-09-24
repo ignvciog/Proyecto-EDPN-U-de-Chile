@@ -1,0 +1,304 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish,es-noshorthands]{babel}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage[margin=2.7cm]{geometry}
+\usepackage{booktabs}
+\usepackage{microtype}
+\usepackage[colorlinks=true,linkcolor=black,citecolor=black,urlcolor=blue]{hyperref}
+
+\theoremstyle{plain}
+\newtheorem{teorema}{Teorema}
+\newtheorem{corolario}[teorema]{Corolario}
+\newtheorem{proposicion}[teorema]{Proposición}
+\theoremstyle{definition}
+\newtheorem{problema}{Problema abierto}
+\theoremstyle{remark}
+\newtheorem*{obs}{Observación}
+
+% babel-spanish redefine \% con un chequeo de \lastskip que rompe en modo
+% matematico ("Incompatible glue units"); \pc lo evita.
+\newcommand{\pc}{\ifmmode\text{\,\%}\else\,\%\fi}
+
+\newcommand{\MER}{\mathrm{MER}}
+\newcommand{\dd}{\,\mathrm{d}}
+\renewcommand{\qedsymbol}{$\blacksquare$}
+
+\title{\vspace{-1.5cm}\textbf{Un problema inverso para el ascenso bifásico\\ de magma por un conducto volcánico}\\[0.3em]
+\large Nota de formalización}
+\author{Ignacio Gómez Gómez}
+\date{\today}
+
+\begin{document}
+\maketitle
+\vspace{-0.8cm}
+
+\begin{abstract}\noindent
+El modelo directo de la tesis es el de conducto \textbf{bifásico} ya
+construido en este repositorio (dos velocidades, arrastre, exsolución,
+cristalización). El problema inverso consiste en recuperar, a partir de
+observables de superficie, parámetros que ese modelo toma como dato: geometría
+del conducto, sobrepresión de cámara, contenido de volátiles y burbujas en
+profundidad. Para \emph{demostrar} que esa recuperación no es única se usa un
+recorte monofásico del mismo sistema, no un modelo distinto. La pregunta
+central de la tesis es si esa no-unicidad \textbf{sobrevive} en el modelo
+bifásico.
+\end{abstract}
+
+\section{El modelo de la tesis es el bifásico}
+
+El operador directo ya existe: el código \texttt{RIconduitex5\_5.py} (y sus
+versiones transiente y 2D) resuelve el ascenso de magma como un flujo de
+\textbf{dos fases} ---fundido $m$ y gas $g$--- con velocidades distintas, según
+el marco de Slezin (2003) y Kozono \& Koyaguchi (2009). El estado en cada
+profundidad $z$ es
+\begin{equation}
+\mathbf{y}(z)=\bigl(P,\;\phi,\;N,\;\xi,\;u_m,\;u_g\bigr),
+\end{equation}
+presión, fracción volumétrica de gas, densidad numérica de burbujas, fracción
+de cristales y las dos velocidades. El sistema es un DAE de seis ecuaciones:
+conservación de masa de cada fase, dos balances de momentum (con fricción
+pared--fundido $F_{mw}$ y arrastre gas--fundido $F_{mg}$), cinética de
+cristalización y evolución de $N$ por coalescencia. La solubilidad es
+$c_s(P)=C_1 P^\beta$; el agua disuelta $c_d$ y el gas exsuelto se calculan
+comparando el contenido total $c_0$ con esa capacidad.
+
+Los parámetros que el modelo \emph{recibe} y el observable que \emph{entrega}
+definen el operador directo
+\begin{equation}
+\mathcal{F}:\ \Theta\longrightarrow\mathcal{D},\qquad
+\theta=\bigl(R(\cdot),\,P_{cam},\,c_0,\,T,\,\xi_0,\,\phi_{crit},\,\ldots\bigr)
+\longmapsto d=\MER,
+\end{equation}
+junto, si se desea, con perfiles $\mathbf{y}(z)$ o con la serie $\MER(t)$ en
+la versión transiente. $\Theta$ es de dimensión infinita en cuanto contiene
+la función $R(\cdot)$. Caso base: Calbuco 2015
+(\texttt{calbuco2015d.py}).
+
+\textbf{Ese es el modelo que se invierte.} No se reemplaza por uno de una sola
+velocidad. Las extensiones transiente y 2D del mismo repositorio se mantienen
+como variantes del mismo operador, no como un proyecto aparte.
+
+\section{El problema inverso}
+
+Dado un dato $d^{obs}=\mathcal{F}(\theta^\dagger)+\varepsilon$, las tres
+preguntas clásicas son:
+
+\begin{enumerate}
+\item[(P1)] \textbf{Unicidad.} ¿Es $\mathcal{F}$ inyectivo? Si no, caracterizar
+  $\mathcal{F}^{-1}(d)$.
+\item[(P2)] \textbf{Estabilidad.} ¿Es $\mathcal{F}^{-1}$ continuo? ¿Con qué
+  módulo?
+\item[(P3)] \textbf{Reconstrucción.} Algoritmo, regularización, cuantificación
+  de incertidumbre.
+\end{enumerate}
+
+Las incógnitas de interés geológico son, entre otras, la presión en
+profundidad $P_{cam}$, el contenido de burbujas $\phi(H)$, el agua total $c_0$
+y la geometría $R(\cdot)$. La respuesta a (P1) es negativa ya en un recorte
+del modelo, y se puede demostrar. La tesis pregunta si sigue siéndolo en el
+bifásico.
+
+\section{Un recorte, no un reemplazo}
+
+Para \emph{demostrar} (P1) hace falta un operador en el que se pueda separar
+variables. Se obtiene recortando el bifásico, no cambiándolo:
+
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+\toprule
+ & \textbf{Modelo de la tesis (bifásico)} & \textbf{Recorte para el teorema} \\
+\midrule
+velocidades & $u_m\neq u_g$ (arrastre $F_{mg}$) & $u_m=u_g$ (mezcla) \\
+cristales & cinética $\mathrm{d}\xi/\mathrm{d}z$ & $\xi$ fijo \\
+exsolución & $c_d$ puede ir atrasada & equilibrio $c_d=\min(c_0,C_1P^\beta)$ \\
+dominio & conducto completo, con fragmentación & tramo viscoso hasta $z_f$ \\
+geometría & cilindro o dique (hoy) & $R(z)$ arbitraria \\
+constitutivas & Bottinga--Weill, Giordano, \texttt{fvrel} & las mismas \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{0.4em}
+El recorte comparte las constitutivas y los parámetros de Calbuco. Su único
+rol es permitir un teorema; el operador que se quiere invertir sigue siendo
+$\mathcal{F}$ bifásico. En el recorte, $\rho=\rho(P)$ y $\mu=\mu(P)$, el
+caudal $q=\rho A u$ es el $\MER$, y el momentum de lubricación da
+\begin{equation}\label{eq:momentum}
+\frac{dP}{dz}=-\rho(P)\,g-\frac{8\,\mu(P)\,\MER}{\pi\,\rho(P)\,R(z)^4},
+\end{equation}
+con $P(H)=P_{cam}$ y $P(z_f)=P_{frag}$.
+
+\section{Resultado del recorte: degeneración geométrica}
+
+En el régimen dominado por fricción (el término $\rho g$ despreciable frente
+al viscoso) se define
+\begin{equation}
+J_4[R]:=\int_H^{z_f}R(z)^{-4}\dd z.
+\end{equation}
+
+\begin{teorema}[Degeneración]\label{th:J4}
+En ese régimen,
+\begin{equation}\label{eq:invariante}
+\MER\cdot J_4[R]=\frac{\pi}{8}\,\Phi(P_{cam},P_{frag}),
+\qquad
+\Phi:=\int_{P_{frag}}^{P_{cam}}\frac{\rho(P)}{\mu(P)}\dd P .
+\end{equation}
+El $\MER$ depende de $R(\cdot)$ \textbf{únicamente a través del escalar}
+$J_4[R]$.
+\end{teorema}
+
+\begin{proof}
+Despreciando $\rho g$ en \eqref{eq:momentum} y separando variables,
+\[
+\frac{\rho(P)}{\mu(P)}\dd P=-\frac{8\,\MER}{\pi}\,\frac{\dd z}{R(z)^4}.
+\]
+Integrando de $z=H$ a $z=z_f$ se obtiene \eqref{eq:invariante}. El lado
+izquierdo no depende de $R(\cdot)$.
+\end{proof}
+
+\begin{corolario}[No inyectividad]
+$\mathcal{F}_{\mathrm{recorte}}$ no es inyectivo en $R(\cdot)$. El conjunto
+de nivel $\{R:J_4[R]=c\}$ es de dimensión infinita, y todos sus elementos
+producen exactamente el mismo dato.
+\end{corolario}
+
+\begin{corolario}[Espacio nulo]
+$DJ_4[R]\,\delta R=-4\int R^{-5}\,\delta R\dd z$, luego
+\begin{equation}
+\mathcal{N}_R=\Big\{\delta R\in C([H,z_f])\ :\ \int_H^{z_f}R(z)^{-5}\,\delta R(z)\dd z=0\Big\}
+\end{equation}
+es un subespacio cerrado de \textbf{codimensión~1}.
+\end{corolario}
+
+\begin{obs}
+De las infinitas direcciones en que se puede perturbar la geometría, todas
+menos una son invisibles para la tasa de descarga. Eso es una afirmación
+sobre el recorte. En el bifásico el arrastre $F_{mg}$ y el deslizamiento
+$u_g-u_m$ \emph{podrían} romperla: ésa es la pregunta de la tesis, no un
+resultado ya cerrado.
+\end{obs}
+
+El resultado no es un artefacto de Poiseuille. Basta que la fricción
+factorice como $dP/dz=-F(P)\,f(\MER)\,R^{-n}$: entonces el dato depende de
+$R$ sólo a través de $J_n[R]=\int R^{-n}\dd z$, con $n=4$ (laminar),
+$n=19/4$ (Blasius) o $n=5$ (Darcy--Weisbach).
+
+\section{Qué aportan (y qué no) los datos temporales}
+
+Con una cámara que se drena, el dato pasa a ser la curva
+$P_{cam}\mapsto\MER_{ss}(P_{cam})$. En el recorte eso \textbf{no} informa más
+sobre $R(\cdot)$: cada punto de la curva devuelve el mismo $J_4[R]$
+(Proposición~\ref{prop:tiempo} más abajo). Sí separa \emph{escalares} que
+entran en $\Phi$, por ejemplo el par $(R,\Delta P)$ cuando $R$ es constante.
+
+\begin{proposicion}\label{prop:tiempo}
+Bajo las hipótesis del Teorema~\ref{th:J4}, conocer
+$P_{cam}\mapsto\MER_{ss}(P_{cam})$ en un intervalo determina $J_4[R]$ y nada
+más de $R(\cdot)$.
+\end{proposicion}
+
+\begin{proof}
+De \eqref{eq:invariante},
+$J_4[R]=\tfrac{\pi}{8}\,\Phi(P_{cam},P_{frag})/\MER_{ss}(P_{cam})$ en cada
+punto; $\Phi$ es conocida. Todos los puntos dan el mismo escalar.
+\end{proof}
+
+Numéricamente, en el recorte, agregar la serie de tiempo reduce el intervalo
+de confianza del radio constante de $[8,19]$~m a $[13,18]$~m, y deja la
+sobrepresión con sólo una cota superior. Separar dos números y recuperar una
+función son problemas distintos.
+
+\section{Verificación numérica del recorte}
+
+Con el recorte, constitutivas del repositorio y parámetros de Calbuco 2015:
+
+\begin{enumerate}
+\item Sin flotabilidad, $\MER\cdot J_4$ es constante a $<10^{-6}$ relativo
+  entre cinco geometrías, y \eqref{eq:invariante} reproduce el $\MER$
+  numérico con error $+0.000\pc$.
+\item \emph{Con} flotabilidad el invariante ya no es $J_4$, pero la
+  no-unicidad persiste. Ajustando un factor de escala por forma:
+\end{enumerate}
+
+\begin{center}
+\small
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+\textbf{Geometría} & $R(H)$ [m] & $R(z_f)$ [m] & \textbf{Volumen} [m$^3$] & \textbf{error en} $\MER$ \\
+\midrule
+cilindro & 16.0 & 16.0 & $4.83\times10^6$ & $+0.00000\pc$ \\
+ensanche basal $\times3$ & 44.4 & 14.8 & $1.29\times10^7$ \ ($+166\pc$) & $-0.00001\pc$ \\
+ensanche basal $\times4$ & 51.4 & 13.6 & $2.01\times10^7$ \ ($+317\pc$) & $-0.00002\pc$ \\
+ensanchamiento superior $\times2$ & 11.2 & 22.4 & $4.74\times10^6$ & $+0.00000\pc$ \\
+dos tramos $\times2$ & 10.7 & 21.5 & $5.38\times10^6$ & $+0.00001\pc$ \\
+constricción profunda $-35\pc$ & 16.8 & 16.9 & $4.80\times10^6$ & $+0.00001\pc$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Seis conductos con volúmenes que difieren en $+317\pc$ dan el mismo caudal
+con error $\sim10^{-7}$. El $90\pc$ de la resistencia está en los últimos
+$15$~m: el conducto profundo es invisible para el $\MER$. \textbf{Esto está
+probado en el recorte.} Falta verlo en el bifásico.
+
+\section{Preguntas abiertas (contenido de la tesis)}
+
+\begin{problema}[¿Sobrevive la degeneración en el bifásico?]
+Con $u_m\neq u_g$, arrastre $F_{mg}$, permeabilidad y cristalización
+cinética, $\mathcal{F}$ ¿sigue siendo no inyectivo en $R(\cdot)$? El
+deslizamiento introduce una escala (el radio de burbuja) que el recorte no
+tiene, y podría restaurar unicidad o dejar una degeneración de codimensión
+distinta. Se busca o bien un contraejemplo numérico en
+\texttt{RIconduitex5\_5.py}, o bien un resultado de unicidad.
+\end{problema}
+
+\begin{problema}[Grado de mal planteamiento]
+Decaimiento de los valores singulares de $D\mathcal{F}[\theta^\dagger]$
+restringido a perturbaciones de $R(\cdot)$, primero en el recorte y después
+en el bifásico. Eso fija la tasa de convergencia bajo condiciones de fuente.
+\end{problema}
+
+\begin{problema}[Unicidad condicional]
+¿Qué datos adicionales restauran la unicidad en el bifásico? Candidatos: el
+perfil $\phi(z)$ o las texturas de piroclastos (que ``ven'' $u_g-u_m$), la
+profundidad de fragmentación, deformación superficial, espectro sísmico del
+conducto. Se conjetura un resultado negativo para el espectro por analogía
+con Webster y el teorema de dos espectros de Borg (1946).
+\end{problema}
+
+\section*{Nota sobre el estado del arte}
+
+La no-unicidad de \emph{parámetros escalares} ya está documentada: Anderson
+\& Segall (2013) señalan que de sus datos sólo se determina $R^4/8\eta$, no
+$R$ y $\eta$ por separado. Lo que no he visto hecho es (i)~tratar $R(\cdot)$
+como incógnita funcional, (ii)~caracterizar el espacio nulo, (iii)~preguntar
+si el resultado sobrevive al deslizamiento entre fases, que es precisamente
+la física que el modelo de este repositorio ya resuelve.
+
+\begin{thebibliography}{9}\small
+\bibitem{anderson2013} Anderson, K. \& Segall, P. (2013).
+  \emph{Bayesian inversion of data from effusive volcanic eruptions using
+  physics-based models: Application to Mount St.\ Helens 2004--2008}.
+  JGR 118:2017--2037. \href{https://doi.org/10.1002/jgrb.50169}{10.1002/jgrb.50169}
+\bibitem{castruccio2016} Castruccio, A.\ \emph{et al.} (2016).
+  \emph{Eruptive parameters and dynamics of the April 2015 sub-Plinian eruptions
+  of Calbuco volcano}. Bull.\ Volcanol.\ 78(9).
+  \href{https://doi.org/10.1007/s00445-016-1058-8}{10.1007/s00445-016-1058-8}
+\bibitem{kozono2009} Kozono, T.\ \& Koyaguchi, T. (2009).
+  \emph{Effects of relative motion between gas and liquid on 1-dimensional
+  steady flow in silicic volcanic conduits}. JVGR 180:37--48.
+  \href{https://doi.org/10.1016/j.jvolgeores.2008.11.006}{10.1016/j.jvolgeores.2008.11.006}
+\bibitem{slezin2003} Slezin, Yu.\,B. (2003).
+  \emph{The mechanism of volcanic eruptions (a steady state approach)}.
+  JVGR 122:7--50.
+  \href{https://doi.org/10.1016/S0377-0273(02)00464-X}{10.1016/S0377-0273(02)00464-X}
+\bibitem{stuart2010} Stuart, A.\,M. (2010). \emph{Inverse problems: a Bayesian
+  perspective}. Acta Numerica 19:451--559.
+  \href{https://doi.org/10.1017/S0962492910000061}{10.1017/S0962492910000061}
+\end{thebibliography}
+
+\end{document}
