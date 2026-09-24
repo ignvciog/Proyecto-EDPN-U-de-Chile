@@ -1,16 +1,16 @@
 # Prototipo numérico
 
 Laboratorio matemático para la propuesta de tesis (`../PROPUESTA.md`). Contiene
-un **modelo reducido** del conducto volcánico con geometría variable $R(z)$ y
-tres experimentos que producen los resultados preliminares citados en la
+un **recorte** monofásico del conducto volcánico con geometría variable $R(z)$ y
+experimentos que producen los resultados preliminares citados en la
 propuesta y en la presentación.
 
-El prototipo **no reemplaza** a los solvers del repositorio raíz
-(`RIconduitex5_5.py`, `RIconduit1D_transient.py`, `RIconduit2D_FD.py`). Es una
-simplificación deliberada del mismo sistema físico, hecha para que el operador
-directo sea barato, suave (diferenciable) y abierto a geometría arbitraria —las
-tres cosas que un estudio de problema inverso necesita y que los solvers
-completos, tal como están hoy, no ofrecen.
+El prototipo **no reemplaza** al modelo bifásico del repositorio raíz
+(`RIconduitex5_5.py`, `RIconduit1D_transient.py`, `RIconduit2D_FD.py`). Es un
+recorte deliberado del mismo sistema (una sola velocidad, exsolución en
+equilibrio), hecho para que el operador sea barato, suave (diferenciable) y
+abierto a geometría arbitraria. El modelo que se invierte en la tesis sigue
+siendo el bifásico.
 
 Las constitutivas se importan del propio repositorio (`density.py`,
 `viscosity.py`, `fvrel.py`), de modo que el modelo reducido y el completo

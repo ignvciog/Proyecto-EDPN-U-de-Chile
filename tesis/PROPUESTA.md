@@ -3,6 +3,9 @@
 **Doble titulación: Geología + Ingeniería Matemática**
 Continuación del proyecto de conducto volcánico 1D/2D (Calbuco 2015) de este repositorio.
 
+Nota corta para la reunión: [`nota_problema_inverso.pdf`](nota_problema_inverso.pdf)
+(el modelo que se invierte es el bifásico; el prototipo es un recorte).
+
 ---
 
 ## 0. Resumen en una página
@@ -31,13 +34,14 @@ Tres resultados preliminares, ya obtenidos con el prototipo de
    hipersuperficie de codimensión 1 en un espacio de funciones. Verificado
    numéricamente a precisión de máquina.
 
-2. **La no-unicidad es enorme, no marginal.** En el modelo completo (con
-   flotabilidad, exsolución, viscosidad de Giordano y cristales), seis
-   geometrías de conducto cualitativamente distintas, con volúmenes que
-   difieren en **+317 %**, producen la misma tasa de descarga másica con un
-   error relativo de $10^{-7}$. El 90 % de la caída de presión ocurre en el
-   kilómetro más somero: **el conducto profundo es esencialmente invisible**
-   para los observables de superficie.
+2. **La no-unicidad es enorme, no marginal.** En el *recorte* de lubricación
+   (con flotabilidad, exsolución en equilibrio, viscosidad de Giordano y
+   cristales), seis geometrías de conducto cualitativamente distintas, con
+   volúmenes que difieren en **+317 %**, producen la misma tasa de descarga
+   másica con un error relativo de $10^{-7}$. El 90 % de la caída de presión
+   ocurre en el tramo más somero: **el conducto profundo es esencialmente
+   invisible** para los observables de superficie. Esto está demostrado en el
+   recorte; **la tesis pregunta si sobrevive en el modelo bifásico**.
 
 3. **El tiempo aporta información nueva, pero no toda.** Cuatro conductos con
    tasa de descarga inicial idéntica ($3.01\times10^{7}$ kg/s) drenan una misma
@@ -80,6 +84,13 @@ poner sobre la mesa con ambos profesores:
 Ninguna de estas tres cosas es un defecto del trabajo previo: son exactamente
 las tareas que convierten un código de simulación en un código de inversión, y
 constituyen el primer capítulo natural de la tesis.
+
+**El modelo de la tesis es el bifásico.** `RIconduitex5_5.py` (dos velocidades,
+arrastre, coalescencia, cristalización) no se reemplaza. El prototipo de
+`tesis/prototipo/` es un *recorte* monofásico del mismo sistema, hecho para
+demostrar el teorema de degeneración y para explorar el inverso a bajo costo.
+Comparte constitutivas y parámetros de Calbuco; no es un modelo nuevo. El
+capítulo de identificabilidad del operador bifásico es el trabajo central.
 
 ---
 
@@ -174,9 +185,11 @@ perfiles de verosimilitud, es un resultado concreto y demostrable.
 ## 3. Resultados preliminares
 
 Todo lo de esta sección es reproducible con `tesis/prototipo/` (ver
-`tesis/prototipo/README.md`). El prototipo es un modelo reducido de lubricación
-compresible que comparte las constitutivas con el repositorio
-(`density.py`, `viscosity.py`, `fvrel.py`) y admite geometría $R(z)$ arbitraria.
+`tesis/prototipo/README.md`). El prototipo es un **recorte** de lubricación
+compresible del modelo bifásico: misma constitutivas
+(`density.py`, `viscosity.py`, `fvrel.py`), una sola velocidad, geometría
+$R(z)$ arbitraria. Sirve para demostrar teoremas; no sustituye a
+`RIconduitex5_5.py`.
 
 ### 3.1 Teorema de degeneración geométrica
 
@@ -207,7 +220,7 @@ apagando la flotabilidad) da $\mathrm{MER}\cdot J_4$ constante con desviación
 $<10^{-6}$ relativo entre cinco formas distintas, y la fórmula analítica
 reproduce el $\mathrm{MER}$ numérico con error $+0.000\,\%$.
 
-### 3.2 La no-unicidad en el modelo completo
+### 3.2 La no-unicidad persiste con flotabilidad (aún en el recorte)
 
 Con flotabilidad el invariante ya no es exactamente $J_4$, pero la no-unicidad
 persiste y es igual de grave. Ajustando un único factor de escala por forma:
@@ -471,11 +484,12 @@ caracterización del espacio nulo. La analogía de Webster–Sturm–Liouville y
 familia biparamétrica de conductos acústicamente idénticos. Ilustración con
 geometrías realistas.
 
-**Capítulo 3 — Identificabilidad del modelo completo (§3.3 extendido).** Matriz
-de información de Fisher y perfiles de verosimilitud para el conjunto completo
-de parámetros. Comparación sistemática: estacionario 1D, transiente 1D,
-estacionario 2D. Cuantificación de cuánta información aporta cada dimensión
-añadida. **Éste es el resultado que conecta el trabajo previo con la tesis.**
+**Capítulo 3 — Identificabilidad del modelo bifásico (§3.3 extendido).** Matriz
+de información de Fisher y perfiles de verosimilitud sobre el operador de
+`RIconduitex5_5.py` (y sus variantes transiente/2D). Pregunta central: ¿la
+degeneración $J_4$ del recorte sobrevive al deslizamiento $u_g-u_m$?
+Comparación sistemática: estacionario 1D bifásico, transiente 1D, estacionario
+2D. **Éste es el resultado que conecta el trabajo previo con la tesis.**
 
 **Capítulo 4 — Inversión bayesiana de Calbuco 2015 (A1–A3).** Previas de la
 petrología de Castruccio et al. (2016); datos de MER por fases, masa emitida,
