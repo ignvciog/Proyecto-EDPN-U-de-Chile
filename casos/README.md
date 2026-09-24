@@ -15,10 +15,13 @@ raíz: `RIconduitex5_5.py` (explosivo) y `RIconduitef5_5.py` (efusivo).
 Para ver **las dos ramas con los mismos datos** (sin tocar esos solvers):
 
 ```bash
-python3 ambos_casos.py --listar
-python3 ambos_casos.py --caso calbuco2015 --quiet
-python3 ambos_casos.py --caso villarrica2015 --quiet
-python3 ambos_casos.py --caso merapi2010 --quiet
+# notebook (lo mas parecido a mainconduit5_5)
+# abrir mainconduit_ambos.ipynb, cambiar CASO, correr todo
+
+# o por terminal
+python3 mainconduit_ambos.py --caso calbuco2015
+python3 mainconduit_ambos.py --caso merapi2010
+python3 mainconduit_ambos.py --caso villarrica2015
 ```
 
 Eso llama a `RIconduitex5_5_f` y a `RIconduitef5_5_f`, imprime si cada tiro

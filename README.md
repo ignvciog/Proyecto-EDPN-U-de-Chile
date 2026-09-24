@@ -6,7 +6,7 @@ Implementación en Python de un modelo de conducto volcánico con:
 
 - **1D estacionario explosivo** (`RIconduitex5_5.py`) y **efusivo** (`RIconduitef5_5.py`): el mismo DAE bifásico; cambia la condición de salida del tiro
 - Casos del paper JGR 2025 en `casos/` (Pinatubo, Quizapu, St. Helens, Vesuvius, Villarrica, Caulle, Huaynaputina, Merapi; Calbuco en `calbuco2015d.py`)
-- **Ambas ramas a la vez:** `python3 ambos_casos.py --caso calbuco2015` corre el explosivo y el efusivo con los mismos datos
+- **Ambas ramas a la vez:** `mainconduit_ambos.ipynb` / `mainconduit_ambos.py` tira explosiva y efusiva con los mismos datos (como `mainconduit5_5`, las 6 figuras encima)
 - **1D transiente** (EDPs + esquema IMEX: MOL, FD upwind, RK4)
 - **2D axisimétrico** (perfil radial \(u_m(r)\) con FD, Thomas y Picard)
 
@@ -37,6 +37,8 @@ Codigo Python/
 ├── RIconduit1D_chamber.py             ← extensión con cámara (si aplica)
 │
 ├── main_transient.py                  ← script: estacionario → transiente + figuras
+├── mainconduit_ambos.py               ← script: explosiva + efusiva, mismos datos
+├── mainconduit_ambos.ipynb            ← notebook: explosiva + efusiva, mismos datos
 ├── mainconduit_transient_v3.ipynb     ← notebook transiente (recomendado)
 ├── mainconduit5_7.ipynb               ← notebook 2D
 ├── mainconduit5_5.ipynb               ← notebook estacionario
