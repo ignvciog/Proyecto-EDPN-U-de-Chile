@@ -3,9 +3,16 @@
 **Doble titulación: Geología + Ingeniería Matemática**
 Continuación del proyecto de conducto volcánico 1D/2D (Calbuco 2015) de este repositorio.
 
+**Documento formal (el que se les manda a ambos profesores):**
+[`propuesta_tesis_doble.pdf`](propuesta_tesis_doble.pdf)
+([`.tex`](propuesta_tesis_doble.tex)). Ahí está el detalle: lado
+geológico, lado matemático, objetivos partidos, capítulos, plan, datos
+de Calbuco y los casos del paper 2025.
+
 Nota corta para la reunión: [`nota_problema_inverso.pdf`](nota_problema_inverso.pdf).
 Matemática del modelo bifásico (el que se invierte):
 [`matematica_modelo_bifasico.pdf`](matematica_modelo_bifasico.pdf).
+Presentación: [`presentacion/propuesta_tesis.pdf`](presentacion/propuesta_tesis.pdf).
 
 ---
 
@@ -643,7 +650,8 @@ volcanológica no ha formalizado).
 
 ```
 tesis/
-├── PROPUESTA.md                 ← este documento
+├── propuesta_tesis_doble.tex/.pdf ← propuesta formal de doble titulación
+├── PROPUESTA.md                 ← este documento (versión de trabajo)
 ├── ESTADO_DEL_ARTE.md           ← revisión bibliográfica anotada
 ├── prototipo/
 │   ├── README.md                ← cómo reproducir los experimentos
