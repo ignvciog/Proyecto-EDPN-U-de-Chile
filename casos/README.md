@@ -12,6 +12,19 @@ No están reescritos ni “reducidos”. Cada `.m` es el script de parámetros d
 entrada de RIConduit 5.2 (MATLAB). El solver Python equivalente está en la
 raíz: `RIconduitex5_5.py` (explosivo) y `RIconduitef5_5.py` (efusivo).
 
+Para ver **las dos ramas con los mismos datos** (sin tocar esos solvers):
+
+```bash
+python3 ambos_casos.py --listar
+python3 ambos_casos.py --caso calbuco2015 --quiet
+python3 ambos_casos.py --caso villarrica2015 --quiet
+python3 ambos_casos.py --caso merapi2010 --quiet
+```
+
+Eso llama a `RIconduitex5_5_f` y a `RIconduitef5_5_f`, imprime si cada tiro
+cerró, y si hay perfiles escribe `casos/salida/<caso>_ambos.png`. Requiere
+`scikits.odes`, igual que los solvers originales.
+
 Los dos solvers resuelven **el mismo DAE**. Cambia solo la condición de
 salida del tiro:
 
