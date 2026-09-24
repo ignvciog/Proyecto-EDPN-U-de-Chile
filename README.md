@@ -4,7 +4,8 @@ Proyecto final del curso **Análisis Numérico de Ecuaciones en Derivadas Parcia
 
 Implementación en Python de un modelo de conducto volcánico con:
 
-- **1D estacionario** (DAE bifásico, método de tiro, solver IDA)
+- **1D estacionario explosivo** (`RIconduitex5_5.py`) y **efusivo** (`RIconduitef5_5.py`): el mismo DAE bifásico; cambia la condición de salida del tiro
+- Casos del paper JGR 2025 en `casos/` (Pinatubo, Quizapu, St. Helens, Vesuvius, Villarrica, Caulle, Huaynaputina, Merapi; Calbuco en `calbuco2015d.py`)
 - **1D transiente** (EDPs + esquema IMEX: MOL, FD upwind, RK4)
 - **2D axisimétrico** (perfil radial \(u_m(r)\) con FD, Thomas y Picard)
 
@@ -27,7 +28,9 @@ Codigo Python/
 ├── viscosity.py                       ← viscosidad (Giordano et al.)
 ├── fvrel.py                           ← viscosidad relativa (cristales/burbujas)
 │
-├── RIconduitex5_5.py                  ← solver 1D estacionario (IDA / scikits.odes)
+├── RIconduitex5_5.py                  ← solver 1D estacionario explosivo (IDA)
+├── RIconduitef5_5.py                  ← solver 1D estacionario efusivo (mismo DAE)
+├── casos/                             ← inputs del paper JGR 2025 (MATLAB, sin editar)
 ├── RIconduit1D_transient.py           ← solver 1D transiente (MOL + IMEX)
 ├── RIconduit2D_FD.py                  ← solver 2D axisimétrico (FD radial)
 ├── RIconduit1D_chamber.py             ← extensión con cámara (si aplica)
