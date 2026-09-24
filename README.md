@@ -6,7 +6,7 @@ Implementación en Python de un modelo de conducto volcánico con:
 
 - **1D estacionario explosivo** (`RIconduitex5_5.py`) y **efusivo** (`RIconduitef5_5.py`): el mismo DAE bifásico; cambia la condición de salida del tiro
 - Casos del paper JGR 2025 en `casos/` (Pinatubo, Quizapu, St. Helens, Vesuvius, Villarrica, Caulle, Huaynaputina, Merapi; Calbuco en `calbuco2015d.py`)
-- **Ambas ramas a la vez:** `mainconduit_ambos.ipynb` / `mainconduit_ambos.py` tira explosiva y efusiva con los mismos datos (como `mainconduit5_5`, las 6 figuras encima)
+- **Ambas ramas a la vez:** `mainconduit_ambos.ipynb` (mismo estilo que `mainconduit5_5`) tira explosiva y efusiva con los mismos datos y las 6 figuras encima
 - **1D transiente** (EDPs + esquema IMEX: MOL, FD upwind, RK4)
 - **2D axisimétrico** (perfil radial \(u_m(r)\) con FD, Thomas y Picard)
 
@@ -37,7 +37,6 @@ Codigo Python/
 ├── RIconduit1D_chamber.py             ← extensión con cámara (si aplica)
 │
 ├── main_transient.py                  ← script: estacionario → transiente + figuras
-├── mainconduit_ambos.py               ← script: explosiva + efusiva, mismos datos
 ├── mainconduit_ambos.ipynb            ← notebook: explosiva + efusiva, mismos datos
 ├── mainconduit_transient_v3.ipynb     ← notebook transiente (recomendado)
 ├── mainconduit5_7.ipynb               ← notebook 2D
@@ -96,7 +95,7 @@ from RIconduitex5_5 import RIconduitex5_5_f
 result = RIconduitex5_5_f(radius1, overP1, h2o1, T1, xi1)
 ```
 
-O abrir `mainconduit5_5.ipynb`.
+O abrir `mainconduit5_5.ipynb` (solo explosiva) o `mainconduit_ambos.ipynb` (explosiva y efusiva, mismas 6 figuras encima).
 
 ### 2. Modelo 1D transiente (estacionario → transiente)
 
@@ -202,8 +201,8 @@ Genera las figuras ejecutando los notebooks/scripts y cópialas a `Template-Pres
 |-----------|----------|
 | **Raíz** | `README.md`, `requirements.txt`, `.gitignore` |
 | **Parámetros y propiedades** | `calbuco2015d.py`, `density.py`, `viscosity.py`, `fvrel.py` |
-| **Solvers principales** | `RIconduitex5_5.py`, `RIconduit1D_transient.py`, `RIconduit2D_FD.py` |
-| **Scripts / notebooks** | `main_transient.py`, `mainconduit_transient_v3.ipynb`, `mainconduit5_7.ipynb`, `mainconduit5_5.ipynb` |
+| **Solvers principales** | `RIconduitex5_5.py`, `RIconduitef5_5.py`, `RIconduit1D_transient.py`, `RIconduit2D_FD.py` |
+| **Scripts / notebooks** | `main_transient.py`, `mainconduit_transient_v3.ipynb`, `mainconduit5_7.ipynb`, `mainconduit5_5.ipynb`, `mainconduit_ambos.ipynb` |
 | **Presentación** | `Template-Presentacion-dim/main.tex`, `example.tex`, `library.bib`, `template.tex`, `template_config.tex`, `copiar_imagenes.py` |
 | **Figuras** | `Template-Presentacion-dim/img/**` (todas las imágenes usadas en la presentación) |
 

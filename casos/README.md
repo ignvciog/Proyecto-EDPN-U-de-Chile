@@ -14,19 +14,13 @@ raíz: `RIconduitex5_5.py` (explosivo) y `RIconduitef5_5.py` (efusivo).
 
 Para ver **las dos ramas con los mismos datos** (sin tocar esos solvers):
 
-```bash
-# notebook (lo mas parecido a mainconduit5_5)
-# abrir mainconduit_ambos.ipynb, cambiar CASO, correr todo
+Abrir `mainconduit_ambos.ipynb` (el mainconduit de ambos) y correr todo.
+Por defecto usa Calbuco. Para otro caso del paper, descomenta la celda de
+`CASO` (`merapi2010`, `villarrica2015`, …) y corre de nuevo.
 
-# o por terminal
-python3 mainconduit_ambos.py --caso calbuco2015
-python3 mainconduit_ambos.py --caso merapi2010
-python3 mainconduit_ambos.py --caso villarrica2015
-```
-
-Eso llama a `RIconduitex5_5_f` y a `RIconduitef5_5_f`, imprime si cada tiro
-cerró, y si hay perfiles escribe `casos/salida/<caso>_ambos.png`. Requiere
-`scikits.odes`, igual que los solvers originales.
+Eso llama a `RIconduitex5_5_f` y a `RIconduitef5_5_f` y pone las 6 figuras
+de `mainconduit5_5` con las dos ramas encima. Requiere `scikits.odes`,
+igual que los solvers originales.
 
 Los dos solvers resuelven **el mismo DAE**. Cambia solo la condición de
 salida del tiro:
