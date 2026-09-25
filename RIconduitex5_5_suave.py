@@ -19,6 +19,7 @@ from fvrel import *
 from umbrales_reg import (
     EPS_FRAG, EPS_HENRY, EPS_PHI, EPS_RE, EPS_RB, EPS_XI,
     s_frag, s_henry, s_re, guarda_coalescencia, mezclar, tasa_xi,
+    pesos_regimen,
 )
 from scikits.odes import dae
 import warnings
@@ -139,6 +140,15 @@ def _P_sH(sH_min=0.95, xcrys=None):
     return float((rhs / den) ** (1.0 / beta))
 
 
+def _clamp_y(y):
+    y = np.asarray(y, dtype=float).copy()
+    y[0] = float(np.clip(y[0], 1.0e4, 2.0e9))
+    y[1] = float(np.clip(y[1], 0.0, 0.99))
+    y[2] = float(np.clip(y[2], 1.0, 1.0e20))
+    y[3] = float(np.clip(y[3], 0.0, 0.95))
+    return y
+
+
 def _sanear_perfil(zsol, sol, zmin, zmax):
     zsol = np.asarray(zsol, dtype=float).ravel()
     sol = np.asarray(sol, dtype=float)
@@ -146,7 +156,27 @@ def _sanear_perfil(zsol, sol, zmin, zmax):
     zsol, sol = zsol[:n], sol[:n]
     ok = np.isfinite(zsol) & np.all(np.isfinite(sol), axis=1)
     ok &= (zsol >= zmin) & (zsol <= zmax)
-    return zsol[ok], sol[ok]
+    zsol, sol = zsol[ok], sol[ok]
+    if zsol.size < 2:
+        return zsol, sol
+    keep = np.ones(zsol.size, dtype=bool)
+    last = zsol[0]
+    for i in range(1, zsol.size):
+        if zsol[i] <= last + 1e-12:
+            keep[i] = False
+        else:
+            last = zsol[i]
+    return zsol[keep], sol[keep]
+
+
+def _filtrar_tramo(y, t, t0, tf):
+    y = np.atleast_2d(np.asarray(y, dtype=float))
+    t = np.asarray(t, dtype=float).ravel()
+    n = min(y.shape[0], t.size)
+    y, t = y[:n], t[:n]
+    lo, hi = min(float(t0), float(tf)) - 1.0, max(float(t0), float(tf)) + 1.0
+    ok = np.isfinite(t) & np.all(np.isfinite(y), axis=1) & (t >= lo) & (t <= hi)
+    return y[ok], t[ok]
 
 
 def _fg_phi_vel(P, xcrys, qmass, rhom):
@@ -187,6 +217,54 @@ def _melt_wall_friction(visc, um):
     if radial_Fmw_override is not None:
         return float(radial_Fmw_override)
     return cg * visc * um / (wr ** 2)
+
+
+def _rama_o_cero(w, valor):
+    """Si el peso es ~0 no evaluamos un F divergente (1/rb cuando φ→0)."""
+    if abs(float(w)) < 1e-8:
+        return 0.0
+    return _fin(valor)
+
+
+def _fuerzas_unificadas(phi, rb, rho_g, visc, um, ug):
+    """Fmw, Fgw, Fmg = Σ w_i F^{(i)}. Mismo estado 6D en todo el conducto."""
+    w1, w2, w3, w4 = pesos_regimen(
+        phi, limphi1, limphi2, phicrit, eps_phi, eps_frag)
+    rb = max(abs(_fin(rb, 1e-8)), 1e-8)
+    phi_c = float(np.clip(phi, 0.0, 0.999))
+    slip = ug - um
+    Fmw1 = _melt_wall_friction(visc, um)
+    Fgw1 = 0.0
+    Fmg1 = 3.0 * visc * slip * phi_c * (1.0 - phi_c) / (rb ** 2)
+
+    span = max(limphi2 - limphi1, 1e-8)
+    tt = float(np.clip((phi_c - limphi1) / span, 0.0, 1.0))
+    Re = 2.0 * rb * rho_g * slip / 1e-5
+    sRe = float(s_re(Re, eps=eps_re))
+    kper = 0.131 * (rb ** 2) * ((max(phi_c - limphi1, 0.0) + 0.05) ** 2.1)
+    kper = max(kper, 1e-30)
+    Fmg2_in = ((0.33 / (4.0 * rb)) * rho_g * (abs(slip) ** tt)) * (
+        (3.0 * visc / (rb ** 2)) ** (1.0 - tt)) * slip * phi_c * (1.0 - phi_c)
+    Fmg2_st = ((1e-5 / kper) ** tt) * (
+        (3.0 * visc / (rb ** 2)) ** (1.0 - tt)) * slip * phi_c * (1.0 - phi_c)
+    Fmg2 = mezclar(sRe, _fin(Fmg2_st), _fin(Fmg2_in))
+
+    Fmg3_in = (0.33 / (4.0 * rb)) * rho_g * slip * slip * phi_c * (1.0 - phi_c)
+    Fmg3_st = (1e-5 / kper) * slip * phi_c * (1.0 - phi_c)
+    Fmg3 = mezclar(sRe, _fin(Fmg3_st), _fin(Fmg3_in))
+
+    ra, cd = 1e-3, 0.8
+    Fmw4 = 0.0
+    Fgw4 = 0.01 * rho_g * np.abs(ug) * ug / (4.0 * wr)
+    Fmg4 = 3.0 * cd * rho_g * np.abs(slip) * slip * phi_c * (1.0 - phi_c) / (8.0 * ra)
+
+    Fmw = (w1 + w2 + w3) * Fmw1 + w4 * Fmw4
+    Fgw = (w1 + w2 + w3) * Fgw1 + _rama_o_cero(w4, Fgw4)
+    Fmg = (
+        _rama_o_cero(w1, Fmg1) + _rama_o_cero(w2, Fmg2)
+        + _rama_o_cero(w3, Fmg3) + _rama_o_cero(w4, Fmg4)
+    )
+    return _fin(Fmw), _fin(Fgw), _fin(Fmg), (w1, w2, w3, w4)
 
 
 def momenteq(t, y, yprime, result):
@@ -528,6 +606,210 @@ def solv(t0, tf, y0, yp0, atol, rtol, n, param, cond=None):
             return vacio
         return np.atleast_2d(y_values), np.asarray(t_values, dtype=float).ravel()
 
+
+def _estado_unificado(y):
+    """fg, visc, rb, F*, dfgdp, dxdz, dNdz — um,ug algebraicas (P,φ,fg,q)."""
+    global fragcrit
+    y = _clamp_y(y)
+    P, phi, Nd_y, xcrys = float(y[0]), float(y[1]), float(y[2]), float(y[3])
+    rho_g = max(P / (R * T), 1e-12)
+    test = (1.0 - xi) * co - (1.0 - xcrys) * C1 * P ** beta
+    den_h = max(1.0 - C1 * P ** beta, 1e-12)
+    fg_sat = (co * (1.0 - xi) - C1 * (1.0 - xcrys) * P ** beta) / den_h
+    sH = float(s_henry(test, eps_henry))
+    fg = max(0.0, sH * fg_sat)
+    if fg <= 1e-16:
+        um = q / rho_m
+        ug = um
+    else:
+        phi_eff = max(phi, 1e-10)
+        um = q * (1.0 - fg) / ((1.0 - min(phi_eff, 0.999)) * rho_m)
+        ug = q * fg / (phi_eff * rho_g)
+    um = _fin(um, q / max(rho_m, 1.0))
+    ug = _fin(ug, um)
+    rb = ((max(phi, 0.0) / ((4.0 / 3.0) * np.pi * max(Nd_y, 1e-30) * max(1.0 - phi, 1e-12)))) ** (1.0 / 3.0)
+    viscl_sat = fvrel(model, xcrys, xi, ar1, ar2, xmax, (um / wr)) * viscosity(
+        sio2, tio2, al2o3, feo, mno, mgo, cao, na2o, k2o, p2o5, (C1 * P ** beta) * 100, f2o, Tc)
+    viscl_un = fvrel(model, xcrys, xi, ar1, ar2, xmax, (um / wr)) * viscosity(
+        sio2, tio2, al2o3, feo, mno, mgo, cao, na2o, k2o, p2o5, h2o, f2o, Tc)
+    viscl = mezclar(sH, viscl_un, viscl_sat)
+    nca = rb * viscl * (um / wr) / 3.0
+    phicritbub = phicrit + 0.05
+    phi_v = min(max(phi, 0.0), 0.999 * phicritbub)
+    AA = (1.0 - (phi_v / phicritbub)) ** (-phicritbub)
+    BB = (1.0 - (phi_v / phicritbub)) ** (5.0 * phicritbub / 3.0)
+    c1 = -0.2895 * phi + 0.8132
+    c2 = phi
+    viscrel = 0.5 * (AA - BB) * (1.0 - math.erf(np.real(c1 * np.log(max(nca, 1e-30)) + c2))) + BB
+    visc = viscrel * viscl
+    w1, w2, w3, w4 = pesos_regimen(phi, limphi1, limphi2, phicrit, eps_phi, eps_frag)
+    if fg <= 1e-16:
+        Fmw = _melt_wall_friction(viscl, um)
+        dpdz = -rho_m * g - Fmw
+        return {
+            "fg": 0.0, "dpdz": _fin(dpdz), "dphidz": 0.0, "dNdz": 0.0,
+            "dxdz": 0.0, "um_alg": um, "ug_alg": um, "w": (w1, w2, w3, w4),
+        }
+    Fmw, Fgw, Fmg, (w1, w2, w3, w4) = _fuerzas_unificadas(phi, rb, rho_g, visc, um, ug)
+
+    f2, xteo, f3, dx1 = tasa_xi(
+        (co * (1.0 - xi) - ((1.0 - xcrys) * C1 * P ** beta))
+        / (co * (1.0 - xi) - (1.0 - xmax) * C1 * (Patm) ** beta),
+        xcrys, xi, xmax, tcar, eps_xi)
+    dx3 = (xmax - xi) * f2 * f3 / max(tcar * max(abs(um), 1e-6), 1e-30)
+    dxdz = (1.0 - w4) * ((w1 + w2) * dx1 + w3 * dx3)
+    dxdp = (1.0 - w4) * dx1 / max(abs(um), 1e-6)
+    dfgdp = ((-(-dxdp * C1 * P ** beta + (1.0 - xcrys) * C1 * beta * P ** (beta - 1))
+              + (co * (1.0 - xi) - (1.0 - xcrys) * C1 * P ** beta) * C1 * beta * P ** (beta - 1))
+             / ((1.0 - C1 * P ** beta) ** 2))
+
+    aco = rho_g * (ug ** 2)
+    bco = phi - (ug ** 2) * phi / (R * T) + dfgdp * q * ug
+    cco = rho_m * (um ** 2)
+    dco = dfgdp * q * um - (1.0 - phi)
+    eco = -rho_m * (1.0 - phi) * g + Fmg - Fmw
+    fco = rho_g * phi * g + Fmg + Fgw
+    den = aco * dco - bco * cco
+    if abs(den) < 1e-18 or not np.isfinite(den):
+        dphidz, dpdz = 0.0, -rho_m * (1.0 - phi) * g - Fmw
+    else:
+        dphidz = (-eco * bco + dco * fco) / den
+        dpdz = (-eco * aco + fco * cco) / den
+    dpdz = float(np.clip(_fin(dpdz), -1.0e9, 1.0e8))
+    dphidz = float(np.clip(_fin(dphidz), -20.0, 20.0))
+    dvdz = vinicial * (-dfgdp * dpdz * (1.0 - phi) + (1.0 - fg) * dphidz) / max((1.0 - phi) ** 2, 1e-30)
+    fragcrit = dvdz * visc / (0.01 * 1e10)
+
+    inner = (F1 + F2) * ((3.0 * max(phi, 0.0) * (np.pi / (6.0 * phicrit)) / (4.0 * np.pi)) ** (1.0 / 3.0))
+    den_n = 1.0 - inner
+    if abs(den_n) < 1e-8:
+        dNdt_on = 0.0
+    else:
+        dNdt_on = -(Nd_y ** (2.0 / 3.0)) * ((1.0 / max(1.0 - phi, 1e-12)) ** (1.0 / 3.0)) * (
+            (1.0 / 9.0) * (rho_m - rho_g) * 9.81 / max(visc, 1e-30)) * (
+            (3.0 * max(phi, 0.0) / (4.0 * np.pi)) ** (2.0 / 3.0)) * (F1 * F1 - F2 * F2) * (
+            1.0 / den_n) * Fc * (1.0 - phi / phicrit) * (wr - rb) / wr
+    dNdt = float(guarda_coalescencia(rb, wr, phi, phicrit, eps_frac=eps_rb, eps_frag=eps_frag)) * _fin(dNdt_on)
+    dNdz = (1.0 - w4) * dNdt / max(abs(um), 1e-6)
+    return {
+        "fg": fg, "dpdz": _fin(dpdz), "dphidz": _fin(dphidz), "dNdz": _fin(dNdz),
+        "dxdz": _fin(dxdz), "um_alg": um, "ug_alg": ug, "w": (w1, w2, w3, w4),
+    }
+
+
+def momenteq_u(t, y, yprime, result):
+    st = _estado_unificado(y)
+    if st["fg"] <= 1e-16:
+        um_a = q / rho_m
+        result[0] = -yprime[0] + st["dpdz"]
+        result[1] = -yprime[1] + st["dphidz"]
+        result[2] = -yprime[2]
+        result[3] = -yprime[3]
+        result[4] = y[4] - um_a
+        result[5] = y[5] - um_a
+        return
+    result[0] = -yprime[0] + st["dpdz"]
+    result[1] = -yprime[1] + st["dphidz"]
+    result[2] = -yprime[2] + st["dNdz"]
+    result[3] = -yprime[3] + st["dxdz"]
+    result[4] = y[4] - st["um_alg"]
+    result[5] = y[5] - st["ug_alg"]
+
+
+def momenteq1_u(t, y):
+    st = _estado_unificado(y)
+    if st["fg"] <= 1e-16:
+        um_a = q / rho_m
+        return np.array([st["dpdz"], st["dphidz"], 0.0, 0.0, y[4] - um_a, y[5] - um_a])
+    return np.array([
+        st["dpdz"], st["dphidz"], st["dNdz"], st["dxdz"],
+        y[4] - st["um_alg"], y[5] - st["ug_alg"],
+    ])
+
+
+def _preparar_y0(t0, y0):
+    y0 = np.asarray(y0, dtype=float).copy()
+    um, ug = _vel_algebraicas(y0[0], y0[1], y0[3], q, rho_m)
+    y0[4], y0[5] = um, ug
+    yp0 = np.asarray(momenteq1_u(t0, y0), dtype=float).copy()
+    yp0[4] = 0.0
+    yp0[5] = 0.0
+    return y0, yp0
+
+
+def _ida_hasta(t0, tf, y0, atol, rtol, n, cond=None):
+    y0, yp0 = _preparar_y0(t0, y0)
+    tspan = np.linspace(t0, tf, max(int(n), 200))
+    vacio = (np.atleast_2d(y0), np.atleast_1d(float(t0)))
+
+    def _armar(compute_ic, first_step=1e-18):
+        kw = dict(atol=atol, rtol=rtol, old_api=False, algebraic_vars_idx=[4, 5])
+        if first_step is not None:
+            kw["first_step_size"] = first_step
+        if compute_ic:
+            kw["compute_initcond"] = "yp0"
+        return dae("ida", momenteq_u, **kw)
+
+    solver = _armar(True)
+    ret = solver.init_step(t0, y0, yp0)
+    if not _ida_inicializo(solver, ret):
+        solver = _armar(False, first_step=None)
+        ret = solver.init_step(t0, y0, yp0)
+    y_values, t_values = [], []
+    if not (hasattr(solver, "initialized") and not solver.initialized):
+        y_anterior = float(y0[1])
+        for time in tspan[1:]:
+            solution = solver.step(time)
+            if solution.values.y is None:
+                break
+            y_now = np.asarray(solution.values.y, dtype=float).ravel()
+            y_actual = float(y_now[1])
+            y_values.append(y_now)
+            t_values.append(solution.values.t)
+            if cond is not None and (
+                (y_anterior < cond and y_actual >= cond)
+                or (y_anterior > cond and y_actual <= cond)
+            ):
+                break
+            y_anterior = y_actual
+    if len(y_values) == 0:
+        solver = _armar(True, first_step=None)
+        solution = solver.solve(tspan, y0, yp0)
+        y_all, t_all = solution.values.y, solution.values.t
+        if y_all is None or np.asarray(y_all).size == 0:
+            return vacio
+        if cond is None:
+            return _filtrar_tramo(y_all, t_all, t0, tf)
+        y_c, t_c = _cortar_cruce(y_all, t_all, y0, t0, cond)
+        return _filtrar_tramo(y_c, t_c, t0, tf)
+    return _filtrar_tramo(np.vstack(y_values), t_values, t0, tf)
+
+
+def solv_u(t0, tf, y0, yp0, atol, rtol, n):
+    """Un solo campo. Se reinicia en limphi1, limphi2, phicrit (como el original)."""
+    y0, yp0 = _preparar_y0(t0, y0)
+    vacio = (np.atleast_2d(y0), np.atleast_1d(float(t0)))
+    y_acc, t_acc = [], []
+    y = y0
+    t = float(t0)
+    for cond in (limphi1, limphi2, phicrit, None):
+        if t >= float(tf) - 1e-9:
+            break
+        yi, ti = _ida_hasta(t, tf, y, atol, rtol, n, cond=cond)
+        if yi is None or np.asarray(yi).size == 0:
+            break
+        yi, ti = np.atleast_2d(yi), np.asarray(ti, dtype=float).ravel()
+        y_acc.append(yi)
+        t_acc.append(ti)
+        y = yi[-1]
+        t = float(ti[-1])
+        if t >= float(tf) - 1e-6:
+            break
+    if not y_acc:
+        return vacio
+    return np.vstack(y_acc), np.concatenate(t_acc)
+
+
 def _aplicar_eps(ef, ep, eh, er, ex, erb):
     global eps_frag, eps_phi, eps_henry, eps_re, eps_xi, eps_rb
     eps_frag = float(ef)
@@ -541,7 +823,8 @@ def _aplicar_eps(ef, ep, eh, er, ex, erb):
 #Función principal del laboratorio: mismos kwargs de umbrales_reg / el notebook
 def RIconduitex5_5_suave_f(radius,Pressure, wt, Temperature, content_crystal,
                            eps_frag=EPS_FRAG, eps_phi=EPS_PHI, eps_henry=EPS_HENRY,
-                           eps_re=EPS_RE, eps_xi=EPS_XI, eps_rb=EPS_RB):
+                           eps_re=EPS_RE, eps_xi=EPS_XI, eps_rb=EPS_RB,
+                           unificado=False):
     global Nd, rho_m, vinicial, q, count, results, vinicial, Pi, limphi1, limphi2, phicrit, xfinal, n_eq, rho_ti
     global overP, wr, T, Tc, co, xi, h2o, cg, xmax, phimax1, phimax2, cA
     _aplicar_eps(eps_frag, eps_phi, eps_henry, eps_re, eps_xi, eps_rb)
@@ -611,6 +894,7 @@ def RIconduitex5_5_suave_f(radius,Pressure, wt, Temperature, content_crystal,
     while count<60:
         print(f"\nCount = {count} \nInitial velocity = {vinicial} \n")
 
+        xfinal = xi
         q=vinicial*rho_ti 
         velc=np.sqrt(15e9/rho_m) 
         visc=fvrel(model,xi,xi,ar1,ar2,xmax,(vinicial/wr))*viscosity(sio2,tio2,al2o3,feo,mno,mgo,cao,na2o,k2o,p2o5,dis*100,f2o,Tc);
@@ -742,146 +1026,154 @@ def RIconduitex5_5_suave_f(radius,Pressure, wt, Temperature, content_crystal,
                     # consistent initial conditions
                     y0 = np.array([Pad, phiad, Nd, xi, viadm, viadg])
                     yp0 = np.zeros_like(y0)
-                    yp0 = momenteq1(had, y0)
-                    y, t = solv(t0=had, tf=0, y0=y0, yp0=yp0, atol=errtol, rtol=errtol, n=1e4, param=n_eq, cond=limphi1)
+                    if unificado:
+                        yp0 = momenteq1_u(had, y0)
+                        y, t = solv_u(t0=had, tf=0, y0=y0, yp0=yp0, atol=errtol, rtol=errtol, n=1e4)
+                        zsol = _pegar_t(zsoladi, t)
+                        sol = _pegar(sol1, y)
+                        zsol=np.real(zsol)
+                        sol=np.real(sol)
+                    else:
+                        yp0 = momenteq1(had, y0)
+                        y, t = solv(t0=had, tf=0, y0=y0, yp0=yp0, atol=errtol, rtol=errtol, n=1e4, param=n_eq, cond=limphi1)
 
-                    zsol = _pegar_t(zsoladi, t)
-                    sol = _pegar(sol1, y)
-                    zsol=np.real(zsol)
-                    sol=np.real(sol)
+                        zsol = _pegar_t(zsoladi, t)
+                        sol = _pegar(sol1, y)
+                        zsol=np.real(zsol)
+                        sol=np.real(sol)
                 else:
                     sol = np.vstack((sol1, [Pcrit+dpdzcalc*deltH, 0, Nd, xi, vinicial, vinicial]))
                     zsol=np.real(zsol)
                     sol=np.real(sol)
 
-                Hi1,Pi1,phini1 = zsol[sol[:,0].size-1],sol[sol[:,0].size-1,0],sol[sol[:,0].size-1,1]
-                #print(Hi1, Pi1)
-                if (Hi1<0 and Pi1>pfinal) and phini1>=limphi1:
-                    um1, ug1, nd1, x1 = sol[sol[:,0].size-1,4],sol[sol[:,0].size-1,5],sol[sol[:,0].size-1,2],sol[sol[:,0].size-1,3]
-                    #Segunda condición (momentumeq2)
-                    n_eq=2
-                    y0 = np.array([Pi1, phini1, nd1, x1, um1, ug1])
-                    yp0 = np.zeros_like(y0)
-                    yp0 = momenteq1(Hi1, y0)
-                    y, t = solv(t0=Hi1, tf=0, y0=y0, yp0=yp0, atol=errtol, rtol=errtol, n=1e4, param=n_eq, cond=limphi2)
-                    
-                    zsol = _pegar_t(zsol, t)
-                    sol = _pegar(sol, y)  
-                    
-                Hi2,Pi2,phini2 = zsol[sol[:,0].size-1],sol[sol[:,0].size-1,0],sol[sol[:,0].size-1,1]
-                #print(Hi2, Pi2)
-                if (Hi2<0 and Pi2>pfinal) and phini2>=limphi2:
-                    um2, ug2, nd2, x2 = sol[sol[:,0].size-1,4],sol[sol[:,0].size-1,5],sol[sol[:,0].size-1,2],sol[sol[:,0].size-1,3]
-                    n_eq=3
-                    y0 = np.array([Pi2,phini2,nd2,x2,um2,ug2])
-                    yp0 = np.zeros_like(y0)
-                    yp0 = momenteq1(Hi2, y0)
-                    y, t = solv(t0=Hi2, tf=0, y0=y0, yp0=yp0, atol=errtol, rtol=errtol, n=1e4, param=n_eq, cond=phicrit)
+                if unificado:
+                    xfinal = float(sol[sol[:,0].size-1, 3])
+                else:
+                    Hi1,Pi1,phini1 = zsol[sol[:,0].size-1],sol[sol[:,0].size-1,0],sol[sol[:,0].size-1,1]
+                    if (Hi1<0 and Pi1>pfinal) and phini1>=limphi1:
+                        um1, ug1, nd1, x1 = sol[sol[:,0].size-1,4],sol[sol[:,0].size-1,5],sol[sol[:,0].size-1,2],sol[sol[:,0].size-1,3]
+                        n_eq=2
+                        y0 = np.array([Pi1, phini1, nd1, x1, um1, ug1])
+                        yp0 = np.zeros_like(y0)
+                        yp0 = momenteq1(Hi1, y0)
+                        y, t = solv(t0=Hi1, tf=0, y0=y0, yp0=yp0, atol=errtol, rtol=errtol, n=1e4, param=n_eq, cond=limphi2)
+                        zsol = _pegar_t(zsol, t)
+                        sol = _pegar(sol, y)
 
-                    zsol = _pegar_t(zsol, t)
-                    sol = _pegar(sol, y)  
-                
-                Hi3, Pi3, phini3, xfinal, ndfinal = zsol[sol[:,0].size-1],sol[sol[:,0].size-1,0],sol[sol[:,0].size-1,1],sol[sol[:,0].size-1,3],sol[sol[:,0].size-1,2]
-                #print(Hi3, Pi3)
-                if (Hi3<0 and Pi3>pfinal) and phini3>=phicrit:
-                    n_eq=4
-                    y0 = np.array([Pi3, phini3])
-                    yp0 = np.zeros_like(y0)
-                    yp0 = momenteq1(Hi3, y0)
-                    y, t = solv(t0=Hi3, tf=0, y0=y0, yp0=yp0, atol=errtol, rtol=errtol, n=1e4, param=n_eq)
-                    #sol4 = solve_ivp(momenteq1,[Hi3,0],np.array([Pi3,phini3]),atol=errtol,rtol=errtol,method='BDF')
-                    #zsol,sol = get_solution(zsol,sol,sol3) 
+                    Hi2,Pi2,phini2 = zsol[sol[:,0].size-1],sol[sol[:,0].size-1,0],sol[sol[:,0].size-1,1]
+                    if (Hi2<0 and Pi2>pfinal) and phini2>=limphi2:
+                        um2, ug2, nd2, x2 = sol[sol[:,0].size-1,4],sol[sol[:,0].size-1,5],sol[sol[:,0].size-1,2],sol[sol[:,0].size-1,3]
+                        n_eq=3
+                        y0 = np.array([Pi2,phini2,nd2,x2,um2,ug2])
+                        yp0 = np.zeros_like(y0)
+                        yp0 = momenteq1(Hi2, y0)
+                        y, t = solv(t0=Hi2, tf=0, y0=y0, yp0=yp0, atol=errtol, rtol=errtol, n=1e4, param=n_eq, cond=phicrit)
+                        zsol = _pegar_t(zsol, t)
+                        sol = _pegar(sol, y)
 
-                    zsol = _pegar_t(zsol, t)
-                    y = np.atleast_2d(y)
-                    if y.size > 0 and y.shape[1] >= 2:
-                        numb2 = y[:,0].size
-                        um = np.zeros(numb2)
-                        ug = np.zeros(numb2)
-                        nd3 = np.zeros(numb2)
-                        xf3 = np.zeros(numb2)
-                        n = np.zeros(numb2)
-                        rho_g = np.zeros(numb2)
-                        for j in range(numb2):
-                            test = co - C1*y[j,0]**beta
-                            if test<=0:
-                                n[j] =0
-                            else:
-                                n[j] = (co - C1*y[j,0]**beta)/(1-C1*y[j,0]**beta)
-                            rho_g[j]=y[j,0]/(R*T);
-                            um[j]=(1-n[j])*q/(rho_m*(1-y[j,1]))
-                            ug[j]=n[j]*q/(rho_g[j]*y[j,1])
-                            nd3[j]=ndfinal
-                            xf3[j]=xfinal
-                        sol4=np.column_stack((y[:,0],y[:,1], nd3,xf3, um, ug))
-                        sol = _pegar(sol, sol4)
-                    #print(zsol[sol[:,0].size-1], sol[sol[:,0].size-1,0])
+                    Hi3, Pi3, phini3, xfinal, ndfinal = zsol[sol[:,0].size-1],sol[sol[:,0].size-1,0],sol[sol[:,0].size-1,1],sol[sol[:,0].size-1,3],sol[sol[:,0].size-1,2]
+                    if (Hi3<0 and Pi3>pfinal) and phini3>=phicrit:
+                        n_eq=4
+                        y0 = np.array([Pi3, phini3])
+                        yp0 = np.zeros_like(y0)
+                        yp0 = momenteq1(Hi3, y0)
+                        y, t = solv(t0=Hi3, tf=0, y0=y0, yp0=yp0, atol=errtol, rtol=errtol, n=1e4, param=n_eq)
+                        zsol = _pegar_t(zsol, t)
+                        y = np.atleast_2d(y)
+                        if y.size > 0 and y.shape[1] >= 2:
+                            numb2 = y[:,0].size
+                            um = np.zeros(numb2)
+                            ug = np.zeros(numb2)
+                            nd3 = np.zeros(numb2)
+                            xf3 = np.zeros(numb2)
+                            n = np.zeros(numb2)
+                            rho_g = np.zeros(numb2)
+                            for j in range(numb2):
+                                test = co - C1*y[j,0]**beta
+                                if test<=0:
+                                    n[j] =0
+                                else:
+                                    n[j] = (co - C1*y[j,0]**beta)/(1-C1*y[j,0]**beta)
+                                rho_g[j]=y[j,0]/(R*T);
+                                um[j]=(1-n[j])*q/(rho_m*(1-y[j,1]))
+                                ug[j]=n[j]*q/(rho_g[j]*y[j,1])
+                                nd3[j]=ndfinal
+                                xf3[j]=xfinal
+                            sol4=np.column_stack((y[:,0],y[:,1], nd3,xf3, um, ug))
+                            sol = _pegar(sol, sol4)
             else:
                 n_eq=1
                 # consistent initial conditions
                 y0 = np.array([Pi, phini, Nd, xi, vinicial, vinicial])
                 yp0 = np.zeros_like(y0)
-                yp0 = momenteq1(had, y0)
-                y, t = solv(t0=H, tf=0, y0=y0, yp0=yp0, atol=errtol, rtol=errtol, n=1e4, param=n_eq, cond=limphi1)
+                if unificado:
+                    yp0 = momenteq1_u(H, y0)
+                    y, t = solv_u(t0=H, tf=0, y0=y0, yp0=yp0, atol=errtol, rtol=errtol, n=1e4)
+                    zsol=np.real(t)
+                    sol=np.real(y)
+                    xfinal = float(sol[sol[:,0].size-1, 3])
+                else:
+                    yp0 = momenteq1(had, y0)
+                    y, t = solv(t0=H, tf=0, y0=y0, yp0=yp0, atol=errtol, rtol=errtol, n=1e4, param=n_eq, cond=limphi1)
 
-                zsol=np.real(t)
-                sol=np.real(y)
+                    zsol=np.real(t)
+                    sol=np.real(y)
                 
-                Hi1,Pi1,phini1 = zsol[sol[:,0].size-1],sol[sol[:,0].size-1,0],sol[sol[:,0].size-1,1]
-                if (Hi1<0 and Pi1>pfinal) and phini1>=limphi1:
-                    um1, ug1, nd1, x1 = sol[sol[:,0].size-1,4],sol[sol[:,0].size-1,5],sol[sol[:,0].size-1,2],sol[sol[:,0].size-1,3]
-                    n_eq=2
-                    y0 = np.array([Pi1, phini1, nd1, x1, um1, ug1])
-                    yp0 = np.zeros_like(y0)
-                    yp0 = momenteq1(Hi1, y0)
-                    y, t = solv(t0=Hi1, tf=0, y0=y0, yp0=yp0, atol=errtol, rtol=errtol, n=1e4, param=n_eq, cond=limphi2)
+                    Hi1,Pi1,phini1 = zsol[sol[:,0].size-1],sol[sol[:,0].size-1,0],sol[sol[:,0].size-1,1]
+                    if (Hi1<0 and Pi1>pfinal) and phini1>=limphi1:
+                        um1, ug1, nd1, x1 = sol[sol[:,0].size-1,4],sol[sol[:,0].size-1,5],sol[sol[:,0].size-1,2],sol[sol[:,0].size-1,3]
+                        n_eq=2
+                        y0 = np.array([Pi1, phini1, nd1, x1, um1, ug1])
+                        yp0 = np.zeros_like(y0)
+                        yp0 = momenteq1(Hi1, y0)
+                        y, t = solv(t0=Hi1, tf=0, y0=y0, yp0=yp0, atol=errtol, rtol=errtol, n=1e4, param=n_eq, cond=limphi2)
                     
-                    zsol = _pegar_t(zsol, t)
-                    sol = _pegar(sol, y)  
+                        zsol = _pegar_t(zsol, t)
+                        sol = _pegar(sol, y)  
                 
-                Hi2,Pi2,phini2 = zsol[sol[:,0].size-1],sol[sol[:,0].size-1,0],sol[sol[:,0].size-1,1]
-                if (Hi2<0 and Pi2>pfinal) and phini2>=limphi2:
-                    um2, ug2, nd2, x2 = sol[sol[:,0].size-1,4],sol[sol[:,0].size-1,5],sol[sol[:,0].size-1,2],sol[sol[:,0].size-1,3]
-                    n_eq=3
-                    y0 = np.array([Pi2,phini2,nd2,x2,um2,ug2])
-                    yp0 = np.zeros_like(y0)
-                    yp0 = momenteq1(Hi2, y0)
-                    y, t = solv(t0=Hi2, tf=0, y0=y0, yp0=yp0, atol=errtol, rtol=errtol, n=1e4, param=n_eq, cond=phicrit)
+                    Hi2,Pi2,phini2 = zsol[sol[:,0].size-1],sol[sol[:,0].size-1,0],sol[sol[:,0].size-1,1]
+                    if (Hi2<0 and Pi2>pfinal) and phini2>=limphi2:
+                        um2, ug2, nd2, x2 = sol[sol[:,0].size-1,4],sol[sol[:,0].size-1,5],sol[sol[:,0].size-1,2],sol[sol[:,0].size-1,3]
+                        n_eq=3
+                        y0 = np.array([Pi2,phini2,nd2,x2,um2,ug2])
+                        yp0 = np.zeros_like(y0)
+                        yp0 = momenteq1(Hi2, y0)
+                        y, t = solv(t0=Hi2, tf=0, y0=y0, yp0=yp0, atol=errtol, rtol=errtol, n=1e4, param=n_eq, cond=phicrit)
 
-                    zsol = _pegar_t(zsol, t)
-                    sol = _pegar(sol, y) 
+                        zsol = _pegar_t(zsol, t)
+                        sol = _pegar(sol, y) 
                 
-                Hi3,Pi3,phini3, xfinal, ndfinal = zsol[sol[:,0].size-1],sol[sol[:,0].size-1,0],sol[sol[:,0].size-1,1],sol[sol[:,0].size-1,3],sol[sol[:,0].size-1,2]
-                if (Hi3<0 and Pi3>pfinal) and phini3>=phicrit:
-                    n_eq=4
-                    y0 = np.array([Pi3, phini3])
-                    yp0 = np.zeros_like(y0)
-                    yp0 = momenteq1(Hi3, y0)
-                    y, t = solv(t0=Hi3, tf=0, y0=y0, yp0=yp0, atol=errtol, rtol=errtol, n=1e4, param=n_eq)
+                    Hi3,Pi3,phini3, xfinal, ndfinal = zsol[sol[:,0].size-1],sol[sol[:,0].size-1,0],sol[sol[:,0].size-1,1],sol[sol[:,0].size-1,3],sol[sol[:,0].size-1,2]
+                    if (Hi3<0 and Pi3>pfinal) and phini3>=phicrit:
+                        n_eq=4
+                        y0 = np.array([Pi3, phini3])
+                        yp0 = np.zeros_like(y0)
+                        yp0 = momenteq1(Hi3, y0)
+                        y, t = solv(t0=Hi3, tf=0, y0=y0, yp0=yp0, atol=errtol, rtol=errtol, n=1e4, param=n_eq)
                     
-                    zsol = _pegar_t(zsol, t)
-                    y = np.atleast_2d(y)
-                    if y.size > 0 and y.shape[1] >= 2:
-                        numb2 = y[:,0].size
-                        um = np.zeros(numb2)
-                        ug = np.zeros(numb2)
-                        nd3 = np.zeros(numb2)
-                        xf3 = np.zeros(numb2)
-                        n = np.zeros(numb2)
-                        rho_g = np.zeros(numb2)
-                        for j in range(numb2):
-                            test = co - C1*y[j,0]**beta
-                            if test<=0:
-                                n[j] =0
-                            else:
-                                n[j] = (co - C1*y[j,0]**beta)/(1-C1*y[j,0]**beta)
-                            rho_g[j]=y[j,0]/(R*T);
-                            um[j]=(1-n[j])*q/(rho_m*(1-y[j,1]))
-                            ug[j]=n[j]*q/(rho_g[j]*y[j,1])
-                            nd3[j]=ndfinal
-                            xf3[j]=xfinal
-                        sol4=np.column_stack((y[:,0],y[:,1], nd3,xf3, um, ug))
-                        sol = _pegar(sol, sol4)
+                        zsol = _pegar_t(zsol, t)
+                        y = np.atleast_2d(y)
+                        if y.size > 0 and y.shape[1] >= 2:
+                            numb2 = y[:,0].size
+                            um = np.zeros(numb2)
+                            ug = np.zeros(numb2)
+                            nd3 = np.zeros(numb2)
+                            xf3 = np.zeros(numb2)
+                            n = np.zeros(numb2)
+                            rho_g = np.zeros(numb2)
+                            for j in range(numb2):
+                                test = co - C1*y[j,0]**beta
+                                if test<=0:
+                                    n[j] =0
+                                else:
+                                    n[j] = (co - C1*y[j,0]**beta)/(1-C1*y[j,0]**beta)
+                                rho_g[j]=y[j,0]/(R*T);
+                                um[j]=(1-n[j])*q/(rho_m*(1-y[j,1]))
+                                ug[j]=n[j]*q/(rho_g[j]*y[j,1])
+                                nd3[j]=ndfinal
+                                xf3[j]=xfinal
+                            sol4=np.column_stack((y[:,0],y[:,1], nd3,xf3, um, ug))
+                            sol = _pegar(sol, sol4)
         #Aquí termina la condición si el agua exsuelta es mayor a 0
         numb=sol[:,0].size
         ugexit,pexit,zexit,phiexit = sol[numb-1,5], sol[numb-1,0], zsol[numb-1], sol[numb-1,1]
@@ -919,7 +1211,13 @@ def RIconduitex5_5_suave_f(radius,Pressure, wt, Temperature, content_crystal,
                     if vmin < v_sec < vmax:
                         vinicial = v_sec
 
-        if pexit<pfinal:
+        ida_corto = unificado and zexit < -50 and phiexit < max(0.05, 0.25 * limphi1)
+        if ida_corto:
+            print("IDA no llegó a la boca (φ chica): subo v, no la bajo.")
+            vmin = v_shot
+            if vinicial == v_shot:
+                vinicial = vmin + (vmax - vmin) / 2
+        elif pexit<pfinal:
             vmax=v_shot
             if vinicial == v_shot:
                 vinicial=vmin + (vmax-vmin)/2
@@ -1018,6 +1316,16 @@ def RIconduitex5_5_suave_f(radius,Pressure, wt, Temperature, content_crystal,
             dvdr[j] = sol[j,3]/wr
 
     return [zsol, sol, count, vinicial, rho_m, rbub, visctot, rho_ti, fragcrit, phicrit, limphi1, limphi2, co, xi, xfinal, cg]
+
+
+def RIconduitex5_5_unificado_f(radius, Pressure, wt, Temperature, content_crystal,
+                               eps_frag=EPS_FRAG, eps_phi=EPS_PHI, eps_henry=EPS_HENRY,
+                               eps_re=EPS_RE, eps_xi=EPS_XI, eps_rb=EPS_RB):
+    """Alias. El import público es RIconduitex5_5_unificado (no este archivo)."""
+    return RIconduitex5_5_suave_f(
+        radius, Pressure, wt, Temperature, content_crystal,
+        eps_frag=eps_frag, eps_phi=eps_phi, eps_henry=eps_henry,
+        eps_re=eps_re, eps_xi=eps_xi, eps_rb=eps_rb, unificado=True)
 
 
 # alias por si alguien copia el unpack de mainconduit5_5
