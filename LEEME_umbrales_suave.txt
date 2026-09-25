@@ -18,4 +18,8 @@ tasa_xi ya no lo hace. henry=1e-4 está bien-ish; mejor 1e-6.
 
 Si el tiro no cierra: no interpolar al umbral (y0 inconsistente).
 n_eq 1–3 usa las mismas fuerzas que el original.
+
+DAE unificado (un solo IDA, pesos_regimen):
+  RIconduitex5_5_unificado.py
+  test_unificado.py
 La cámara de Calbuco está en H=−7000 m.

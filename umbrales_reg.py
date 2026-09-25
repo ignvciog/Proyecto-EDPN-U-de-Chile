@@ -78,7 +78,7 @@ def pesos_regimen(phi, limphi1, limphi2, phicrit,
     w2 = s1 * (1.0 - s2)
     w3 = s1 * s2 * (1.0 - sf)
     w4 = s1 * s2 * sf
-    return w1, w2, w3, w4
+    return w1, w2, w3, w4  # unificado: un IDA con Σ w_i F_i
 
 
 def mezclar_regimenes(w1, w2, w3, w4, a1, a2, a3, a4):
