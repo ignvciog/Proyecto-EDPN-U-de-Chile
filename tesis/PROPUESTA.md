@@ -3,6 +3,9 @@
 **Doble titulación: Geología + Ingeniería Matemática**
 Continuación del proyecto de conducto volcánico 1D/2D (Calbuco 2015) de este repositorio.
 
+**Lo que le das al profesor de matemáticas (3 pp., cuatro enunciados):**
+[`propuestas_inverso_control.pdf`](propuestas_inverso_control.pdf).
+
 **Documento formal (el que se les manda a ambos profesores):**
 [`propuesta_tesis_doble.pdf`](propuesta_tesis_doble.pdf)
 ([`.tex`](propuesta_tesis_doble.tex)). Ahí está el detalle: lado
