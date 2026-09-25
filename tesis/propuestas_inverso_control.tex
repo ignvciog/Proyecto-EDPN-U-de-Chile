@@ -136,7 +136,7 @@ Base: si $n=0$, $\varphi(H)=0$ y $u_m=u_g=v_{\mathrm{in}}$,
 $q=v_{\mathrm{in}}\rho_m$. Si $n>0$, $\varphi(H)$ por
 \eqref{eq:phi-noslip} y $q=v_{\mathrm{in}}\rho_{t,i}$.
 Boca: no se impone un valor de $u_m$; $\varphi(0)$ entra en
-el cierre efusivo/explosivo (I.F).
+el cierre efusivo/explosivo (I.B).
 
 % ----- MOVIMIENTO / P -----
 \subsection*{I.B Conservación de momentum, y la ecuación para $P$}
@@ -183,7 +183,11 @@ e&=-\rho_m(1-\varphi)\,g+F_{mg}-F_{mw}, &
 f&=\rho_g\varphi\,g+F_{mg}+F_{gw}.
 \end{align*}
 $\rho_g=P/(\Rv T)$ es la EOS del gas: da $\rho_g$ dado $P$,
-no determina $P$. Quien determina $P$ es~\eqref{eq:P-1d}.
+no determina $P$. Quien determina $P$ es~\eqref{eq:P-1d}:
+\textbf{ésa es la ecuación de $P$}. No falta otra.
+Conteo: seis incógnitas $(P,\varphi,N,\xi,u_m,u_g)$, seis
+ecuaciones~\eqref{eq:vel} + \eqref{eq:P-1d} + \eqref{eq:N-1d}
++ \eqref{eq:xi-1d}. El escalar $q$ lo cierra la boca.
 
 \textbf{Bordes de $P$ y $\varphi$.}
 Base: $P(H)=P_{\mathrm{lit}}+\Delta P=\rho_{\mathrm{crust}}g|H|+\Delta P$.
@@ -235,41 +239,175 @@ fragmentar, $\xi$ se congela.
 $\xi(0)$.
 
 % ----- CIERRES -----
-\subsection*{I.E Cierres que entran en las leyes}
+\subsection*{I.E Henry, $F_{mg}$ por régimen, viscosidad}
 
+\paragraph{Henry.}
 \begin{equation}
 \label{eq:henry}
 n(P,\xi)
 =\max\Biggl(0,\;
 \frac{(1-\xi_0)c_0-(1-\xi)\,C_1 P^{\beta}}{1-C_1 P^{\beta}}\Biggr).
 \end{equation}
-$r_b$ por~\eqref{eq:rb}. $F_{mg}=F_{mg}(\varphi,u_g-u_m,r_b)$
-cambia al cruzar $\varphi_1,\varphi_2,\varphi_{\mathrm{crit}}$.
-$\mu=\mu(P,\varphi,\xi)$.
+$r_b=r_b(\varphi,N)$ por~\eqref{eq:rb}.
+$Re_b=2r_b\rho_g|u_g-u_m|/\mu_g$, $\mu_g=10^{-5}\,\mathrm{Pa\,s}$.
+
+\paragraph{Regímenes: sí, parten el dominio.}
+Los umbrales $\varphi_1<\varphi_2<\varphi_{\mathrm{crit}}$
+(permeabilidad y fragmentación; dependen débilmente de $Ca$)
+parten $[H,0]$ en
+\begin{equation}
+\label{eq:tramos}
+\begin{aligned}
+J_1&=\{z:\;0\le\varphi(z)<\varphi_1\},\\
+J_2&=\{z:\;\varphi_1\le\varphi(z)<\varphi_2\},\\
+J_3&=\{z:\;\varphi_2\le\varphi(z)<\varphi_{\mathrm{crit}}\},\\
+J_4&=\{z:\;\varphi(z)\ge\varphi_{\mathrm{crit}}\}.
+\end{aligned}
+\end{equation}
+Las interfaces $z_k$ con $\varphi(z_k)=\varphi_k$ \textbf{no}
+se conocen de antemano: son bordes libres. El estado
+$\mathbf{y}$ es continuo al cruzarlas. En cada $J_k$ el DAE
+tiene la misma forma; cambia la fórmula de $F_{mg}$ (y en
+$J_4$ se apaga $F_{mw}$, aparece $F_{gw}$, se congelan $N$ y
+$\xi$). El 1D que ya corre integra tramo a tramo.
+
+\paragraph{$F_{mg}$ (arrastre gas--fundido).}
+Depende de $\varphi$, del slip $u_g-u_m$, de $r_b(\varphi,N)$
+y de $\mu$. Sobre el fundido; sobre el gas va con el signo
+contrario.
+
+Régimen 1 ($z\in J_1$): Stokes,
+\begin{equation}
+\label{eq:Fmg1}
+F_{mg}
+=\frac{3\mu}{r_b^2}\,(u_g-u_m)\,\varphi(1-\varphi).
+\end{equation}
+
+Régimen 2 ($z\in J_2$): $\theta=(\varphi-\varphi_1)/(\varphi_2-\varphi_1)$.
+Si $Re_b\le 2200$, Stokes--Darcy, $k=0.131\,r_b^2(\varphi-\varphi_1+0.05)^{2.1}$,
+\begin{equation}
+\label{eq:Fmg2}
+F_{mg}
+=\Biggl(\frac{\mu_g}{k}\Biggr)^\theta
+\Biggl(\frac{3\mu}{r_b^2}\Biggr)^{1-\theta}
+(u_g-u_m)\,\varphi(1-\varphi).
+\end{equation}
+Si $Re_b>2200$, lo mismo con
+$0.33\rho_g|u_g-u_m|/(4r_b)$ en lugar de $\mu_g/k$.
+
+Régimen 3 ($z\in J_3$): el extremo $\theta=1$ de lo anterior
+(Darcy o inercial, sin Stokes).
+
+Régimen 4 ($z\in J_4$, fragmentado): partícula en gas
+($r_a=10^{-3}\,\mathrm{m}$, $c_d=0.8$). Si
+$\varphi\ge\varphi_{\mathrm{crit}}+0.05$,
+\begin{equation}
+\label{eq:Fmg4}
+F_{mg}
+=\frac{3c_d}{8r_a}\,\rho_g\,|u_g-u_m|(u_g-u_m)\,\varphi(1-\varphi);
+\end{equation}
+en la capa de ancho $0.05$ se interpola con el régimen 3.
+Ahí $F_{mw}=0$ y
+$F_{gw}=0.01\,\rho_g|u_g|u_g/(4R)$.
+
+\paragraph{Viscosidad.}
+Sí depende de las variables:
+$\mu=\mu(P,\varphi,\xi,N,u_m)$. Tres piezas.
+
+1. Fundido, Giordano \emph{et al.} (2008):
+$\mu_\ell=\mu_{\mathrm{Gio}}(c_d,T,X)$, $T$ y la composición
+anhidra $X$ fijas (Calbuco). El agua disuelta sí cambia:
+$c_d=C_1 P^\beta$ si hay gas, $c_d=c_0$ si no. Luego
+$\mu_\ell=\mu_\ell(P)$.
+
+2. Cristales (medio efectivo de dos sólidos),
+$\dot\gamma=u_m/R$:
+\begin{equation}
+\label{eq:thxi}
+\theta_\xi
+=\Bigl(1-\frac{\xi_0}{\phi_{\max,1}}\Bigr)^{-2.5}
+\Bigl(1-\frac{\xi-\xi_0}{(1-\xi_0)\phi_{\max,2}}\Bigr)^{-2.5},
+\end{equation}
+$\phi_{\max,i}=0.656\exp\bigl(-(\log_{10}r_i)^2/(2\cdot1.08^2)\bigr)$,
+$r_1=4$, $r_2=8$. Luego $\theta_\xi=\theta_\xi(\xi)$.
+
+3. Burbujas (Llewellin), $Ca=r_b\mu_\ell\dot\gamma/3$,
+$\varphi_\ast=\varphi_{\mathrm{crit}}+0.05$,
+$A=(1-\varphi/\varphi_\ast)^{-\varphi_\ast}$,
+$B=(1-\varphi/\varphi_\ast)^{5\varphi_\ast/3}$,
+$c_1=-0.2895\varphi+0.8132$, $c_2=\varphi$:
+\begin{equation}
+\label{eq:mu}
+\mu
+=\Biggl(\tfrac12(A-B)\bigl(1-\mathrm{erf}(c_1\log Ca+c_2)\bigr)+B\Biggr)
+\theta_\xi\,\mu_\ell.
+\end{equation}
+$A,B,Ca$ dependen de $\varphi$, $N$ (vía $r_b$) y $u_m$ (vía
+$\dot\gamma$). En 1D, $F_{mw}=c_g\mu u_m/R^2$ con esta $\mu$.
 
 % ----- ACOPLAMIENTOS 1D -----
-\subsection*{I.F Acoplamientos (1D)}
+\subsection*{I.F Acoplamientos explícitos (1D)}
 
-\begin{center}
-\small
-\begin{tabular}{@{}lll@{}}
-\toprule
-bloque & necesita de & porque \\
-\midrule
-masa (vel.) & $P,\xi,\varphi,q$ & $n(P,\xi)$, $\rho_g(P)$,~\eqref{eq:vel} \\
-$P$ y $\varphi$ (mom.) & $u_m,u_g,N,\xi$ & inercia, $F_{mg}(r_b)$, $\mu$, $\p n/\p P$ \\
-$N$ & $\varphi,u_m,P,\xi$ & $\Gamma_N$, $r_b(\varphi,N)$ \\
-$\xi$ & $P,u_m$ & $\Gamma_\xi(P)$ y Henry (vuelve a $n$) \\
-tiro $q$ & $P(0)$ o $u_g(0)$ & cierra el sistema \\
-\bottomrule
-\end{tabular}
-\end{center}
+Cada cierre, con sus argumentos:
+\begin{equation}
+\label{eq:acop}
+\begin{aligned}
+n&=n(P,\xi),
+&
+\rho_g&=\rho_g(P)=P/(\Rv T),
+\\
+u_m&=U_m(P,\varphi,\xi;q),
+&
+u_g&=U_g(P,\varphi,\xi;q)
+\quad\text{por~\eqref{eq:vel}},
+\\
+r_b&=r_b(\varphi,N),
+&
+\mu&=\mu\bigl(P,\varphi,\xi,N,u_m\bigr),
+\\
+F_{mg}&=F_{mg}^{(k)}\bigl(\varphi,u_g-u_m,r_b,\mu,\rho_g\bigr)
+&
+&\text{si }z\in J_k,
+\\
+F_{mw}&=c_g\mu u_m/R^2
+&
+&\text{en }J_1\cup J_2\cup J_3,\ 0\text{ en }J_4.
+\end{aligned}
+\end{equation}
+El DAE, ya compuesto:
+\begin{equation}
+\label{eq:dae-acop}
+\begin{aligned}
+\frac{\dd P}{\dd z}
+&=\mathcal{P}\bigl(P,\varphi,N,\xi;q\bigr)
+&&\text{vía }u_m,u_g,\mu,F_{mg},F_{mw},\p n/\p P,
+\\
+\frac{\dd\varphi}{\dd z}
+&=\Phi\bigl(P,\varphi,N,\xi;q\bigr)
+&&\text{los mismos},
+\\
+\frac{\dd N}{\dd z}
+&=\frac{1}{u_m}\Gamma_N\bigl(P,\varphi,N,\xi,\mu\bigr),
+\\
+\frac{\dd\xi}{\dd z}
+&=\frac{1}{u_m}\Gamma_\xi(P,\xi).
+\end{aligned}
+\end{equation}
 
-Nada se resuelve solo. El lazo corto es
-$P\leftrightarrow n\leftrightarrow u_m,u_g\leftrightarrow$ momentum
-$\leftrightarrow P$. $N$ y $\xi$ entran más lento (fuerzas y
-Henry). $v_{\mathrm{in}}$ (luego $q$) se busca para cumplir
-la boca.
+Lazos, uno por uno:
+\begin{itemize}
+\item $P\to n\to u_m,u_g\to$ momentum $\to\dd P/\dd z$: lazo
+  corto. También $P\to\rho_g\to u_g,F_{mg}$ y $P\to c_d\to\mu$.
+\item $\varphi\to u_m,u_g$ (masa), $\varphi\to F_{mg},\mu$
+  (régimen y Llewellin), $\varphi\to$ tramo $J_k$.
+\item $N\to r_b\to F_{mg},\mu\to$ momentum $\to P,\varphi$.
+\item $\xi\to n$ (Henry) y $\xi\to\theta_\xi\to\mu$.
+\item $u_m\to\dot\gamma\to\mu\to F_{mw},F_{mg}$, y
+  $u_m$ divide $\Gamma_N,\Gamma_\xi$.
+\item $q$ (tiro) entra en $U_m,U_g$ y se fija con $P(0)$ o
+  $u_g(0)$.
+\end{itemize}
+Nada se resuelve solo.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section*{Parte II. El mismo orden en 2D}
@@ -407,10 +545,10 @@ r\,\mu(1-\varphi)\frac{\p u_{m,r}}{\p r}
 \Biggr].
 \end{aligned}
 \end{equation}
-$P=P(r,z)$. No se impone $P=P(z)$ aquí. La reducción
-cuando las componentes radiales se desprecian va más
-adelante, en~II.E. La EOS $\rho_g=P/(\Rv T)$ sigue sin
-ser la ecuación de $P$.
+$P=P(r,z)$. \textbf{\eqref{eq:P-2d} es la ecuación de $P$}
+(no falta otra; la EOS no determina $P$). No se impone
+$P=P(z)$ aquí. La reducción cuando las componentes radiales
+se desprecian va más adelante, en~II.E.
 
 Al integrar el viscoseo radial,
 \begin{equation}
@@ -475,6 +613,22 @@ Los mismos del 1D, más el radio:
   $\varphi,N,\xi$ no planos cambian $Q$: el $\Delta P$
   recuperado no es el del 1D.
 \end{itemize}
+
+Las fórmulas de I.E son las mismas, evaluadas en $(r,z)$:
+$n=n(P,\xi)$,
+$\mu=\mu(P,\varphi,\xi,N,u_m)$,
+$F_{mg}=F_{mg}^{(k)}(\varphi,u_g-u_m,r_b,\mu,\rho_g)$.
+Los tramos $J_k$ pasan a subdominios
+\begin{equation}
+\label{eq:Omegak}
+\Omega_k
+=\bigl\{(r,z)\in\Omega:\;
+\varphi\text{ está en el rango de }J_k\bigr\}.
+\end{equation}
+Las interfaces son las curvas de nivel
+$\varphi(r,z)=\varphi_k$, otra vez libres. El estado es
+continuo al cruzarlas. Si $\varphi=\varphi(z)$ (reducción),
+$\Omega_k=J_k\times[0,R]$ y se recupera el 1D a trozos.
 
 % ----- REDUCCIÓN -----
 \subsection*{II.E Reducción: componentes radiales despreciables}
