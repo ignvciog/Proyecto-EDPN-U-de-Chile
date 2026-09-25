@@ -107,6 +107,32 @@ def _cortar_cruce(y_all, t_all, y0, t0, cond):
     return y_all, t_all
 
 
+def _P_sH(sH_min=0.95, xcrys=None):
+    """Presión (más baja que Pcrit) donde s_henry >= sH_min.
+
+    No partir el DAE en test=0: ahí sH=1/2 y φ es minúscula.
+    """
+    if xcrys is None:
+        xcrys = xi
+    a = min(0.999999, max(-0.999999, 2.0 * sH_min - 1.0))
+    test_need = np.arctanh(a) * max(float(eps_henry), 1e-12)
+    rhs = (1.0 - xi) * co - test_need
+    den = (1.0 - xcrys) * C1
+    if rhs <= 0.0 or den <= 0.0:
+        return None
+    return float((rhs / den) ** (1.0 / beta))
+
+
+def _sanear_perfil(zsol, sol, zmin, zmax):
+    zsol = np.asarray(zsol, dtype=float).ravel()
+    sol = np.asarray(sol, dtype=float)
+    n = min(zsol.size, sol.shape[0])
+    zsol, sol = zsol[:n], sol[:n]
+    ok = np.isfinite(zsol) & np.all(np.isfinite(sol), axis=1)
+    ok &= (zsol >= zmin) & (zsol <= zmax)
+    return zsol[ok], sol[ok]
+
+
 def _fg_phi_vel(P, xcrys, qmass, rhom):
     """fg, phi, um, ug con la misma rampa de Henry que momenteq.
 
@@ -460,9 +486,11 @@ def solv(t0, tf, y0, yp0, atol, rtol, n, param, cond=None):
                 y_anterior = y_actual
 
         if len(y_values) == 0:
-            # step() no avanzó: solve() hasta tf y recortar al cruce
+            # step() no avanzó: solve() solo un tramo corto (no hasta z=0)
+            z_corto = 0.0 if t0 >= -80.0 else min(0.0, t0 + 80.0)
+            tspan2 = np.linspace(t0, z_corto, max(400, int(n) // 25))
             solver = _armar(True, first_step=None)
-            solution = solver.solve(tspan, y0, yp0)
+            solution = solver.solve(tspan2, y0, yp0)
             y_all, t_all = solution.values.y, solution.values.t
             if y_all is None or np.asarray(y_all).size == 0:
                 return vacio
@@ -638,9 +666,10 @@ def RIconduitex5_5_suave_f(radius,Pressure, wt, Temperature, content_crystal,
 
             
             deltP=Pi-Pcrit 
-            deltH=-deltP/dpdzcalc 
-            
-            Hi=H+deltH
+            deltH=-deltP/dpdzcalc
+            if not np.isfinite(deltH) or deltH <= 0.0:
+                deltH = min(abs(deltP) / max(abs(dpdzcalc), 1.0), abs(H) * 0.8)
+            Hi=float(np.clip(H+deltH, H, -1e-3))
             hspacing = 500
 
             zetash = np.zeros(hspacing)
@@ -672,8 +701,12 @@ def RIconduitex5_5_suave_f(radius,Pressure, wt, Temperature, content_crystal,
                     if Hi>(-epsd):
                         epsd=-Hi/10
 
-                    had=Hi+epsd  #altura (o prof) adicional
-                    Pad=Pcrit + dpdzcalc*epsd  #presión a esa prof. adicional
+                    had=Hi+epsd
+                    Pad=Pcrit + dpdzcalc*(had-Hi)
+                    P_ok = _P_sH(0.95, xi)
+                    if P_ok is not None and P_ok < Pad and dpdzcalc < 0.0:
+                        had = float(np.clip(Hi + (P_ok - Pcrit) / dpdzcalc, Hi + epsd, -1e-3))
+                        Pad = Pcrit + dpdzcalc*(had-Hi)
                     fgad, phiad, viadm, viadg = _fg_phi_vel(Pad, xi, q, rho_m)
                     ## Fin calculo
                     
@@ -888,6 +921,12 @@ def RIconduitex5_5_suave_f(radius,Pressure, wt, Temperature, content_crystal,
         )
 
     #results = np.concatenate((zsol[:,None],sol),axis=1)#Los resultados son en la primera fila la prof. y en las demás P, cont. burbujas, vm y ug, respectivamente
+
+    zsol, sol = _sanear_perfil(zsol, sol, H - 50.0, 20.0)
+    if zsol.size == 0:
+        zsol = np.array([H, 0.0])
+        sol = np.zeros((2, 6))
+        count = 60
 
     numb=sol[:,0].size
 

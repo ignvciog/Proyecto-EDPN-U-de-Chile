@@ -12,13 +12,19 @@ from __future__ import annotations
 
 import numpy as np
 
-# ── anchos de partida (los mismos de la nota) ─────────────────────────────
-EPS_PHI = 0.01          # limphi1, limphi2
-EPS_FRAG = 0.04         # phicrit (fuerzas / n_eq=4)
-EPS_HENRY = 1e-3        # test = agua exsuelta (fracción másica)
-EPS_RE = 300.0          # Re = 2200
-EPS_XI = 1e-3           # softplus de cristales
-EPS_RB = 0.05           # fracción de R: guarda r_b < 0.5 R
+# ── anchos para CORRER el DAE (pegados al if; si no, el tiro salta) ──────
+# Los anchos anchos (0.04, 1e-3, 300) son solo para MIRAR la rampa
+# en el notebook. En Calbuco, test en Pcrit es ~1e-6: eps_henry=1e-3
+# deja sH≈1/2 y φ salta 0→1 en una celda (el gráfico de −70 km).
+EPS_PHI = 0.003         # limphi1, limphi2 (están a 0.01)
+EPS_FRAG = 0.015        # phicrit
+EPS_HENRY = 1e-6        # test (fracción másica); << 1e-3
+EPS_RE = 80.0           # Re = 2200
+EPS_XI = 3e-4           # softplus de cristales
+EPS_RB = 0.02           # fracción de R
+
+# anchos anchos solo para los gráficos de rampa
+EPS_VISTA = dict(phi=0.01, frag=0.04, henry=1e-3, re=300.0, xi=1e-3, rb=0.05)
 RE_CRIT = 2200.0
 RB_LIM = 0.5            # r_b / R
 
