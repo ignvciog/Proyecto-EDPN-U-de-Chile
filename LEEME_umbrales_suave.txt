@@ -15,4 +15,7 @@ Para CORRER el DAE hay que pasar EPS_RUN a RIconduitex5_5_suave_f(...).
 Si el perfil “no se ve como antes” (ξ 0.25→0.35, φ salta a −20 km):
 era un softplus extra sobre dx/dz. softplus(0, eps) ≈ 0.69*eps /m.
 tasa_xi ya no lo hace. henry=1e-4 está bien-ish; mejor 1e-6.
+
+Si el tiro no cierra: no interpolar al umbral (y0 inconsistente).
+n_eq 1–3 usa las mismas fuerzas que el original.
 La cámara de Calbuco está en H=−7000 m.

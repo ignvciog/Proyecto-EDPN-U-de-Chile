@@ -30,9 +30,34 @@ def test_default_eps_xi_es_el_de_f2_f3():
     assert EPS_XI <= 1e-4
 
 
+def test_cortar_deja_el_punto_que_cruzo():
+    import sys
+    import types
+    import numpy as np
+
+    if "scikits.odes" not in sys.modules:
+        scikits = types.ModuleType("scikits")
+        odes = types.ModuleType("scikits.odes")
+        odes.dae = lambda *a, **k: None
+        sys.modules["scikits"] = scikits
+        sys.modules["scikits.odes"] = odes
+    from RIconduitex5_5_suave import _cortar_cruce
+
+    y0 = np.array([1e8, 0.05, 1e13, 0.25, 10.0, 10.0])
+    y_all = np.array([
+        [9e7, 0.10, 1e13, 0.25, 10.0, 10.0],
+        [8e7, 0.25, 1e13, 0.25, 12.0, 15.0],
+    ])
+    t_all = np.array([-2000.0, -1000.0])
+    y2, t2 = _cortar_cruce(y_all, t_all, y0, -3000.0, 0.20)
+    assert abs(y2[-1, 1] - 0.25) < 1e-15
+    assert abs(t2[-1] + 1000.0) < 1e-12
+
+
 if __name__ == "__main__":
     test_softplus_cero_no_es_cero()
     test_tasa_subsaturada_no_crece()
     test_tasa_igual_al_max0_si_lejos()
     test_default_eps_xi_es_el_de_f2_f3()
+    test_cortar_deja_el_punto_que_cruzo()
     print("ok")
