@@ -261,7 +261,14 @@ $v_{\mathrm{in}}$ \textbf{no} es dato: es el parámetro de tiro
 del directo, igual que en 1D.
 
 \paragraph{Boca $z=0$ (salida).}
-El DAE/EDP es el mismo; cambia el cierre de salida (como en 1D):
+El sistema es el mismo; cambia el cierre de salida (como en 1D).
+Efusivo: llega sin fragmentar.
+Explosivo: fragmentó, y en la boca se cumple \textbf{una} de
+dos cosas (Yoshida--Koyaguchi): o la presión ya bajó a la
+atmosférica, o el gas llegó a su velocidad del sonido
+isoterma $c_s=\sqrt{\Rv T}$ (flujo sónico: no puede seguir
+acelerando dentro del conducto; $P(0)$ puede quedar
+$>P_{\mathrm{atm}}$). No es una onda de choque.
 \begin{align}
 \label{eq:bc-boca}
 \text{efusivo:}&\quad
@@ -271,7 +278,8 @@ P(r,0)=P_{\mathrm{atm}}
 \\
 \text{explosivo:}&\quad
 P(r,0)=P_{\mathrm{atm}}
-\quad\text{o choque }u_g=c_{\mathrm{son}}.
+\quad\text{o}\quad
+u_g(r,0)\approx c_s=\sqrt{\Rv T}.
 \end{align}
 Eso cierra el tiro: se busca $v_{\mathrm{in}}$ (luego $Q$) para
 cumplir~\eqref{eq:bc-boca}.
