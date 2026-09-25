@@ -1,0 +1,35 @@
+Laboratorio de umbrales + lo necesario para correrlo en local
+==============================================================
+
+RIconduitex5_5.py y RIconduitef5_5.py NO se modificaron.
+Los experimentos de rampas van en los archivos *_reg / *_suave.
+
+1. Gráficos de las rampas (sin IDA, solo numpy + matplotlib)
+   jupyter notebook regularizar_umbrales.ipynb
+   Cambiá el dict EPS y volvé a correr.
+   Las figuras ya renderizadas están en umbrales_reg_figuras/
+
+2. Solver suave (necesita scikits.odes / SUNDIALS IDA)
+   pip install numpy matplotlib scikit-odes
+   En la última celda del notebook descomentá RIconduitex5_5_suave_f(...)
+
+Archivos
+--------
+umbrales_reg.py                 todas las rampas
+figuras_umbrales.py             regenera los PNG
+regularizar_umbrales.ipynb      laboratorio (acá se ven los gráficos)
+RIconduitex5_5_suave.py         DAE con todos los umbrales suaves
+umbrales_reg_figuras/           01–10
+
+fragmentacion_reg.py            solo fragmentación
+RIconduitex5_5_reg.py           explosivo + rampa de φ_crit
+regularizar_fragmentacion.ipynb
+
+RIconduitex5_5.py               original explosivo
+RIconduitef5_5.py               original efusivo
+density.py viscosity.py fvrel.py calbuco2015d.py
+mainconduit5_5.ipynb
+mainconduit_ambos.ipynb
+casos/
+
+tesis/*.pdf                     propuesta, nota, mates, presentación
