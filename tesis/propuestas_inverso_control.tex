@@ -1,0 +1,201 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish,es-noshorthands]{babel}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2.4cm]{geometry}
+\usepackage{booktabs}
+\usepackage{microtype}
+\usepackage{enumitem}
+\usepackage[colorlinks=true,linkcolor=black,citecolor=black,urlcolor=blue]{hyperref}
+
+\newcommand{\pc}{\ifmmode\text{\,\%}\else\,\%\fi}
+\newcommand{\MER}{\mathrm{MER}}
+\newcommand{\dd}{\,\mathrm{d}}
+\newcommand{\p}{\partial}
+\newcommand{\F}{\mathcal{F}}
+
+\title{\vspace{-1.4cm}
+\textbf{Cuatro problemas para el profesor de matemáticas}\\[0.35em]
+\large Inverso y control sobre el modelo bifásico de conducto}
+\author{Ignacio Gómez Gómez\\[0.2em]
+{\small Doble titulación Geología / Ingeniería Matemática}}
+\date{\today}
+
+\begin{document}
+\maketitle
+\vspace{-0.7cm}
+
+\noindent
+Esto es lo que le daría. No el PDF de 19 páginas: \textbf{cuatro enunciados}.
+El operador directo ya existe (DAE bifásico 1D, dos tiros: explosivo y
+efusivo). El modelo no se reescribe. La tesis es el inverso ---o el control---
+sobre ese operador.
+
+\medskip
+\noindent
+El operador:
+\[
+\F(\theta)
+=\bigl(q_{\mathrm{ex}}^\ast(\theta),\;q_{\mathrm{ef}}^\ast(\theta)\bigr),
+\qquad
+\theta=\bigl(R(\cdot),\,P_{\mathrm{cam}},\,c_0,\,T,\,\xi_0,\ldots\bigr).
+\]
+Dato: $d^{\mathrm{obs}}=\F(\theta^\dagger)+\varepsilon$
+(tasa de descarga, estilo, a veces $\MER(t)$).
+
+\bigskip
+\noindent
+\textbf{Le daría (1) como tesis, (2) como alternativa más ``EDP de libro'',
+(3) si quiere teoría clásica, (4) si quiere control.}
+No le daría las veinte ideas del catálogo.
+
+% ---------------------------------------------------------------------------
+\section*{1. Inverso de geometría --- \emph{el que yo propondría}}
+
+\paragraph{Tipo.} Problema inverso de coeficiente / de dominio en dimensión
+infinita. Unicidad, estabilidad, regularización.
+
+\paragraph{Enunciado.}
+Dado $d^{\mathrm{obs}}$ (un $\MER$, o una curva $\MER(t)$), hallar la sección
+$R(\cdot)$ del conducto. En el recorte de lubricación ya se demuestra que
+$\F$ \textbf{no es inyectivo}:
+\[
+\MER\cdot J_4[R]
+=\mathrm{const},
+\qquad
+J_4[R]=\int_H^{z_f}R(z)^{-4}\,\dd z.
+\]
+El nulo de $DJ_4$ es de \textbf{codimensión 1}: de las infinitas
+perturbaciones de $R$, todas menos una son invisibles. Verificado a
+$10^{-7}$.
+
+\paragraph{La tesis.} ¿Sobrevive eso en el DAE bifásico
+($u_g\neq u_m$, arrastre, dos ramas de tiro)? Si sí: caracterizar el
+nuevo funcional y regularizar (Tikhonov / TV) eligiendo un representante.
+Si no: unicidad condicional ---qué dato extra ($\phi(0)$, $z_f$,
+texturas) restaura inyectividad.
+
+\paragraph{Por qué es tesis de DIM.} Hadamard (P1)--(P3) sobre un
+operador que ya corre. Hay un teorema en el recorte y una pregunta
+abierta en el sistema completo. Calbuco es la aplicación, no el tema.
+
+\paragraph{Lo que \emph{no} es.} Ajustar un radio escalar con MCMC y
+reportar un número.
+
+% ---------------------------------------------------------------------------
+\section*{2. Problema lateral / control de frontera --- \emph{si quiere EDP}}
+
+\paragraph{Tipo.} Inverso: problema \emph{sideways} para una parabólica
+no lineal. Control: control de Dirichlet en $z=H$.
+
+\paragraph{La EDP} (recorte transiente, cámara + conducto):
+\begin{equation}
+\label{eq:parab}
+A(z)\,\rho'(P)\,\p_t P
+=\p_z\Bigl[k(z)\,\rho(P)\bigl(\p_z P+\rho g\bigr)\Bigr],
+\qquad z\in[H,z_f].
+\end{equation}
+El dato $\MER(t)$ se lee en $z=z_f$. La incógnita vive en $z=H$.
+
+\paragraph{Enunciado inverso.}
+Recuperar $P_{\mathrm{cam}}(t):=P(H,t)$ a partir de $\MER(t)$.
+Es el problema de la ecuación del calor lateral: severamente mal
+puesto, estabilidad condicional tipo Hölder bajo condición de fuente,
+regularización conocida (Eldén--Berntsson--Regińska).
+
+\paragraph{Enunciado de control} (la misma ecuación, la otra flecha).
+Dado un caudal deseado $\MER_{\mathrm{des}}(t)$ (o un estilo: fragmentar
+/ no fragmentar), hallar un control
+$u(t)=P_{\mathrm{cam}}(t)$ ---o una recarga $Q_{\mathrm{in}}(t)$---
+tal que la solución de~\eqref{eq:parab} cumpla
+\[
+\MER[P(\,\cdot\,;u)](t)\approx\MER_{\mathrm{des}}(t).
+\]
+Es control de frontera de una parabólica no lineal. La
+controlabilidad es el teorema; Calbuco es el ejemplo
+(¿se puede frenar o sostener la columna actuando sobre la cámara?).
+
+\paragraph{Por qué se lo daría.} Si el profesor dice ``quiero una EDP
+con teoría clásica, no un DAE de un código''. Es tesis de ingeniería
+matemática \emph{sin} discutir con geología el operador. El costo: se
+trabaja en el recorte, no en el bifásico completo.
+
+% ---------------------------------------------------------------------------
+\section*{3. Identificación de un coeficiente de Robin --- \emph{si quiere teoría}}
+
+\paragraph{Tipo.} Problema inverso de coeficiente de frontera.
+Unicidad y estabilidad logarítmica ya existen (Chaabane--Jaoua,
+Inglese, Sincich).
+
+\paragraph{Enunciado.}
+El 2D del repositorio impone $u_m=0$ en la pared. Reemplazar por Navier
+\[
+\mu\,\p_r u_m=-\beta(z)\,u_m
+\quad\text{en }r=R,
+\]
+y recuperar $\beta(\cdot)$ desde $\MER(t)$, sismicidad de borde y
+texturas. $\beta$ es la zona de cizalle (drumbeats de St.\ Helens).
+
+\paragraph{Por qué se lo daría.} Teoría hecha; la tesis es pasarla a
+este operador y ver qué dato de frontera identifica $\beta$. Artículo
+independiente, no el núcleo.
+
+% ---------------------------------------------------------------------------
+\section*{4. Control de estilo --- \emph{si quiere control de un DAE}}
+
+\paragraph{Tipo.} Control de un DAE no lineal con dos blancos.
+No es control de EDP en el sentido de Lions; es control de un
+problema de tiro con dos condiciones de superficie.
+
+\paragraph{Enunciado.}
+El mismo $\theta$ puede dar $q_{\mathrm{ex}}$, $q_{\mathrm{ef}}$,
+ambos o ninguno. Particionar $\Theta$ en
+\[
+\Theta_{\mathrm{ex}},\quad
+\Theta_{\mathrm{ef}},\quad
+\Theta_{\mathrm{ambos}},\quad
+\Theta_{\varnothing}.
+\]
+Problema de control: dados un estado inicial y un estilo deseado
+(``quiero efusivo'', ``quiero apagar la rama explosiva''), ¿existe
+un control en $(R,\Delta P,c_0)$ ---o una historia $P_{\mathrm{cam}}(t)$---
+que lleve el sistema a $\Theta_{\mathrm{ef}}$? Merapi y Caulle son
+los casos donde $\Theta_{\mathrm{ambos}}\neq\varnothing$.
+
+\paragraph{Por qué se lo daría.} Es la pregunta que el paper JGR 2025
+deja abierta, escrita como control. Riesgo: menos teoremas de estantería
+que (2) o (3); más análisis numérico del conjunto alcanzable.
+
+% ---------------------------------------------------------------------------
+\section*{Qué \emph{no} le daría como tesis de matemáticas}
+
+\begin{itemize}[leftmargin=1.2em]
+\item ``Invertir Calbuco y sacar $\Delta P$''. Eso es la aplicación
+  del (1), no el problema.
+\item Reescribir el solver, hacer 3D, o un emulador. Infraestructura.
+\item El catálogo A1--E7 entero. Son variantes; él tiene que elegir
+  \emph{un} enunciado.
+\end{itemize}
+
+% ---------------------------------------------------------------------------
+\section*{La frase para la reunión}
+
+\begin{quote}
+\textit{El modelo directo ya corre. Propongo el inverso de la geometría
+del conducto: demostrar qué parte de $R(\cdot)$ es invisible para el
+caudal ---ya lo es en un recorte, $J_4$--- y si eso sobrevive en el
+bifásico. Si prefiere una EDP clásica, el mismo recorte da un sideways /
+control de $P_{\mathrm{cam}}(t)$. Si prefiere teoría de coeficiente,
+Robin en la pared. Si prefiere control, particionar el espacio de
+parámetros por estilo eruptivo y ver qué es alcanzable.}
+\end{quote}
+
+Mi orden: \textbf{(1) núcleo}, (2) si pide EDP, (3) artículo extra,
+(4) el gancho con geología (estilo). Los cuatro son compatibles con
+una sola tesis de doble titulación: (1)+(4) son el hilo; (2) o (3) se
+agregan según lo que él quiera.
+
+\end{document}
