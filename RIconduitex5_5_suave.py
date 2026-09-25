@@ -1223,7 +1223,7 @@ def RIconduitex5_5_suave_f(radius,Pressure, wt, Temperature, content_crystal,
 def RIconduitex5_5_unificado_f(radius, Pressure, wt, Temperature, content_crystal,
                                eps_frag=EPS_FRAG, eps_phi=EPS_PHI, eps_henry=EPS_HENRY,
                                eps_re=EPS_RE, eps_xi=EPS_XI, eps_rb=EPS_RB):
-    """Un solo IDA: F = Σ w_i F^{(i)} con pesos_regimen. El de 4 tramos no se toca."""
+    """Alias. El import público es RIconduitex5_5_unificado (no este archivo)."""
     return RIconduitex5_5_suave_f(
         radius, Pressure, wt, Temperature, content_crystal,
         eps_frag=eps_frag, eps_phi=eps_phi, eps_henry=eps_henry,

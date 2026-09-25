@@ -20,6 +20,9 @@ Si el tiro no cierra: no interpolar al umbral (y0 inconsistente).
 n_eq 1–3 usa las mismas fuerzas que el original.
 
 DAE unificado (un solo IDA, pesos_regimen):
-  RIconduitex5_5_unificado.py
+  RIconduitex5_5_unificado.py   autónomo: no importa de suave
   test_unificado.py
+Si el import pide RIconduitex5_5_unificado_f a suave, el unificado.py
+es el wrapper viejo. Reemplazalo por este y poné umbrales_reg.py
+(con tasa_xi y pesos_regimen) al lado. El zip ambos-casos no basta.
 La cámara de Calbuco está en H=−7000 m.

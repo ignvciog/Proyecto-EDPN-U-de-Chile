@@ -19,6 +19,7 @@ umbrales_reg.py                 todas las rampas
 figuras_umbrales.py             regenera los PNG
 regularizar_umbrales.ipynb      laboratorio (acá se ven los gráficos)
 RIconduitex5_5_suave.py         DAE con todos los umbrales suaves
+RIconduitex5_5_unificado.py     un IDA (autónomo; no importa de suave)
 umbrales_reg_figuras/           01–10
 
 fragmentacion_reg.py            solo fragmentación
