@@ -370,8 +370,8 @@ r\,\mu_g\varphi\frac{\p u_g}{\p r}
 \Biggr].
 \end{align}
 \textbf{Ecuación para $P$} (las dos componentes de $\nabla P$).
-De~\eqref{eq:mom-m-z} se despeja $\p P/\p z$. Del momentum
-radial del fundido, $\p P/\p r$:
+Es el mismo viscoseo de~\eqref{eq:mom-m-z}, pasado al otro
+lado: no hay un tensor nuevo.
 \begin{equation}
 \label{eq:P-2d}
 \begin{aligned}
@@ -382,14 +382,29 @@ u_{m,r}\frac{\p u_m}{\p r}+u_m\frac{\p u_m}{\p z}
 \Biggr)
 -\rho_m(1-\varphi)\,g
 +F_{mg}
-+\mathrm{div}\,\tau_m^{(z)},
-\\[0.25em]
+\\
+&\quad
++\frac{1}{r}\frac{\p}{\p r}\Biggl[
+r\,\mu(1-\varphi)\frac{\p u_m}{\p r}
+\Biggr]
++\frac{\p}{\p z}\Biggl[
+\mu(1-\varphi)\frac{\p u_m}{\p z}
+\Biggr],
+\\[0.4em]
 (1-\varphi)\frac{\p P}{\p r}
 &=
 -\rho_m(1-\varphi)\Biggl(
 u_{m,r}\frac{\p u_{m,r}}{\p r}+u_m\frac{\p u_{m,r}}{\p z}
 \Biggr)
-+\mathrm{div}\,\tau_m^{(r)}.
+\\
+&\quad
++\frac{1}{r}\frac{\p}{\p r}\Biggl[
+r\,\mu(1-\varphi)\frac{\p u_{m,r}}{\p r}
+\Biggr]
+-\mu(1-\varphi)\frac{u_{m,r}}{r^2}
++\frac{\p}{\p z}\Biggl[
+\mu(1-\varphi)\frac{\p u_{m,r}}{\p z}
+\Biggr].
 \end{aligned}
 \end{equation}
 $P=P(r,z)$. No se impone $P=P(z)$ aquí. La reducción
@@ -516,17 +531,16 @@ r\,\mu_g\varphi\frac{\p u_g}{\p r}
 \end{align}
 (Se omitió $\p/\p z$ del esfuerzo axial: es $O(\varepsilon^2)$
 si $\varepsilon=R/|H|\ll 1$.) En el eje $r$, con
-$u_{m,r}=0$,~\eqref{eq:P-2d}$_2$ se reduce a
+$u_{m,r}=0$, el lado derecho de~\eqref{eq:P-2d}$_2$ se anula
+y queda
 \begin{equation}
 \label{eq:P-red}
-(1-\varphi)\frac{\p P}{\p r}
-=\mathrm{div}\,\tau_m^{(r)}.
+\frac{\p P}{\p r}=0
+\qquad\Rightarrow\qquad
+P=P(z).
 \end{equation}
-Si ese viscoseo radial también se desprecia (lubricación),
-$\p P/\p r=0$ y \textbf{$P=P(z)$}. Entonces~\eqref{eq:P-red}
-deja de ser una ecuación para $P(r)$: $P(z)$ sale de
-integrar~\eqref{eq:mom-red} (o su promedio en la sección).
-$F_{mw}$ y $F_{gw}$ siguen siendo~\eqref{eq:Fmw}.
+$P(z)$ sale de integrar~\eqref{eq:mom-red} (o su promedio en
+la sección). $F_{mw}$ y $F_{gw}$ siguen siendo~\eqref{eq:Fmw}.
 
 \paragraph{$N$ y $\xi$.}
 Cae el transporte en $r$:
