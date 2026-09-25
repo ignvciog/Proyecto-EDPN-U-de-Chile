@@ -30,6 +30,7 @@ build/
 !tesis/matematica_modelo_bifasico.pdf
 !tesis/propuesta_tesis_doble.pdf
 !tesis/propuestas_inverso_control.pdf
+!umbrales_reg_figuras/*.png
 
 # Cache regenerable del prototipo
 tesis/prototipo/cache/
