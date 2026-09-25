@@ -52,6 +52,61 @@ suppress_Fmw = False
 radial_Fmw_override = None
 
 
+def _fin(x, fill=0.0):
+    """NaN/inf → número finito, para que IDA no muera en silencio."""
+    x = np.asarray(x, dtype=float)
+    out = np.nan_to_num(x, nan=fill, posinf=1e30, neginf=-1e30)
+    return float(out) if out.ndim == 0 else out
+
+
+def _vel_algebraicas(P, phi, xcrys, qmass, rhom):
+    """um, ug del DAE con la misma rampa de Henry (no recalcula phi)."""
+    test = (1.0 - xi) * co - (1.0 - xcrys) * C1 * P ** beta
+    fg_sat = (co * (1.0 - xi) - C1 * (1.0 - xcrys) * P ** beta) / ((1.0 - C1 * P ** beta))
+    fg = float(s_henry(test, eps_henry)) * fg_sat
+    if phi <= 1e-16 or fg <= 1e-16:
+        um = qmass / rhom
+        return um, um
+    rho_g = P / (R * T)
+    um = qmass * (1.0 - fg) / ((1.0 - phi) * rhom)
+    ug = qmass * fg / (phi * rho_g)
+    return um, ug
+
+
+def _como_filas(y, ncomp):
+    y = np.asarray(y, dtype=float)
+    if y.size == 0:
+        return None
+    if y.ndim == 1:
+        return y.reshape(1, -1) if y.size == ncomp else None
+    return y if y.shape[1] == ncomp else None
+
+
+def _pegar(sol, y):
+    y2 = _como_filas(y, sol.shape[1])
+    return sol if y2 is None else np.vstack((sol, y2))
+
+
+def _pegar_t(zsol, t):
+    t = np.asarray(t, dtype=float).ravel()
+    return zsol if t.size == 0 else np.append(zsol, t)
+
+
+def _cortar_cruce(y_all, t_all, y0, t0, cond):
+    """Recorta solve() al primer cruce de phi=cond (como el loop de step)."""
+    y_all = np.atleast_2d(np.asarray(y_all, dtype=float))
+    t_all = np.asarray(t_all, dtype=float).ravel()
+    if y_all.size == 0 or t_all.size == 0:
+        return np.atleast_2d(y0), np.atleast_1d(float(t0))
+    phi0 = float(y0[1])
+    for i in range(y_all.shape[0]):
+        phi = float(y_all[i, 1])
+        if (phi0 < cond and phi >= cond) or (phi0 > cond and phi <= cond):
+            return y_all[: i + 1], t_all[: i + 1]
+        phi0 = phi
+    return y_all, t_all
+
+
 def _fg_phi_vel(P, xcrys, qmass, rhom):
     """fg, phi, um, ug con la misma rampa de Henry que momenteq.
 
@@ -135,19 +190,20 @@ def momenteq(t, y, yprime, result):
             Fmg=3*visc*(y[5]-y[4])*y[1]*(1-y[1])/(rb**2)
 
         if n_eq==2:
-            tt=(y[1]-limphi1)/(limphi2-limphi1)
+            tt=float(np.clip((y[1]-limphi1)/(limphi2-limphi1), 0.0, 1.0))
             Re=2*rb*rho_g*(y[5]-y[4])/(1e-5)
             kper=0.131*(rb**2)*((y[1]-limphi1 + 0.05)**2.1)
-            Fmg_in=((0.33/(4*rb))*rho_g*np.abs(y[5]-y[4])**tt)*(((3)*visc*(1/(rb**2)))**(1-tt))*(y[5]-y[4])*y[1]*(1-y[1])
+            slip=np.abs(y[5]-y[4])
+            Fmg_in=((0.33/(4*rb))*rho_g*(slip**tt))*(((3)*visc*(1/(rb**2)))**(1-tt))*(y[5]-y[4])*y[1]*(1-y[1])
             Fmg_st=((1e-5/kper)**tt)*(((3)*visc*(1/(rb**2)))**(1-tt))*(y[5]-y[4])*y[1]*(1-y[1])
-            Fmg=mezclar(float(s_re(Re, eps=eps_re)), Fmg_st, Fmg_in)
+            Fmg=mezclar(float(s_re(Re, eps=eps_re)), _fin(Fmg_st), _fin(Fmg_in))
 
         if n_eq==3:
             Re=2*rb*rho_g*(y[5]-y[4])/(1e-5)
             kper=0.131*(rb**2)*((y[1]-limphi1 + 0.05)**2.1)
             Fmg_in=(0.33/(4*rb))*rho_g*(y[5]-y[4])*(y[5]-y[4])*y[1]*(1-y[1])
             Fmg_st=(1e-5/kper)*(y[5]- y[4])*y[1]*(1-y[1])
-            Fmg=mezclar(float(s_re(Re, eps=eps_re)), Fmg_st, Fmg_in)
+            Fmg=mezclar(float(s_re(Re, eps=eps_re)), _fin(Fmg_st), _fin(Fmg_in))
 
         Fmw, Fgw, Fmg, sfrag = _mezclar_fragmentacion(
             y[1], rho_g, y[4], y[5], Fmw, Fgw, Fmg)
@@ -183,10 +239,10 @@ def momenteq(t, y, yprime, result):
         dNdt = (1.0 - sfrag) * dNdt
         dxdz = (1.0 - sfrag) * dxdz
 
-        result[0] = -yprime[0] + dpdz 
-        result[1] = -yprime[1] + dphidz
-        result[2] = -yprime[2] + dNdt/y[4]
-        result[3] = -yprime[3] + dxdz
+        result[0] = -yprime[0] + _fin(dpdz)
+        result[1] = -yprime[1] + _fin(dphidz)
+        result[2] = -yprime[2] + _fin(dNdt/y[4])
+        result[3] = -yprime[3] + _fin(dxdz)
         result[4] =  y[4] - q*(1-fg)/((1-y[1])*rho_m)
         result[5] = y[5] - q*fg/(y[1]*rho_g)
 
@@ -269,19 +325,20 @@ def momenteq1(t, y):
             Fmg=3*visc*(y[5]-y[4])*y[1]*(1-y[1])/(rb**2)
 
         if n_eq==2:
-            tt=(y[1]-limphi1)/(limphi2-limphi1)
+            tt=float(np.clip((y[1]-limphi1)/(limphi2-limphi1), 0.0, 1.0))
             Re=2*rb*rho_g*(y[5]-y[4])/(1e-5)
             kper=0.131*(rb**2)*((y[1]-limphi1 + 0.05)**2.1)
-            Fmg_in=((0.33/(4*rb))*rho_g*np.abs(y[5]-y[4])**tt)*(((3)*visc*(1/(rb**2)))**(1-tt))*(y[5]-y[4])*y[1]*(1-y[1])
+            slip=np.abs(y[5]-y[4])
+            Fmg_in=((0.33/(4*rb))*rho_g*(slip**tt))*(((3)*visc*(1/(rb**2)))**(1-tt))*(y[5]-y[4])*y[1]*(1-y[1])
             Fmg_st=((1e-5/kper)**tt)*(((3)*visc*(1/(rb**2)))**(1-tt))*(y[5]-y[4])*y[1]*(1-y[1])
-            Fmg=mezclar(float(s_re(Re, eps=eps_re)), Fmg_st, Fmg_in)
+            Fmg=mezclar(float(s_re(Re, eps=eps_re)), _fin(Fmg_st), _fin(Fmg_in))
 
         if n_eq==3:
             Re=2*rb*rho_g*(y[5]-y[4])/(1e-5)
             kper=0.131*(rb**2)*((y[1]-limphi1 + 0.05)**2.1)
             Fmg_in=(0.33/(4*rb))*rho_g*(y[5]-y[4])*(y[5]-y[4])*y[1]*(1-y[1])
             Fmg_st=(1e-5/kper)*(y[5]- y[4])*y[1]*(1-y[1])
-            Fmg=mezclar(float(s_re(Re, eps=eps_re)), Fmg_st, Fmg_in)
+            Fmg=mezclar(float(s_re(Re, eps=eps_re)), _fin(Fmg_st), _fin(Fmg_in))
 
         Fmw, Fgw, Fmg, sfrag = _mezclar_fragmentacion(
             y[1], rho_g, y[4], y[5], Fmw, Fgw, Fmg)
@@ -355,72 +412,76 @@ def momenteq1(t, y):
         
 def solv(t0, tf, y0, yp0, atol, rtol, n, param, cond=None):
     tspan = np.linspace(t0, tf, int(n))
-    y0 = np.asarray(y0, dtype=float)
-    yp0 = np.asarray(yp0, dtype=float).copy()
-    if param in [1, 2, 3] and yp0.size >= 6:
-        yp0[4] = 0.0
-        yp0[5] = 0.0
+    y0 = np.asarray(y0, dtype=float).copy()
+    if param in [1, 2, 3] and y0.size >= 6:
+        um, ug = _vel_algebraicas(y0[0], y0[1], y0[3], q, rho_m)
+        y0[4], y0[5] = um, ug
+        yp0 = np.asarray(momenteq1(t0, y0), dtype=float).copy()
+        if yp0.size >= 6:
+            yp0[4] = 0.0
+            yp0[5] = 0.0
+    else:
+        yp0 = np.asarray(yp0, dtype=float).copy()
 
-    def _armar(compute_ic):
-        kw = dict(
-            first_step_size=1e-18,
-            atol=atol,
-            rtol=rtol,
-            old_api=False,
-        )
+    def _armar(compute_ic, first_step=1e-18):
+        kw = dict(atol=atol, rtol=rtol, old_api=False)
+        if first_step is not None:
+            kw['first_step_size'] = first_step
         if compute_ic:
             kw['compute_initcond'] = 'yp0'
         if param in [1, 2, 3]:
             kw['algebraic_vars_idx'] = [4, 5]
         return dae('ida', momenteq, **kw)
 
+    vacio = (np.atleast_2d(y0), np.atleast_1d(float(t0)))
+
     if param in [1,2,3]:
         solver = _armar(True)
         ret = solver.init_step(t0, y0, yp0)
         if not _ida_inicializo(solver, ret):
-            # IDACalcIC falló (típico en el umbral de Henry): reintentar con el yp0 ya calculado
-            solver = _armar(False)
+            solver = _armar(False, first_step=None)
             ret = solver.init_step(t0, y0, yp0)
-        if hasattr(solver, "initialized") and not solver.initialized:
-            raise RuntimeError(
-                'IDA no inicializó. El residual en t0 no es consistente '
-                '(casi siempre Henry en Pcrit). Revisá y0 frente a s_henry.'
-            )
-        y_anterior = y0[1]  # Valor inicial de y[1]
-        # Lista para almacenar las soluciones
         y_values = []
         t_values = []
-        for time in tspan[1:]:  
-            solution = solver.step(time)
-            if solution.values.y is None:
-                break
-            y_actual = solution.values.y[1]  # Valor actual de y[1]
-            # Guardar tiempo y valor de y[1] en la lista de soluciones
-            y_values.append(solution.values.y)
-            t_values.append(solution.values.t)
+        if not (hasattr(solver, "initialized") and not solver.initialized):
+            y_anterior = y0[1]
+            for time in tspan[1:]:
+                solution = solver.step(time)
+                if solution.values.y is None:
+                    break
+                y_actual = solution.values.y[1]
+                y_values.append(solution.values.y)
+                t_values.append(solution.values.t)
+                if cond is not None:
+                    if (y_anterior < cond and y_actual >= cond) or (
+                        y_anterior > cond and y_actual <= cond
+                    ):
+                        break
+                y_anterior = y_actual
 
-            # Detectar cruce con limphi1 FIJO
-            if (y_anterior < cond and y_actual >= cond):  
-                #print(f"Cruzó de ABAJO hacia ARRIBA en t = {solution.values.t}, limphi1 = {cond}")
-                break  
-            elif (y_anterior > cond and y_actual <= cond):  
-                #print(f"Cruzó de ARRIBA hacia ABAJO en t = {solution.values.t}, limphi1 = {cond}")
-                break  
+        if len(y_values) == 0:
+            # step() no avanzó: solve() hasta tf y recortar al cruce
+            solver = _armar(True, first_step=None)
+            solution = solver.solve(tspan, y0, yp0)
+            y_all, t_all = solution.values.y, solution.values.t
+            if y_all is None or np.asarray(y_all).size == 0:
+                return vacio
+            if cond is None:
+                return np.atleast_2d(y_all), np.asarray(t_all, dtype=float).ravel()
+            return _cortar_cruce(y_all, t_all, y0, t0, cond)
 
-            # Actualizar valores para laprint siguiente iteración
-            y_anterior = y_actual
+        return np.vstack(y_values), np.asarray(t_values, dtype=float)
     else:
-        solver = dae('ida', momenteq, 
+        solver = dae('ida', momenteq,
                 compute_initcond='yp0',
-                first_step_size=1e-18,
                 atol=atol,
                 rtol=rtol,
                 old_api=False)
         solution = solver.solve(tspan, y0, yp0)
         y_values, t_values = solution.values.y, solution.values.t
-    
-
-    return y_values, t_values
+        if y_values is None or np.asarray(y_values).size == 0:
+            return vacio
+        return np.atleast_2d(y_values), np.asarray(t_values, dtype=float).ravel()
 
 def _aplicar_eps(ef, ep, eh, er, ex, erb):
     global eps_frag, eps_phi, eps_henry, eps_re, eps_xi, eps_rb
@@ -623,8 +684,8 @@ def RIconduitex5_5_suave_f(radius,Pressure, wt, Temperature, content_crystal,
                     yp0 = momenteq1(had, y0)
                     y, t = solv(t0=had, tf=0, y0=y0, yp0=yp0, atol=errtol, rtol=errtol, n=1e4, param=n_eq, cond=limphi1)
 
-                    zsol = np.append(zsoladi, t)
-                    sol = np.vstack((sol1, y))
+                    zsol = _pegar_t(zsoladi, t)
+                    sol = _pegar(sol1, y)
                     zsol=np.real(zsol)
                     sol=np.real(sol)
                 else:
@@ -643,8 +704,8 @@ def RIconduitex5_5_suave_f(radius,Pressure, wt, Temperature, content_crystal,
                     yp0 = momenteq1(Hi1, y0)
                     y, t = solv(t0=Hi1, tf=0, y0=y0, yp0=yp0, atol=errtol, rtol=errtol, n=1e4, param=n_eq, cond=limphi2)
                     
-                    zsol = np.append(zsol, t)
-                    sol = np.vstack((sol, y))  
+                    zsol = _pegar_t(zsol, t)
+                    sol = _pegar(sol, y)  
                     
                 Hi2,Pi2,phini2 = zsol[sol[:,0].size-1],sol[sol[:,0].size-1,0],sol[sol[:,0].size-1,1]
                 #print(Hi2, Pi2)
@@ -656,8 +717,8 @@ def RIconduitex5_5_suave_f(radius,Pressure, wt, Temperature, content_crystal,
                     yp0 = momenteq1(Hi2, y0)
                     y, t = solv(t0=Hi2, tf=0, y0=y0, yp0=yp0, atol=errtol, rtol=errtol, n=1e4, param=n_eq, cond=phicrit)
 
-                    zsol = np.append(zsol, t)
-                    sol = np.vstack((sol, y))  
+                    zsol = _pegar_t(zsol, t)
+                    sol = _pegar(sol, y)  
                 
                 Hi3, Pi3, phini3, xfinal, ndfinal = zsol[sol[:,0].size-1],sol[sol[:,0].size-1,0],sol[sol[:,0].size-1,1],sol[sol[:,0].size-1,3],sol[sol[:,0].size-1,2]
                 #print(Hi3, Pi3)
@@ -670,32 +731,29 @@ def RIconduitex5_5_suave_f(radius,Pressure, wt, Temperature, content_crystal,
                     #sol4 = solve_ivp(momenteq1,[Hi3,0],np.array([Pi3,phini3]),atol=errtol,rtol=errtol,method='BDF')
                     #zsol,sol = get_solution(zsol,sol,sol3) 
 
-                    zsol = np.append(zsol,t)
-                    numb2 = y[:,0].size
-
-                    um = np.zeros(numb2)
-                    ug = np.zeros(numb2)
-                    nd3 = np.zeros(numb2)
-                    xf3 = np.zeros(numb2)
-
-                    n = np.zeros(numb2)
-                    rho_g = np.zeros(numb2)
-                    
-                    for j in range(numb2):
-                        test = co - C1*y[j,0]**beta
-                        if test<=0:
-                            n[j] =0
-                        else:
-                            n[j] = (co - C1*y[j,0]**beta)/(1-C1*y[j,0]**beta)
-
-                        rho_g[j]=y[j,0]/(R*T);
-                        um[j]=(1-n[j])*q/(rho_m*(1-y[j,1]))
-                        ug[j]=n[j]*q/(rho_g[j]*y[j,1])
-                        nd3[j]=ndfinal
-                        xf3[j]=xfinal
-
-                    sol4=np.column_stack((y[:,0],y[:,1], nd3,xf3, um, ug))
-                    sol = np.vstack((sol,sol4))
+                    zsol = _pegar_t(zsol, t)
+                    y = np.atleast_2d(y)
+                    if y.size > 0 and y.shape[1] >= 2:
+                        numb2 = y[:,0].size
+                        um = np.zeros(numb2)
+                        ug = np.zeros(numb2)
+                        nd3 = np.zeros(numb2)
+                        xf3 = np.zeros(numb2)
+                        n = np.zeros(numb2)
+                        rho_g = np.zeros(numb2)
+                        for j in range(numb2):
+                            test = co - C1*y[j,0]**beta
+                            if test<=0:
+                                n[j] =0
+                            else:
+                                n[j] = (co - C1*y[j,0]**beta)/(1-C1*y[j,0]**beta)
+                            rho_g[j]=y[j,0]/(R*T);
+                            um[j]=(1-n[j])*q/(rho_m*(1-y[j,1]))
+                            ug[j]=n[j]*q/(rho_g[j]*y[j,1])
+                            nd3[j]=ndfinal
+                            xf3[j]=xfinal
+                        sol4=np.column_stack((y[:,0],y[:,1], nd3,xf3, um, ug))
+                        sol = _pegar(sol, sol4)
                     #print(zsol[sol[:,0].size-1], sol[sol[:,0].size-1,0])
             else:
                 n_eq=1
@@ -717,8 +775,8 @@ def RIconduitex5_5_suave_f(radius,Pressure, wt, Temperature, content_crystal,
                     yp0 = momenteq1(Hi1, y0)
                     y, t = solv(t0=Hi1, tf=0, y0=y0, yp0=yp0, atol=errtol, rtol=errtol, n=1e4, param=n_eq, cond=limphi2)
                     
-                    zsol = np.append(zsol, t)
-                    sol = np.vstack((sol, y))  
+                    zsol = _pegar_t(zsol, t)
+                    sol = _pegar(sol, y)  
                 
                 Hi2,Pi2,phini2 = zsol[sol[:,0].size-1],sol[sol[:,0].size-1,0],sol[sol[:,0].size-1,1]
                 if (Hi2<0 and Pi2>pfinal) and phini2>=limphi2:
@@ -729,8 +787,8 @@ def RIconduitex5_5_suave_f(radius,Pressure, wt, Temperature, content_crystal,
                     yp0 = momenteq1(Hi2, y0)
                     y, t = solv(t0=Hi2, tf=0, y0=y0, yp0=yp0, atol=errtol, rtol=errtol, n=1e4, param=n_eq, cond=phicrit)
 
-                    zsol = np.append(zsol, t)
-                    sol = np.vstack((sol, y)) 
+                    zsol = _pegar_t(zsol, t)
+                    sol = _pegar(sol, y) 
                 
                 Hi3,Pi3,phini3, xfinal, ndfinal = zsol[sol[:,0].size-1],sol[sol[:,0].size-1,0],sol[sol[:,0].size-1,1],sol[sol[:,0].size-1,3],sol[sol[:,0].size-1,2]
                 if (Hi3<0 and Pi3>pfinal) and phini3>=phicrit:
@@ -740,32 +798,29 @@ def RIconduitex5_5_suave_f(radius,Pressure, wt, Temperature, content_crystal,
                     yp0 = momenteq1(Hi3, y0)
                     y, t = solv(t0=Hi3, tf=0, y0=y0, yp0=yp0, atol=errtol, rtol=errtol, n=1e4, param=n_eq)
                     
-                    zsol = np.append(zsol,t)
-                    numb2 = y[:,0].size
-
-                    um = np.zeros(numb2)
-                    ug = np.zeros(numb2)
-                    nd3 = np.zeros(numb2)
-                    xf3 = np.zeros(numb2)
-
-                    n = np.zeros(numb2)
-                    rho_g = np.zeros(numb2)
-                    
-                    for j in range(numb2):
-                        test = co - C1*y[j,0]**beta
-                        if test<=0:
-                            n[j] =0
-                        else:
-                            n[j] = (co - C1*y[j,0]**beta)/(1-C1*y[j,0]**beta)
-
-                        rho_g[j]=y[j,0]/(R*T);
-                        um[j]=(1-n[j])*q/(rho_m*(1-y[j,1]))
-                        ug[j]=n[j]*q/(rho_g[j]*y[j,1])
-                        nd3[j]=ndfinal
-                        xf3[j]=xfinal
-
-                    sol4=np.column_stack((y[:,0],y[:,1], nd3,xf3, um, ug))
-                    sol = np.vstack([sol,sol4])
+                    zsol = _pegar_t(zsol, t)
+                    y = np.atleast_2d(y)
+                    if y.size > 0 and y.shape[1] >= 2:
+                        numb2 = y[:,0].size
+                        um = np.zeros(numb2)
+                        ug = np.zeros(numb2)
+                        nd3 = np.zeros(numb2)
+                        xf3 = np.zeros(numb2)
+                        n = np.zeros(numb2)
+                        rho_g = np.zeros(numb2)
+                        for j in range(numb2):
+                            test = co - C1*y[j,0]**beta
+                            if test<=0:
+                                n[j] =0
+                            else:
+                                n[j] = (co - C1*y[j,0]**beta)/(1-C1*y[j,0]**beta)
+                            rho_g[j]=y[j,0]/(R*T);
+                            um[j]=(1-n[j])*q/(rho_m*(1-y[j,1]))
+                            ug[j]=n[j]*q/(rho_g[j]*y[j,1])
+                            nd3[j]=ndfinal
+                            xf3[j]=xfinal
+                        sol4=np.column_stack((y[:,0],y[:,1], nd3,xf3, um, ug))
+                        sol = _pegar(sol, sol4)
         #Aquí termina la condición si el agua exsuelta es mayor a 0
         numb=sol[:,0].size
         ugexit,pexit,zexit,phiexit = sol[numb-1,5], sol[numb-1,0], zsol[numb-1], sol[numb-1,1]
