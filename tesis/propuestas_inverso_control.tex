@@ -421,7 +421,7 @@ Misma plantilla: masa / movimiento+$P$ / $N$ / $\xi$.
 
 \textbf{Variables principales:} $\varphi$, $\mathbf{u}_m$,
 $\mathbf{u}_g$. $\Gamma$ es la tasa de exsolución
-(fundido $\to$ gas).
+(fundido $\to$ gas); la expresión está en~II.D.
 
 \begin{align}
 \label{eq:masa-m}
@@ -572,63 +572,161 @@ $u_g\approx c_s$.
 \subsection*{II.C Transporte de $N$ y de $\xi$ en $(r,z)$}
 
 \textbf{Variables principales:} $N(r,z)$ y $\xi(r,z)$.
-Mismas $\Gamma_N$, $\Gamma_\xi$ del 1D. El fundido también
-se mueve en $r$, así que no son planas en el radio:
 \begin{align}
 \label{eq:Nxi-2d}
 u_{m,r}\frac{\p N}{\p r}+u_m\frac{\p N}{\p z}
-&=\Gamma_N(P,\varphi,N,\xi),
+&=\Gamma_N,
 \\
 u_{m,r}\frac{\p \xi}{\p r}+u_m\frac{\p \xi}{\p z}
-&=\Gamma_\xi(P,\xi).
+&=\Gamma_\xi.
 \end{align}
+Las $\Gamma$ se escriben en~II.D. Bordes: eje
+$\p N/\p r=\p \xi/\p r=0$; pared no se imponen; base
+$N=N_0$, $\xi=\xi_0$; boca no se imponen.
 
-\textbf{Bordes.}
-Eje: $\p N/\p r=\p \xi/\p r=0$.
-Pared: no se imponen (las arrastra el fundido; $u_m=0$).
-Base: $N(r,H)=N_0$, $\xi(r,H)=\xi_0$.
-Boca: no se imponen.
+% ----- ACOPLAMIENTOS 2D: GAMMAS + VISCOSIDAD -----
+\subsection*{II.D Acoplamientos 2D: las $\Gamma$ y la viscosidad}
 
-% ----- ACOPLAMIENTOS 2D -----
-\subsection*{II.D Acoplamientos (2D)}
+Todo se evalúa en $(r,z)$. Hay \textbf{tres} $\Gamma$ y una
+$\mu$. Ésos son los acoplamientos.
 
-Los mismos del 1D, más el radio:
-
-\begin{itemize}
-\item \textbf{Masa $\leftrightarrow$ movimiento.}
-  $\varphi$ y $\mathbf{u}$ están en las dos. $P$ entra a la
-  masa por $\rho_g(P)$ y por $n(P,\xi)$. El movimiento
-  devuelve $\nabla P$ y el perfil $u_m(r)$ (luego $Q$).
-\item \textbf{$P\leftrightarrow n\leftrightarrow\mathbf{u}$.}
-  Henry $n(P,\xi)$ cierra~\eqref{eq:n-loc}; las velocidades
-  vuelven a~\eqref{eq:P-2d}.
-\item \textbf{$N\leftrightarrow\varphi\leftrightarrow F_{mg},\mu$.}
-  $r_b(\varphi,N)$ cambia el arrastre y la viscosidad, que
-  cambian $P$ y $\varphi$.
-\item \textbf{$\xi\leftrightarrow n,\mu,\Gamma_\xi$.}
-  $\xi$ entra en Henry y en $\mu$; $P$ entra en
-  $\Gamma_\xi$.
-\item \textbf{El tiro $Q$.} Se busca $v_{\mathrm{in}}$ para
-  cumplir la boca. En 2D, $u_m(r)$ y
-  $\varphi,N,\xi$ no planos cambian $Q$: el $\Delta P$
-  recuperado no es el del 1D.
-\end{itemize}
-
-Las fórmulas de I.E son las mismas, evaluadas en $(r,z)$:
-$n=n(P,\xi)$,
-$\mu=\mu(P,\varphi,\xi,N,u_m)$,
-$F_{mg}=F_{mg}^{(k)}(\varphi,u_g-u_m,r_b,\mu,\rho_g)$.
-Los tramos $J_k$ pasan a subdominios
+\paragraph{$\Gamma$: exsolución (acopla masa con $P$ y $\xi$).}
+El flujo másico local es
+$\mathbf{j}
+=\rho_m(1-\varphi)\mathbf{u}_m
++\rho_g\varphi\mathbf{u}_g$.
+Como $n=n(P,\xi)$ (Henry) y $\nabla\cdot\mathbf{j}=0$,
 \begin{equation}
-\label{eq:Omegak}
-\Omega_k
-=\bigl\{(r,z)\in\Omega:\;
-\varphi\text{ está en el rango de }J_k\bigr\}.
+\label{eq:Gamma-exs}
+\Gamma
+=\mathbf{j}\cdot\nabla n
+=j_r\frac{\p n}{\p r}+j_z\frac{\p n}{\p z},
+\qquad
+\nabla n
+=\frac{\p n}{\p P}\nabla P
++\frac{\p n}{\p \xi}\nabla \xi.
 \end{equation}
-Las interfaces son las curvas de nivel
-$\varphi(r,z)=\varphi_k$, otra vez libres. El estado es
-continuo al cruzarlas. Si $\varphi=\varphi(z)$ (reducción),
-$\Omega_k=J_k\times[0,R]$ y se recupera el 1D a trozos.
+O sea
+$\Gamma=\Gamma(P,\xi,\varphi,\mathbf{u}_m,\mathbf{u}_g)$.
+Entra en~\eqref{eq:masa-m}--\eqref{eq:masa-g}. Si $n$ no
+cambia a lo largo de $\mathbf{j}$, $\Gamma=0$.
+
+\paragraph{$\Gamma_N$: coalescencia (acopla $N$ con $\varphi,P,\mu$).}
+Mientras $r_b<R/2$ y $\varphi<\varphi_{\mathrm{crit}}$
+(Slezin); si no, $\Gamma_N=0$. Tras fragmentar, $0$.
+\begin{equation}
+\label{eq:Gamma-N}
+\begin{aligned}
+\Gamma_N
+&=-N^{2/3}(1-\varphi)^{-1/3}
+\cdot\frac19\frac{(\rho_m-\rho_g)g}{\mu}
+\cdot\Biggl(\frac{3\varphi}{4\pi}\Biggr)^{2/3}
+\\
+&\quad\cdot(F_1^2-F_2^2)
+\Biggl(1-(F_1+F_2)
+\Biggl(\frac{3\varphi\cdot\pi/(6\varphi_{\mathrm{crit}})}{4\pi}\Biggr)^{1/3}
+\Biggr)^{-1}
+\\
+&\quad\cdot F_c\,(1-\varphi/\varphi_{\mathrm{crit}})\,(R-r_b)/R,
+\end{aligned}
+\end{equation}
+$F_1=1.8$, $F_2=0.2$, $F_c\in[0,1]$,
+$r_b=r_b(\varphi,N)$, $\rho_g=\rho_g(P)$, $\mu$ abajo.
+Luego $\Gamma_N=\Gamma_N(P,\varphi,N,\xi,\mathbf{u}_m)$
+(porque $\mu$ depende de todo eso). Entra
+en~\eqref{eq:Nxi-2d}$_1$.
+
+\paragraph{$\Gamma_\xi$: cristales (acopla $\xi$ con $P$).}
+\begin{equation}
+\label{eq:Gamma-xi}
+\begin{aligned}
+f_2
+&=\max\Biggl(0,\;
+\frac{(1-\xi_0)c_0-(1-\xi)C_1 P^{\beta}}
+{(1-\xi_0)c_0-(1-\xi_{\max})C_1 P_{\mathrm{atm}}^{\beta}}\Biggr),
+\\
+\xi_{\mathrm{eq}}
+&=\xi_0+(\xi_{\max}-\xi_0)f_2,
+\qquad
+f_3=\max(0,\,1-\xi/\xi_{\mathrm{eq}}),
+\\
+\Gamma_\xi
+&=\max\bigl(0,\;(\xi_{\max}-\xi_0)\,f_2 f_3/\tau_c\bigr).
+\end{aligned}
+\end{equation}
+$\Gamma_\xi=\Gamma_\xi(P,\xi)$. Entra
+en~\eqref{eq:Nxi-2d}$_2$. Tras fragmentar, $0$.
+
+\paragraph{Viscosidad (sí se escribe; depende de las variables).}
+En $(r,z)$,
+$\mu=\mu\bigl(P,\varphi,\xi,N,u_m\bigr)$:
+
+1. Fundido (Giordano): $\mu_\ell=\mu_{\mathrm{Gio}}(c_d,T,X)$,
+$T$ y $X$ fijas. $c_d=C_1 P^\beta$ si hay gas, $c_d=c_0$ si
+no. Luego $\mu_\ell=\mu_\ell(P)$.
+
+2. Cristales, $\dot\gamma=u_m/R$ (o $|\nabla\mathbf{u}_m|$
+en 2D):
+\begin{equation}
+\label{eq:thxi-2d}
+\theta_\xi
+=\Bigl(1-\frac{\xi_0}{\phi_{\max,1}}\Bigr)^{-2.5}
+\Bigl(1-\frac{\xi-\xi_0}{(1-\xi_0)\phi_{\max,2}}\Bigr)^{-2.5},
+\end{equation}
+$\phi_{\max,i}=0.656\exp\bigl(-(\log_{10}r_i)^2/(2\cdot1.08^2)\bigr)$,
+$r_1=4$, $r_2=8$. $\theta_\xi=\theta_\xi(\xi)$.
+
+3. Burbujas (Llewellin), $Ca=r_b\mu_\ell\dot\gamma/3$,
+$\varphi_\ast=\varphi_{\mathrm{crit}}+0.05$,
+$A=(1-\varphi/\varphi_\ast)^{-\varphi_\ast}$,
+$B=(1-\varphi/\varphi_\ast)^{5\varphi_\ast/3}$,
+$c_1=-0.2895\varphi+0.8132$, $c_2=\varphi$:
+\begin{equation}
+\label{eq:mu-2d}
+\mu
+=\Biggl(\tfrac12(A-B)\bigl(1-\mathrm{erf}(c_1\log Ca+c_2)\bigr)+B\Biggr)
+\theta_\xi\,\mu_\ell.
+\end{equation}
+Entra en el viscoseo de~\eqref{eq:mom-m-z}--\eqref{eq:P-2d},
+en $F_{mg}$ y en $\Gamma_N$.
+
+\paragraph{Composición, de una vez.}
+\begin{equation}
+\label{eq:acop-2d}
+\begin{aligned}
+n&=n(P,\xi),
+&
+\rho_g&=\rho_g(P),
+&
+r_b&=r_b(\varphi,N),
+\\
+\mu&=\mu(P,\varphi,\xi,N,u_m),
+&
+F_{mg}&=F_{mg}^{(k)}(\varphi,u_g-u_m,r_b,\mu,\rho_g)
+&&\text{en }\Omega_k,
+\\
+\Gamma&=\mathbf{j}\cdot\nabla n(P,\xi),
+&
+\Gamma_N&=\Gamma_N(P,\varphi,N,\mu),
+&
+\Gamma_\xi&=\Gamma_\xi(P,\xi).
+\end{aligned}
+\end{equation}
+$\Omega_k$ es el subdominio donde $\varphi$ está en el rango
+de $J_k$ (I.E). Interfaces $\varphi=\varphi_k$: bordes libres.
+
+Lazos 2D:
+\begin{itemize}
+\item $\Gamma$ une masa con $P$ y $\xi$:
+  $P,\xi\to n\to\Gamma\to\varphi,\mathbf{u}$.
+\item Momentum une $P$ con $\mu$ y $F_{mg}$:
+  $\mu,F_{mg}\to\nabla P\to n\to\Gamma$ (vuelve a masa).
+\item $\Gamma_N$ une $N$ con $\varphi$ y $\mu$:
+  $N\to r_b\to\mu,F_{mg}\to P\to\Gamma_N$.
+\item $\Gamma_\xi$ une $\xi$ con $P$:
+  $P\to\Gamma_\xi\to\xi\to n,\mu$.
+\item $Q$ (tiro) cierra con la boca.
+\end{itemize}
 
 % ----- REDUCCIÓN -----
 \subsection*{II.E Reducción: componentes radiales despreciables}
