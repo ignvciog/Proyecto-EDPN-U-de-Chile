@@ -14,6 +14,7 @@
 \newcommand{\p}{\partial}
 \newcommand{\F}{\mathcal{F}}
 \newcommand{\MER}{\mathrm{MER}}
+\newcommand{\Rv}{\mathcal{R}_v}
 
 \title{\vspace{-1.3cm}
 \textbf{Propuesta: problema inverso en un conducto bifásico 2D}\\[0.4em]
@@ -28,9 +29,9 @@
 
 \noindent
 Propuesta de trabajo. El directo 1D bifásico ya corre. Se pasa a
-\textbf{2D estacionario} (sin tiempo), axisimétrico: además de
-$u_m(r,z)$, el contenido de burbujas $\varphi$ también depende del
-radio. El inverso, para empezar, es \textbf{un} escalar en la base.
+\textbf{2D estacionario} (sin tiempo), axisimétrico: el contenido de
+burbujas $\varphi$ \textbf{también} cambia con el radio, no solo con
+la altura. El inverso, para empezar, es \textbf{un} escalar en la base.
 
 % ---------------------------------------------------------------------------
 \section*{1. Dominio y variables}
@@ -45,12 +46,12 @@ P=P(z),\qquad
 u_m=u_m(r,z),\qquad
 u_g=u_g(r,z).
 \]
-Fundido: densidad $\rho_m$ constante. Gas: $\rho_g=P/(\mathcal{R}_v T)$.
+Fundido: densidad $\rho_m$ constante. Gas: $\rho_g=P/(\Rv T)$.
 En la base se conocen (o se quieren recuperar) la sobrepresión de
 cámara $\Delta P$ ---o sea $P(H)$--- y el agua total $c_0$.
 
 % ---------------------------------------------------------------------------
-\section*{2. Conservación de masa}
+\section*{2. Conservación de masa y por qué $\varphi=\varphi(r,z)$}
 
 Estacionario, axisimétrico. $\Gamma$ es la tasa de exsolución
 (fundido $\to$ gas; $\Gamma=0$ si no hay gas nuevo).
@@ -67,7 +68,8 @@ Estacionario, axisimétrico. $\Gamma$ es la tasa de exsolución
 &=\Gamma.
 \end{align}
 Si se desprecia la velocidad radial (lubricación), queda solo la
-parte en $z$. En cualquier caso el caudal másico total es constante:
+parte en $z$, local en cada $r$. El caudal másico total es constante
+en $z$:
 \begin{equation}
 \label{eq:Q}
 Q
@@ -88,9 +90,26 @@ n(P;c_0)
 =\max\Bigl(0,\;
 \frac{(1-\xi_0)c_0-C_1 P^{\beta}}{1-C_1 P^{\beta}}\Bigr).
 \end{equation}
-Con $n$ y las velocidades locales se cierra $\varphi(r,z)$: a $P$
-fija, un perfil $u_m(r)$ distinto de $u_g(r)$ obliga a que
-$\varphi$ no sea plano en $r$.
+En cada $(r,z)$ la fracción de gas del flujo local es la misma $n$
+(equilibrio a la $P$ de esa altura), así que
+\begin{equation}
+\label{eq:n-local}
+n
+=\frac{\rho_g\,\varphi\,u_g}{\rho_m(1-\varphi)\,u_m+\rho_g\,\varphi\,u_g}.
+\end{equation}
+Despejando $\varphi$ queda el cierre que obliga a que las burbujas
+varíen con el radio:
+\begin{equation}
+\label{eq:phi-r}
+\varphi(r,z)
+=\frac{n(P;c_0)\,\rho_m\,u_m(r,z)}
+{n(P;c_0)\,\rho_m\,u_m(r,z)
++(1-n(P;c_0))\,\rho_g(P)\,u_g(r,z)}.
+\end{equation}
+$n$ es plano en $r$ (solo depende de $P(z)$), pero $u_m$ no: vale
+máximo en el eje y $u_m=0$ en la pared. Entonces $\varphi(\,\cdot\,,z)$
+no puede ser constante. Eso es lo que no tiene el 1D ni el 2D que
+ya corre (ahí $\varphi=\varphi(z)$).
 
 % ---------------------------------------------------------------------------
 \section*{3. Conservación de momentum}
@@ -127,6 +146,11 @@ $\p u_m/\p r|_{r=R}$, no de una fórmula 1D.
 \end{equation}
 $F_{mg}$ es el arrastre gas--fundido (función de $\varphi$,
 $u_g-u_m$, tamaño de burbuja). $F_{gw}$ es gas--pared.
+
+En mates: a cada $z$, \eqref{eq:mom-m} es elíptica en $r$ para
+$u_m(\,\cdot\,,z)$, con coeficientes que dependen de $\varphi$.
+Luego \eqref{eq:phi-r} actualiza $\varphi(\,\cdot\,,z)$. Eso es EDP
+estacionaria 2D, no un ODE en $z$.
 
 % ---------------------------------------------------------------------------
 \section*{4. El problema inverso (para empezar)}
@@ -168,7 +192,7 @@ chico.
 \section*{5. Qué se le pide al profesor}
 
 ¿Tiene sentido como tesis de DIM este inverso (un parámetro, EDP
-estacionaria 2D de masa + momentum)? Si sí, se trabaja primero
-$\Delta P$, después se discute $c_0$.
+estacionaria 2D de masa + momentum, con $\varphi=\varphi(r,z)$)?
+Si sí, se trabaja primero $\Delta P$, después se discute $c_0$.
 
 \end{document}
