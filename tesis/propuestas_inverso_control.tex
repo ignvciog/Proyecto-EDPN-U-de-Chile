@@ -392,11 +392,10 @@ u_{m,r}\frac{\p u_{m,r}}{\p r}+u_m\frac{\p u_{m,r}}{\p z}
 +\mathrm{div}\,\tau_m^{(r)}.
 \end{aligned}
 \end{equation}
-$P=P(r,z)$. No se impone $P=P(z)$. Si
-$\varepsilon=R/|H|\ll 1$,~\eqref{eq:P-2d}$_2$ da
-$\p P/\p r=O(\varepsilon)$ y se puede reducir a $P=P(z)$
-(lubricación). Eso es un ataque numérico, no el sistema.
-La EOS $\rho_g=P/(\Rv T)$ sigue sin ser la ecuación de $P$.
+$P=P(r,z)$. No se impone $P=P(z)$ aquí. La reducción
+cuando las componentes radiales se desprecian va más
+adelante, en~II.E. La EOS $\rho_g=P/(\Rv T)$ sigue sin
+ser la ecuación de $P$.
 
 Al integrar el viscoseo radial,
 \begin{equation}
@@ -462,10 +461,109 @@ Los mismos del 1D, más el radio:
   recuperado no es el del 1D.
 \end{itemize}
 
+% ----- REDUCCIÓN -----
+\subsection*{II.E Reducción: componentes radiales despreciables}
+
+Se impone
+\[
+u_{m,r}\equiv 0,
+\qquad
+u_{g,r}\equiv 0
+\]
+(no hay flujo ni convección en $r$). Las derivadas
+$\p/\p r$ de las \emph{incógnitas} no se tiran: $u_m$,
+$\varphi$, $N$ y $\xi$ pueden seguir dependiendo de $r$.
+Esto no es el 1D.
+
+\paragraph{Masa.}
+Los flujos radiales de~\eqref{eq:masa-m}--\eqref{eq:masa-g}
+se anulan. Queda solo la parte en $z$, local en cada $r$:
+\begin{align}
+\label{eq:masa-red}
+\frac{\p}{\p z}\bigl(\rho_m(1-\varphi)\,u_m\bigr)
+&=-\Gamma,
+\\
+\frac{\p}{\p z}\bigl(\rho_g\varphi\,u_g\bigr)
+&=\Gamma.
+\end{align}
+$Q$~\eqref{eq:Q} sigue constante en $z$. En cada $r$ es un
+balance 1D, pero acoplado a los otros $r$ por $P$ y por el
+perfil $u_m(r)$.
+
+\paragraph{Momentum y $P$.}
+En~\eqref{eq:mom-m-z}--\eqref{eq:mom-g-z} cae
+$u_{\,\cdot\,,r}\p u/\p r$. Queda la inercia vertical y el
+viscoseo (el radial es el que da el perfil de Poiseuille):
+\begin{align}
+\label{eq:mom-red}
+\rho_m(1-\varphi)\,u_m\frac{\p u_m}{\p z}
+&=
+-(1-\varphi)\frac{\p P}{\p z}
+-\rho_m(1-\varphi)\,g
++F_{mg}
++\frac{1}{r}\frac{\p}{\p r}\Biggl[
+r\,\mu(1-\varphi)\frac{\p u_m}{\p r}
+\Biggr],
+\\
+\rho_g\varphi\,u_g\frac{\p u_g}{\p z}
+&=
+-\varphi\frac{\p P}{\p z}
+-\rho_g\varphi\,g
+-F_{mg}
++\frac{1}{r}\frac{\p}{\p r}\Biggl[
+r\,\mu_g\varphi\frac{\p u_g}{\p r}
+\Biggr].
+\end{align}
+(Se omitió $\p/\p z$ del esfuerzo axial: es $O(\varepsilon^2)$
+si $\varepsilon=R/|H|\ll 1$.) En el eje $r$, con
+$u_{m,r}=0$,~\eqref{eq:P-2d}$_2$ se reduce a
+\begin{equation}
+\label{eq:P-red}
+(1-\varphi)\frac{\p P}{\p r}
+=\mathrm{div}\,\tau_m^{(r)}.
+\end{equation}
+Si ese viscoseo radial también se desprecia (lubricación),
+$\p P/\p r=0$ y \textbf{$P=P(z)$}. Entonces~\eqref{eq:P-red}
+deja de ser una ecuación para $P(r)$: $P(z)$ sale de
+integrar~\eqref{eq:mom-red} (o su promedio en la sección).
+$F_{mw}$ y $F_{gw}$ siguen siendo~\eqref{eq:Fmw}.
+
+\paragraph{$N$ y $\xi$.}
+Cae el transporte en $r$:
+\begin{equation}
+\label{eq:Nxi-red}
+u_m\frac{\p N}{\p z}
+=\Gamma_N(P,\varphi,N,\xi),
+\qquad
+u_m\frac{\p \xi}{\p z}
+=\Gamma_\xi(P,\xi).
+\end{equation}
+Siguen pudiendo ser $N(r,z)$ y $\xi(r,z)$: $u_m$ y las
+$\Gamma$ cambian con $r$.
+
+\paragraph{Qué se perdió y qué no.}
+Se perdió el flujo radial y $\p P/\p r$ (si se hace
+lubricación). No se perdió la dependencia en $r$ de
+$u_m,\varphi,N,\xi$. El 1D de la Parte~I sale de aquí
+recién al \emph{promediar} en $r$, imponer
+$\varphi=\varphi(z)$, $N=N(z)$, $\xi=\xi(z)$ y reemplazar
+el viscoseo radial por $F_{mw}=c_g\mu u_m/R^2$.
+
+\textbf{Bordes que quedan.}
+Eje: $\p u_m/\p r=\p u_g/\p r=0$, $\p N/\p r=\p \xi/\p r=0$.
+Pared: $u_m=0$. Base y boca: las de $P$, $\varphi$ y el
+tiro, iguales que en II.A--II.C. $u_{m,r}=u_{g,r}=0$ ya
+no es una condición: es la hipótesis.
+
+Eso es el primer ataque numérico (el 2D que ya corre es
+esto, con $\varphi=\varphi(z)$). El sistema de II.A--II.C
+es el completo.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section*{Parte III. El inverso}
 
-Directo: se resuelve I o II y se lee $Q$ (o $q$) en la boca.
+Directo: se resuelve I, II o la reducción II.E, y se lee
+$Q$ (o $q$) en la boca.
 \[
 \F(\theta)=Q,
 \qquad
@@ -483,7 +581,8 @@ se reescribe el solver 1D.
 
 ¿Este inverso (un parámetro; EDP 2D estacionaria de masa +
 momentum, con ecuación para $P$, y transporte de $N$ y
-$\xi$) sirve como tesis de DIM? Si la lubricación $P=P(z)$
-le parece el primer paso, se parte de ahí.
+$\xi$) sirve como tesis de DIM? Si empezar por la reducción
+II.E ($u_{m,r}=u_{g,r}=0$, $P=P(z)$) le parece el primer
+paso, se parte de ahí.
 
 \end{document}
