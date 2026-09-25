@@ -6,21 +6,19 @@
 \usepackage{lmodern}
 \usepackage{amsmath,amssymb}
 \usepackage[margin=2.4cm]{geometry}
-\usepackage{booktabs}
 \usepackage{microtype}
 \usepackage{enumitem}
 \usepackage[colorlinks=true,linkcolor=black,citecolor=black,urlcolor=blue]{hyperref}
 
-\newcommand{\pc}{\ifmmode\text{\,\%}\else\,\%\fi}
-\newcommand{\MER}{\mathrm{MER}}
 \newcommand{\dd}{\,\mathrm{d}}
 \newcommand{\p}{\partial}
 \newcommand{\F}{\mathcal{F}}
+\newcommand{\MER}{\mathrm{MER}}
 
-\title{\vspace{-1.4cm}
-\textbf{Cuatro problemas para el profesor de matemáticas}\\[0.35em]
-\large Inverso y control sobre el modelo bifásico de conducto}
-\author{Ignacio Gómez Gómez\\[0.2em]
+\title{\vspace{-1.3cm}
+\textbf{Propuesta: problema inverso en un conducto bifásico 2D}\\[0.4em]
+\large Conservación de masa y momentum, $\varphi=\varphi(r,z)$}
+\author{Ignacio Gómez Gómez\\[0.15em]
 {\small Doble titulación Geología / Ingeniería Matemática}}
 \date{\today}
 
@@ -29,173 +27,148 @@
 \vspace{-0.7cm}
 
 \noindent
-Esto es lo que le daría. No el PDF de 19 páginas: \textbf{cuatro enunciados}.
-El operador directo ya existe (DAE bifásico 1D, dos tiros: explosivo y
-efusivo). El modelo no se reescribe. La tesis es el inverso ---o el control---
-sobre ese operador.
-
-\medskip
-\noindent
-El operador:
-\[
-\F(\theta)
-=\bigl(q_{\mathrm{ex}}^\ast(\theta),\;q_{\mathrm{ef}}^\ast(\theta)\bigr),
-\qquad
-\theta=\bigl(R(\cdot),\,P_{\mathrm{cam}},\,c_0,\,T,\,\xi_0,\ldots\bigr).
-\]
-Dato: $d^{\mathrm{obs}}=\F(\theta^\dagger)+\varepsilon$
-(tasa de descarga, estilo, a veces $\MER(t)$).
-
-\bigskip
-\noindent
-\textbf{Le daría (1) como tesis, (2) como alternativa más ``EDP de libro'',
-(3) si quiere teoría clásica, (4) si quiere control.}
-No le daría las veinte ideas del catálogo.
+Propuesta de trabajo. El directo 1D bifásico ya corre. Se pasa a
+\textbf{2D estacionario} (sin tiempo), axisimétrico: además de
+$u_m(r,z)$, el contenido de burbujas $\varphi$ también depende del
+radio. El inverso, para empezar, es \textbf{un} escalar en la base.
 
 % ---------------------------------------------------------------------------
-\section*{1. Inverso de geometría --- \emph{el que yo propondría}}
+\section*{1. Dominio y variables}
 
-\paragraph{Tipo.} Problema inverso de coeficiente / de dominio en dimensión
-infinita. Unicidad, estabilidad, regularización.
-
-\paragraph{Enunciado.}
-Dado $d^{\mathrm{obs}}$ (un $\MER$, o una curva $\MER(t)$), hallar la sección
-$R(\cdot)$ del conducto. En el recorte de lubricación ya se demuestra que
-$\F$ \textbf{no es inyectivo}:
+Cilindro $r\in[0,R]$, $z\in[H,0]$ ($z$ hacia arriba, $H<0$ es la
+base). Flujo \textbf{estacionario}. Lubricación: no hay gradiente
+radial de presión, $P=P(z)$. Las velocidades y las burbujas sí
+varían en $r$:
 \[
-\MER\cdot J_4[R]
-=\mathrm{const},
-\qquad
-J_4[R]=\int_H^{z_f}R(z)^{-4}\,\dd z.
+P=P(z),\qquad
+\varphi=\varphi(r,z),\qquad
+u_m=u_m(r,z),\qquad
+u_g=u_g(r,z).
 \]
-El nulo de $DJ_4$ es de \textbf{codimensión 1}: de las infinitas
-perturbaciones de $R$, todas menos una son invisibles. Verificado a
-$10^{-7}$.
-
-\paragraph{La tesis.} ¿Sobrevive eso en el DAE bifásico
-($u_g\neq u_m$, arrastre, dos ramas de tiro)? Si sí: caracterizar el
-nuevo funcional y regularizar (Tikhonov / TV) eligiendo un representante.
-Si no: unicidad condicional ---qué dato extra ($\phi(0)$, $z_f$,
-texturas) restaura inyectividad.
-
-\paragraph{Por qué es tesis de DIM.} Hadamard (P1)--(P3) sobre un
-operador que ya corre. Hay un teorema en el recorte y una pregunta
-abierta en el sistema completo. Calbuco es la aplicación, no el tema.
-
-\paragraph{Lo que \emph{no} es.} Ajustar un radio escalar con MCMC y
-reportar un número.
+Fundido: densidad $\rho_m$ constante. Gas: $\rho_g=P/(\mathcal{R}_v T)$.
+En la base se conocen (o se quieren recuperar) la sobrepresión de
+cámara $\Delta P$ ---o sea $P(H)$--- y el agua total $c_0$.
 
 % ---------------------------------------------------------------------------
-\section*{2. Problema lateral / control de frontera --- \emph{si quiere EDP}}
+\section*{2. Conservación de masa}
 
-\paragraph{Tipo.} Inverso: problema \emph{sideways} para una parabólica
-no lineal. Control: control de Dirichlet en $z=H$.
+Estacionario, axisimétrico. $\Gamma$ es la tasa de exsolución
+(fundido $\to$ gas; $\Gamma=0$ si no hay gas nuevo).
 
-\paragraph{La EDP} (recorte transiente, cámara + conducto):
+\begin{align}
+\label{eq:masa-m}
+\frac{1}{r}\frac{\p}{\p r}\bigl(r\,\rho_m(1-\varphi)\,u_{m,r}\bigr)
++\frac{\p}{\p z}\bigl(\rho_m(1-\varphi)\,u_m\bigr)
+&=-\Gamma,
+\\[0.4em]
+\label{eq:masa-g}
+\frac{1}{r}\frac{\p}{\p r}\bigl(r\,\rho_g\varphi\,u_{g,r}\bigr)
++\frac{\p}{\p z}\bigl(\rho_g\varphi\,u_g\bigr)
+&=\Gamma.
+\end{align}
+Si se desprecia la velocidad radial (lubricación), queda solo la
+parte en $z$. En cualquier caso el caudal másico total es constante:
 \begin{equation}
-\label{eq:parab}
-A(z)\,\rho'(P)\,\p_t P
-=\p_z\Bigl[k(z)\,\rho(P)\bigl(\p_z P+\rho g\bigr)\Bigr],
-\qquad z\in[H,z_f].
+\label{eq:Q}
+Q
+=\int_0^R 2\pi r\Bigl[
+\rho_m\bigl(1-\varphi(r,z)\bigr)\,u_m(r,z)
++\rho_g(z)\,\varphi(r,z)\,u_g(r,z)
+\Bigr]\,\dd r
+=\mathrm{const}.
 \end{equation}
-El dato $\MER(t)$ se lee en $z=z_f$. La incógnita vive en $z=H$.
+Eso es el $\MER$. Como $\varphi$ y $u_m$ cambian con $r$, el
+promedio no es el 1D $\rho_m(1-\varphi)\,u_m+\rho_g\varphi\,u_g$
+con un solo $\varphi(z)$.
 
-\paragraph{Enunciado inverso.}
-Recuperar $P_{\mathrm{cam}}(t):=P(H,t)$ a partir de $\MER(t)$.
-Es el problema de la ecuación del calor lateral: severamente mal
-puesto, estabilidad condicional tipo Hölder bajo condición de fuente,
-regularización conocida (Eldén--Berntsson--Regińska).
-
-\paragraph{Enunciado de control} (la misma ecuación, la otra flecha).
-Dado un caudal deseado $\MER_{\mathrm{des}}(t)$ (o un estilo: fragmentar
-/ no fragmentar), hallar un control
-$u(t)=P_{\mathrm{cam}}(t)$ ---o una recarga $Q_{\mathrm{in}}(t)$---
-tal que la solución de~\eqref{eq:parab} cumpla
-\[
-\MER[P(\,\cdot\,;u)](t)\approx\MER_{\mathrm{des}}(t).
-\]
-Es control de frontera de una parabólica no lineal. La
-controlabilidad es el teorema; Calbuco es el ejemplo
-(¿se puede frenar o sostener la columna actuando sobre la cámara?).
-
-\paragraph{Por qué se lo daría.} Si el profesor dice ``quiero una EDP
-con teoría clásica, no un DAE de un código''. Es tesis de ingeniería
-matemática \emph{sin} discutir con geología el operador. El costo: se
-trabaja en el recorte, no en el bifásico completo.
+La fracción másica de gas exsuelto (Henry) depende de $P$ y de $c_0$:
+\begin{equation}
+\label{eq:henry}
+n(P;c_0)
+=\max\Bigl(0,\;
+\frac{(1-\xi_0)c_0-C_1 P^{\beta}}{1-C_1 P^{\beta}}\Bigr).
+\end{equation}
+Con $n$ y las velocidades locales se cierra $\varphi(r,z)$: a $P$
+fija, un perfil $u_m(r)$ distinto de $u_g(r)$ obliga a que
+$\varphi$ no sea plano en $r$.
 
 % ---------------------------------------------------------------------------
-\section*{3. Identificación de un coeficiente de Robin --- \emph{si quiere teoría}}
+\section*{3. Conservación de momentum}
 
-\paragraph{Tipo.} Problema inverso de coeficiente de frontera.
-Unicidad y estabilidad logarítmica ya existen (Chaabane--Jaoua,
-Inglese, Sincich).
+\textbf{Fundido} (lo que es 2D). El viscoseo radial equilibra
+presión, peso y arrastre $F_{mg}$:
+\begin{equation}
+\label{eq:mom-m}
+\frac{1}{r}\frac{\p}{\p r}\Biggl[
+r\,\mu(\varphi,P)\,\bigl(1-\varphi\bigr)
+\frac{\p u_m}{\p r}
+\Biggr]
+=(1-\varphi)\frac{\dd P}{\dd z}
++\rho_m(1-\varphi)\,g
+-F_{mg}.
+\end{equation}
+Bordes:
+\[
+\frac{\p u_m}{\p r}=0\quad\text{en }r=0,
+\qquad
+u_m=0\quad\text{en }r=R.
+\]
+Como $\varphi=\varphi(r,z)$, la viscosidad y el arrastre también
+cambian con $r$. La fricción de pared sale de
+$\p u_m/\p r|_{r=R}$, no de una fórmula 1D.
+
+\textbf{Gas} (eje $z$, local en $r$):
+\begin{equation}
+\label{eq:mom-g}
+\rho_g\varphi\,u_g\frac{\p u_g}{\p z}
+=-\varphi\frac{\dd P}{\dd z}
+-\rho_g\varphi\,g
+-F_{mg}-F_{gw}.
+\end{equation}
+$F_{mg}$ es el arrastre gas--fundido (función de $\varphi$,
+$u_g-u_m$, tamaño de burbuja). $F_{gw}$ es gas--pared.
+
+% ---------------------------------------------------------------------------
+\section*{4. El problema inverso (para empezar)}
+
+Operador directo: dado el dato en la base, se resuelve
+\eqref{eq:masa-m}--\eqref{eq:mom-g} y se lee $Q$ en la boca.
+\[
+\F(\theta)=Q,
+\qquad
+\theta=\Delta P
+\quad\text{o}\quad
+\theta=c_0.
+\]
+Dato: $Q^{\mathrm{obs}}$ (tasa de descarga).
 
 \paragraph{Enunciado.}
-El 2D del repositorio impone $u_m=0$ en la pared. Reemplazar por Navier
-\[
-\mu\,\p_r u_m=-\beta(z)\,u_m
-\quad\text{en }r=R,
-\]
-y recuperar $\beta(\cdot)$ desde $\MER(t)$, sismicidad de borde y
-texturas. $\beta$ es la zona de cizalle (drumbeats de St.\ Helens).
+Recuperar la \textbf{sobrepresión de cámara} $\Delta P$
+(es $P(H)$) a partir de $Q^{\mathrm{obs}}$.
+Si se quiere un segundo parámetro después: el agua en la base $c_0$
+en~\eqref{eq:henry}. No los dos a la vez al principio.
 
-\paragraph{Por qué se lo daría.} Teoría hecha; la tesis es pasarla a
-este operador y ver qué dato de frontera identifica $\beta$. Artículo
-independiente, no el núcleo.
+Eso es lo que sugiere geología. En mates: inverso de una condición
+de borde (o de un coeficiente) en un sistema de conservación 2D
+estacionario. Un escalar. Se puede empezar por diferencias finitas
+o un ajuste simple; después se ve unicidad y sensibilidad.
 
-% ---------------------------------------------------------------------------
-\section*{4. Control de estilo --- \emph{si quiere control de un DAE}}
+\paragraph{Por qué 2D y $\varphi(r,z)$.}
+En 1D, $\varphi=\varphi(z)$ y la fricción es $c_g\mu u_m/R^2$.
+En 2D el perfil $u_m(r)$ es incógnita y $\varphi$ puede ser más
+alto o más bajo cerca de la pared. El $Q$ cambia; el inverso de
+$\Delta P$ o $c_0$ no es el mismo número que en 1D.
 
-\paragraph{Tipo.} Control de un DAE no lineal con dos blancos.
-No es control de EDP en el sentido de Lions; es control de un
-problema de tiro con dos condiciones de superficie.
-
-\paragraph{Enunciado.}
-El mismo $\theta$ puede dar $q_{\mathrm{ex}}$, $q_{\mathrm{ef}}$,
-ambos o ninguno. Particionar $\Theta$ en
-\[
-\Theta_{\mathrm{ex}},\quad
-\Theta_{\mathrm{ef}},\quad
-\Theta_{\mathrm{ambos}},\quad
-\Theta_{\varnothing}.
-\]
-Problema de control: dados un estado inicial y un estilo deseado
-(``quiero efusivo'', ``quiero apagar la rama explosiva''), ¿existe
-un control en $(R,\Delta P,c_0)$ ---o una historia $P_{\mathrm{cam}}(t)$---
-que lleve el sistema a $\Theta_{\mathrm{ef}}$? Merapi y Caulle son
-los casos donde $\Theta_{\mathrm{ambos}}\neq\varnothing$.
-
-\paragraph{Por qué se lo daría.} Es la pregunta que el paper JGR 2025
-deja abierta, escrita como control. Riesgo: menos teoremas de estantería
-que (2) o (3); más análisis numérico del conjunto alcanzable.
+\paragraph{Lo que no es.}
+Ni recuperar todo $R(z)$, ni un transiente, ni reescribir el
+solver 1D. El 1D queda como está. Esto es el paso 2D y un inverso
+chico.
 
 % ---------------------------------------------------------------------------
-\section*{Qué \emph{no} le daría como tesis de matemáticas}
+\section*{5. Qué se le pide al profesor}
 
-\begin{itemize}[leftmargin=1.2em]
-\item ``Invertir Calbuco y sacar $\Delta P$''. Eso es la aplicación
-  del (1), no el problema.
-\item Reescribir el solver, hacer 3D, o un emulador. Infraestructura.
-\item El catálogo A1--E7 entero. Son variantes; él tiene que elegir
-  \emph{un} enunciado.
-\end{itemize}
-
-% ---------------------------------------------------------------------------
-\section*{La frase para la reunión}
-
-\begin{quote}
-\textit{El modelo directo ya corre. Propongo el inverso de la geometría
-del conducto: demostrar qué parte de $R(\cdot)$ es invisible para el
-caudal ---ya lo es en un recorte, $J_4$--- y si eso sobrevive en el
-bifásico. Si prefiere una EDP clásica, el mismo recorte da un sideways /
-control de $P_{\mathrm{cam}}(t)$. Si prefiere teoría de coeficiente,
-Robin en la pared. Si prefiere control, particionar el espacio de
-parámetros por estilo eruptivo y ver qué es alcanzable.}
-\end{quote}
-
-Mi orden: \textbf{(1) núcleo}, (2) si pide EDP, (3) artículo extra,
-(4) el gancho con geología (estilo). Los cuatro son compatibles con
-una sola tesis de doble titulación: (1)+(4) son el hilo; (2) o (3) se
-agregan según lo que él quiera.
+¿Tiene sentido como tesis de DIM este inverso (un parámetro, EDP
+estacionaria 2D de masa + momentum)? Si sí, se trabaja primero
+$\Delta P$, después se discute $c_0$.
 
 \end{document}
