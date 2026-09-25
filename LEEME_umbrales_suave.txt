@@ -1,5 +1,8 @@
 Laboratorio de umbrales suavizados (no toca RIconduitex5_5.py).
 
+Copiá TODO este folder al lado de scikits.odes (o reemplazá estos
+archivos en tu proyecto). No mezcles con el zip de ambos-casos.
+
 Archivos:
   umbrales_reg.py              rampas + tasa_xi
   RIconduitex5_5_suave.py      mismo tiro que el original, con esas rampas
