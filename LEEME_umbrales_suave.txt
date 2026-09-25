@@ -1,0 +1,21 @@
+Laboratorio de umbrales suavizados (no toca RIconduitex5_5.py).
+
+Archivos:
+  umbrales_reg.py              rampas + tasa_xi
+  RIconduitex5_5_suave.py      mismo tiro que el original, con esas rampas
+  regularizar_umbrales.ipynb   tablero de eps + celdas para IDA
+  figuras_umbrales.py          figuras 01–10
+  figuras_tasa_xi.py           figura del leak de cristales
+  test_tasa_xi.py              chequeo sin IDA
+  umbrales_reg_figuras/        png
+
+EPS en la primera celda del notebook es solo para MIRAR las rampas.
+Para CORRER el DAE hay que pasar EPS_RUN a RIconduitex5_5_suave_f(...).
+
+Si el perfil “no se ve como antes” (ξ 0.25→0.35, φ salta a −20 km):
+era un softplus extra sobre dx/dz. softplus(0, eps) ≈ 0.69*eps /m.
+tasa_xi ya no lo hace. henry=1e-4 está bien-ish; mejor 1e-6.
+
+Si el tiro no cierra: no interpolar al umbral (y0 inconsistente).
+n_eq 1–3 usa las mismas fuerzas que el original.
+La cámara de Calbuco está en H=−7000 m.

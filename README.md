@@ -6,6 +6,7 @@ Implementación en Python de un modelo de conducto volcánico con:
 
 - **1D estacionario explosivo** (`RIconduitex5_5.py`) y **efusivo** (`RIconduitef5_5.py`): el mismo DAE bifásico; cambia la condición de salida del tiro
 - **Fragmentación regularizada (laboratorio):** `fragmentacion_reg.py` + `RIconduitex5_5_reg.py` + `regularizar_fragmentacion.ipynb`. El original no se toca.
+- **Todos los umbrales suavizados (laboratorio):** `umbrales_reg.py` + `RIconduitex5_5_suave.py` + `regularizar_umbrales.ipynb` (zip `umbrales_suave.zip`). `tasa_xi` solo suaviza `f2` y `f3`; no aplicar `softplus` otra vez a `dx/dz` (hincha ξ a 0.35). El original no se toca.
 - Casos del paper JGR 2025 en `casos/` (Pinatubo, Quizapu, St. Helens, Vesuvius, Villarrica, Caulle, Huaynaputina, Merapi; Calbuco en `calbuco2015d.py`)
 - **Ambas ramas a la vez:** `mainconduit_ambos.ipynb` (mismo estilo que `mainconduit5_5`) tira explosiva y efusiva con los mismos datos y las 6 figuras encima
 - **1D transiente** (EDPs + esquema IMEX: MOL, FD upwind, RK4)

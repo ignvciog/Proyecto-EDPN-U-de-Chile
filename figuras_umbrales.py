@@ -316,4 +316,6 @@ if __name__ == "__main__":
     fig_tiro_ef()
     fig_softmin_or()
     fig_todas()
+    from figuras_tasa_xi import main as fig_leak
+    fig_leak()
     print("listo", OUT)

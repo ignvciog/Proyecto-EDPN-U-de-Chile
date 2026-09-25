@@ -16,12 +16,14 @@ import numpy as np
 # Los anchos anchos (0.04, 1e-3, 300) son solo para MIRAR la rampa
 # en el notebook. En Calbuco, test en Pcrit es ~1e-6: eps_henry=1e-3
 # deja sH≈1/2 y φ salta 0→1 en una celda (el gráfico de −70 km).
-EPS_PHI = 0.003         # limphi1, limphi2 (están a 0.01)
-EPS_FRAG = 0.015        # phicrit
-EPS_HENRY = 1e-6        # test (fracción másica); << 1e-3
-EPS_RE = 80.0           # Re = 2200
-EPS_XI = 3e-4           # softplus de cristales
-EPS_RB = 0.02           # fracción de R
+# No apliques softplus al producto (xmax-xi)*f2*f3/denom: softplus(0,eps)
+# vale ≈0.69*eps por metro y ξ se va a 0.35 (el perfil “no se ve como antes”).
+EPS_PHI = 0.001         # limphi1, limphi2 (están a 0.01)
+EPS_FRAG = 0.001        # phicrit
+EPS_HENRY = 1e-6        # test (fracción másica); << 1e-4
+EPS_RE = 10.0           # Re = 2200
+EPS_XI = 1e-4           # solo f2 y f3, nunca la tasa
+EPS_RB = 0.01           # fracción de R
 
 # anchos anchos solo para los gráficos de rampa
 EPS_VISTA = dict(phi=0.01, frag=0.04, henry=1e-3, re=300.0, xi=1e-3, rb=0.05)
@@ -106,6 +108,24 @@ def softplus(x, eps=EPS_XI):
     z = x / eps
     mid = eps * np.log1p(np.exp(np.clip(z, -40.0, 40.0)))
     return np.where(z > 40.0, x, np.where(z < -40.0, 0.0, mid))
+
+
+def tasa_xi(f2_raw, x, xi, xmax, denom, eps=EPS_XI):
+    """Misma tasa que el original: (xmax-xi)*max(0,f2)*max(0,1-x/xteo)/denom.
+
+    softplus solo en f2 y f3. Si se aplica otra vez al producto,
+    softplus(0, eps) ≈ 0.69*eps aunque la tasa real sea 0 y los
+    cristales crecen 0.25 → 0.35 en unos km (el plot “no como antes”).
+    """
+    f2 = softplus(f2_raw, eps)
+    xteo = xi + (xmax - xi) * f2
+    xteo_ok = np.maximum(np.asarray(xteo, dtype=float), 1e-30)
+    f3 = softplus(1.0 - np.asarray(x, dtype=float) / xteo_ok, eps)
+    den = np.maximum(np.asarray(denom, dtype=float), 1e-30)
+    dx = (xmax - xi) * f2 * f3 / den
+    if np.ndim(dx) == 0:
+        return float(f2), float(xteo_ok), float(f3), float(dx)
+    return f2, xteo_ok, f3, dx
 
 
 # ── 6. coalescencia (rampas que APAGAN) ───────────────────────────────────

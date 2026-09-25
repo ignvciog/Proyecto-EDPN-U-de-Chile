@@ -18,7 +18,7 @@ from calbuco2015d import *
 from fvrel import *
 from umbrales_reg import (
     EPS_FRAG, EPS_HENRY, EPS_PHI, EPS_RE, EPS_RB, EPS_XI,
-    s_frag, s_henry, s_re, softplus, guarda_coalescencia, mezclar,
+    s_frag, s_henry, s_re, guarda_coalescencia, mezclar, tasa_xi,
 )
 from scikits.odes import dae
 import warnings
@@ -92,8 +92,24 @@ def _pegar_t(zsol, t):
     return zsol if t.size == 0 else np.append(zsol, t)
 
 
+def _interpolar_cruce(y_lo, t_lo, y_hi, t_hi, cond, idx=1):
+    """Punto sobre phi=cond entre dos pasos (evita el salto 0→1 en una celda)."""
+    y_lo = np.asarray(y_lo, dtype=float).ravel()
+    y_hi = np.asarray(y_hi, dtype=float).ravel()
+    a, b = float(y_lo[idx]), float(y_hi[idx])
+    if not np.isfinite(a) or not np.isfinite(b) or b == a:
+        return y_hi, float(t_hi)
+    w = float(np.clip((cond - a) / (b - a), 0.0, 1.0))
+    return (1.0 - w) * y_lo + w * y_hi, (1.0 - w) * float(t_lo) + w * float(t_hi)
+
+
 def _cortar_cruce(y_all, t_all, y0, t0, cond):
-    """Recorta solve() al primer cruce de phi=cond (como el loop de step)."""
+    """Recorta solve() al primer cruce de phi=cond.
+
+    Se deja el primer punto del DAE que ya cruzó (como el original).
+    Interpolar al umbral exacto parte n_eq siguiente con un y0 que
+    no cumple el residual y el tiro no cierra.
+    """
     y_all = np.atleast_2d(np.asarray(y_all, dtype=float))
     t_all = np.asarray(t_all, dtype=float).ravel()
     if y_all.size == 0 or t_all.size == 0:
@@ -202,11 +218,9 @@ def momenteq(t, y, yprime, result):
         viscrel=0.5*(AA-BB)*(1-math.erf(np.real(c1*np.log(nca)+c2)))+BB
         visc=viscrel*viscl
 
-        f2=float(softplus((co*(1-xi)-((1-y[3])*C1*y[0]**beta))/(co*(1-xi) - (1-xmax)*C1*(Patm)**beta), eps_xi))
-        xteo=xi + (xmax-xi)*f2
-        f3=float(softplus(1-y[3]/xteo, eps_xi))
-        
-        dxdp=float(softplus((xmax-xi)*f2*f3/(tcar*y[4]), eps_xi))
+        f2, xteo, f3, dxdp = tasa_xi(
+            (co*(1-xi)-((1-y[3])*C1*y[0]**beta))/(co*(1-xi) - (1-xmax)*C1*(Patm)**beta),
+            y[3], xi, xmax, tcar*y[4], eps_xi)
         dfgdp=(-(-dxdp*C1*y[0]**beta + (1-y[3])*C1*beta*y[0]**(beta-1))+(co*(1-xi)-(1-y[3])*C1*y[0]**beta)*C1*beta*y[0]**(beta-1))/((1-C1*y[0]**beta)**2)
         
         
@@ -231,8 +245,9 @@ def momenteq(t, y, yprime, result):
             Fmg_st=(1e-5/kper)*(y[5]- y[4])*y[1]*(1-y[1])
             Fmg=mezclar(float(s_re(Re, eps=eps_re)), _fin(Fmg_st), _fin(Fmg_in))
 
-        Fmw, Fgw, Fmg, sfrag = _mezclar_fragmentacion(
-            y[1], rho_g, y[4], y[5], Fmw, Fgw, Fmg)
+        # n_eq 1–3: mismas fuerzas que el original. Mezclar fragmentación
+        # acá mueve φ_crit y el tiro no encuentra la ventana.
+        sfrag = 0.0
         
         aco=rho_g*(y[5]**2)
         bco=y[1] - (y[5]**2)*y[1]/(R*T) + dfgdp*q*y[5]
@@ -251,16 +266,16 @@ def momenteq(t, y, yprime, result):
         dNdt=float(guarda_coalescencia(rb, wr, y[1], phi_off, eps_frac=eps_rb, eps_frag=eps_frag))*dNdt_on
 
         if n_eq in [2,3]:
-            f2 = float(softplus((co-(C1*y[0]**beta))/(co - C1*(Patm)**beta), eps_xi))
-            xteo=xi + (xmax-xi)*f2
-            f3 = float(softplus(1-y[3]/xteo, eps_xi))
+            f2, xteo, f3, _ = tasa_xi(
+                (co-(C1*y[0]**beta))/(co - C1*(Patm)**beta),
+                y[3], xi, xmax, tcar, eps_xi)
 
          ########### En momenteq aca va multp. pr y[4] en matlab (Preguntar)
 
         if n_eq==3:
-            dxdz=float(softplus((xmax-xi)*f2*f3/(tcar*y[4]), eps_xi))
+            dxdz = (xmax - xi) * f2 * f3 / max(tcar * y[4], 1e-30)
         else:
-            dxdz=float(softplus((xmax-xi)*f2*f3/(tcar), eps_xi))
+            dxdz = (xmax - xi) * f2 * f3 / max(tcar, 1e-30)
 
         dNdt = (1.0 - sfrag) * dNdt
         dxdz = (1.0 - sfrag) * dxdz
@@ -280,10 +295,9 @@ def momenteq(t, y, yprime, result):
 
         ra=1e-3 
         cd=0.8
-        f2=float(softplus((co*(1-xi)-((1-xfinal)*C1*y[0]**beta))/(co*(1-xi) - (1-xmax)*C1*(Patm)**beta), eps_xi))
-        xteo=xi + (xmax-xi)*f2
-        f3=float(softplus(1-xfinal/xteo, eps_xi))
-        dxdp=float(softplus((xmax-xi)*f2*f3/tcar, eps_xi)) #######Aqui no va multiplicado
+        f2, xteo, f3, dxdp = tasa_xi(
+            (co*(1-xi)-((1-xfinal)*C1*y[0]**beta))/(co*(1-xi) - (1-xmax)*C1*(Patm)**beta),
+            xfinal, xi, xmax, tcar, eps_xi)
         dfgdp_sat=(-(-dxdp*C1*y[0]**beta + (1-xfinal)*C1*beta*y[0]**(beta-1))+(co*(1-xi)-(1-xfinal)*C1*y[0]**beta)*C1*beta*y[0]**(beta-1))/((1-C1*y[0]**beta)**2)
         dfgdp=sH*dfgdp_sat
 
@@ -337,11 +351,9 @@ def momenteq1(t, y):
         viscrel=0.5*(AA-BB)*(1-math.erf(np.real(c1*np.log(nca)+c2)))+BB
         visc=viscrel*viscl
 
-        f2=float(softplus((co*(1-xi)-((1-y[3])*C1*y[0]**beta))/(co*(1-xi) - (1-xmax)*C1*(Patm)**beta), eps_xi))
-        xteo=xi + (xmax-xi)*f2
-        f3=float(softplus(1-y[3]/xteo, eps_xi))
-        
-        dxdp=float(softplus((xmax-xi)*f2*f3/(tcar*y[4]), eps_xi))
+        f2, xteo, f3, dxdp = tasa_xi(
+            (co*(1-xi)-((1-y[3])*C1*y[0]**beta))/(co*(1-xi) - (1-xmax)*C1*(Patm)**beta),
+            y[3], xi, xmax, tcar*y[4], eps_xi)
         dfgdp=(-(-dxdp*C1*y[0]**beta + (1-y[3])*C1*beta*y[0]**(beta-1))+(co*(1-xi)-(1-y[3])*C1*y[0]**beta)*C1*beta*y[0]**(beta-1))/((1-C1*y[0]**beta)**2)
         
         
@@ -366,8 +378,9 @@ def momenteq1(t, y):
             Fmg_st=(1e-5/kper)*(y[5]- y[4])*y[1]*(1-y[1])
             Fmg=mezclar(float(s_re(Re, eps=eps_re)), _fin(Fmg_st), _fin(Fmg_in))
 
-        Fmw, Fgw, Fmg, sfrag = _mezclar_fragmentacion(
-            y[1], rho_g, y[4], y[5], Fmw, Fgw, Fmg)
+        # n_eq 1–3: mismas fuerzas que el original. Mezclar fragmentación
+        # acá mueve φ_crit y el tiro no encuentra la ventana.
+        sfrag = 0.0
         
         aco=rho_g*(y[5]**2)
         bco=y[1] - (y[5]**2)*y[1]/(R*T) + dfgdp*q*y[5]
@@ -385,14 +398,14 @@ def momenteq1(t, y):
         dNdt=float(guarda_coalescencia(rb, wr, y[1], phi_off, eps_frac=eps_rb, eps_frag=eps_frag))*dNdt_on
 
         if n_eq in [2,3]:
-            f2 = float(softplus((co-(C1*y[0]**beta))/(co - C1*(Patm)**beta), eps_xi))
-            xteo=xi + (xmax-xi)*f2
-            f3 = float(softplus(1-y[3]/xteo, eps_xi))
+            f2, xteo, f3, _ = tasa_xi(
+                (co-(C1*y[0]**beta))/(co - C1*(Patm)**beta),
+                y[3], xi, xmax, tcar, eps_xi)
 
         if n_eq==3:
-            dxdz=float(softplus((xmax-xi)*f2*f3/(tcar*y[4]), eps_xi))
+            dxdz = (xmax - xi) * f2 * f3 / max(tcar * y[4], 1e-30)
         else:
-            dxdz=float(softplus((xmax-xi)*f2*f3/(tcar), eps_xi))
+            dxdz = (xmax - xi) * f2 * f3 / max(tcar, 1e-30)
 
         dNdt = (1.0 - sfrag) * dNdt
         dxdz = (1.0 - sfrag) * dxdz
@@ -407,10 +420,9 @@ def momenteq1(t, y):
 
         ra=1e-3 
         cd=0.8
-        f2=float(softplus((co*(1-xi)-((1-xfinal)*C1*y[0]**beta))/(co*(1-xi) - (1-xmax)*C1*(Patm)**beta), eps_xi))
-        xteo=xi + (xmax-xi)*f2
-        f3=float(softplus(1-xfinal/xteo, eps_xi))
-        dxdp=float(softplus((xmax-xi)*f2*f3/tcar, eps_xi)) #######Aqui no va multiplicado
+        f2, xteo, f3, dxdp = tasa_xi(
+            (co*(1-xi)-((1-xfinal)*C1*y[0]**beta))/(co*(1-xi) - (1-xmax)*C1*(Patm)**beta),
+            xfinal, xi, xmax, tcar, eps_xi)
         dfgdp_sat=(-(-dxdp*C1*y[0]**beta + (1-xfinal)*C1*beta*y[0]**(beta-1))+(co*(1-xi)-(1-xfinal)*C1*y[0]**beta)*C1*beta*y[0]**(beta-1))/((1-C1*y[0]**beta)**2)
         dfgdp=sH*dfgdp_sat
 
@@ -439,9 +451,14 @@ def momenteq1(t, y):
 def solv(t0, tf, y0, yp0, atol, rtol, n, param, cond=None):
     tspan = np.linspace(t0, tf, int(n))
     y0 = np.asarray(y0, dtype=float).copy()
-    if param in [1, 2, 3] and y0.size >= 6:
+    if param == 1 and y0.size >= 6:
         um, ug = _vel_algebraicas(y0[0], y0[1], y0[3], q, rho_m)
         y0[4], y0[5] = um, ug
+        yp0 = np.asarray(momenteq1(t0, y0), dtype=float).copy()
+        if yp0.size >= 6:
+            yp0[4] = 0.0
+            yp0[5] = 0.0
+    elif param in [2, 3] and y0.size >= 6:
         yp0 = np.asarray(momenteq1(t0, y0), dtype=float).copy()
         if yp0.size >= 6:
             yp0[4] = 0.0
@@ -470,25 +487,25 @@ def solv(t0, tf, y0, yp0, atol, rtol, n, param, cond=None):
         y_values = []
         t_values = []
         if not (hasattr(solver, "initialized") and not solver.initialized):
-            y_anterior = y0[1]
+            y_anterior = float(y0[1])
             for time in tspan[1:]:
                 solution = solver.step(time)
                 if solution.values.y is None:
                     break
-                y_actual = solution.values.y[1]
-                y_values.append(solution.values.y)
+                y_now = np.asarray(solution.values.y, dtype=float).ravel()
+                y_actual = float(y_now[1])
+                y_values.append(y_now)
                 t_values.append(solution.values.t)
-                if cond is not None:
-                    if (y_anterior < cond and y_actual >= cond) or (
-                        y_anterior > cond and y_actual <= cond
-                    ):
-                        break
+                if cond is not None and (
+                    (y_anterior < cond and y_actual >= cond)
+                    or (y_anterior > cond and y_actual <= cond)
+                ):
+                    break
                 y_anterior = y_actual
 
         if len(y_values) == 0:
-            # step() no avanzó: solve() solo un tramo corto (no hasta z=0)
-            z_corto = 0.0 if t0 >= -80.0 else min(0.0, t0 + 80.0)
-            tspan2 = np.linspace(t0, z_corto, max(400, int(n) // 25))
+            # step() no avanzó: solve() hacia z=0 y se corta en cond
+            tspan2 = np.linspace(t0, tf, max(400, int(n) // 5))
             solver = _armar(True, first_step=None)
             solution = solver.solve(tspan2, y0, yp0)
             y_all, t_all = solution.values.y, solution.values.t
@@ -670,6 +687,7 @@ def RIconduitex5_5_suave_f(radius,Pressure, wt, Temperature, content_crystal,
             if not np.isfinite(deltH) or deltH <= 0.0:
                 deltH = min(abs(deltP) / max(abs(dpdzcalc), 1.0), abs(H) * 0.8)
             Hi=float(np.clip(H+deltH, H, -1e-3))
+            deltH = Hi - H
             hspacing = 500
 
             zetash = np.zeros(hspacing)
@@ -703,11 +721,21 @@ def RIconduitex5_5_suave_f(radius,Pressure, wt, Temperature, content_crystal,
 
                     had=Hi+epsd
                     Pad=Pcrit + dpdzcalc*(had-Hi)
-                    P_ok = _P_sH(0.95, xi)
-                    if P_ok is not None and P_ok < Pad and dpdzcalc < 0.0:
-                        had = float(np.clip(Hi + (P_ok - Pcrit) / dpdzcalc, Hi + epsd, -1e-3))
-                        Pad = Pcrit + dpdzcalc*(had-Hi)
-                    fgad, phiad, viadm, viadg = _fg_phi_vel(Pad, xi, q, rho_m)
+                    # Mismo y0 que el original (Henry duro). Solo si sH sigue
+                    # a medias se baja un poco P para que IDA inicialice.
+                    test_ad = (1.0 - xi) * co - (1.0 - xi) * C1 * Pad ** beta
+                    if float(s_henry(test_ad, eps_henry)) < 0.9:
+                        P_ok = _P_sH(0.95, xi)
+                        if P_ok is not None and P_ok < Pad and dpdzcalc < 0.0:
+                            had = float(np.clip(Hi + (P_ok - Pcrit) / dpdzcalc, Hi + epsd, -1e-3))
+                            Pad = Pcrit + dpdzcalc*(had-Hi)
+                        fgad, phiad, viadm, viadg = _fg_phi_vel(Pad, xi, q, rho_m)
+                    else:
+                        fgad=(1-xi)*(co - C1*Pad**beta)/(1-C1*Pad**beta)
+                        phiad=1/(1 + (Pad/(fgad*R*T))*(1-fgad)/rho_m)
+                        rho_gad=Pad/(R*T)
+                        viadm= q*(1-fgad)/((1-phiad)*rho_m)
+                        viadg= q*fgad/(phiad*rho_gad)
                     ## Fin calculo
                     
                     n_eq=1
@@ -907,12 +935,17 @@ def RIconduitex5_5_suave_f(radius,Pressure, wt, Temperature, content_crystal,
                         vinicial= vmin + (vmax-vmin)/2
 
         U_prev, P_prev, z_prev = v_shot, pexit, zexit
+        vmin1, vmax1 = vmin, vmax
 
         print(f"vmax: {vmax} \nvmin: {vmin}")    
         ##End shooting method
         if (vmax1-vmin1)<0.0001:
-            count=60
-            print(f"vmax1: {vmax1} \nvmin1: {vmin1}")
+            if zexit >= -15 and phiexit >= 0.5 * phicrit:
+                converged = True
+                print(">>> Solucion de tiro convergida (ventana vmin/vmax cerrada).")
+            else:
+                count=60
+                print(f"vmax1: {vmax1} \nvmin1: {vmin1}")
 
     if not converged:
         print(
