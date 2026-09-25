@@ -140,6 +140,15 @@ def _P_sH(sH_min=0.95, xcrys=None):
     return float((rhs / den) ** (1.0 / beta))
 
 
+def _clamp_y(y):
+    y = np.asarray(y, dtype=float).copy()
+    y[0] = float(np.clip(y[0], 1.0e4, 2.0e9))
+    y[1] = float(np.clip(y[1], 0.0, 0.99))
+    y[2] = float(np.clip(y[2], 1.0, 1.0e20))
+    y[3] = float(np.clip(y[3], 0.0, 0.95))
+    return y
+
+
 def _sanear_perfil(zsol, sol, zmin, zmax):
     zsol = np.asarray(zsol, dtype=float).ravel()
     sol = np.asarray(sol, dtype=float)
@@ -147,7 +156,27 @@ def _sanear_perfil(zsol, sol, zmin, zmax):
     zsol, sol = zsol[:n], sol[:n]
     ok = np.isfinite(zsol) & np.all(np.isfinite(sol), axis=1)
     ok &= (zsol >= zmin) & (zsol <= zmax)
-    return zsol[ok], sol[ok]
+    zsol, sol = zsol[ok], sol[ok]
+    if zsol.size < 2:
+        return zsol, sol
+    keep = np.ones(zsol.size, dtype=bool)
+    last = zsol[0]
+    for i in range(1, zsol.size):
+        if zsol[i] <= last + 1e-12:
+            keep[i] = False
+        else:
+            last = zsol[i]
+    return zsol[keep], sol[keep]
+
+
+def _filtrar_tramo(y, t, t0, tf):
+    y = np.atleast_2d(np.asarray(y, dtype=float))
+    t = np.asarray(t, dtype=float).ravel()
+    n = min(y.shape[0], t.size)
+    y, t = y[:n], t[:n]
+    lo, hi = min(float(t0), float(tf)) - 1.0, max(float(t0), float(tf)) + 1.0
+    ok = np.isfinite(t) & np.all(np.isfinite(y), axis=1) & (t >= lo) & (t <= hi)
+    return y[ok], t[ok]
 
 
 def _fg_phi_vel(P, xcrys, qmass, rhom):
@@ -191,8 +220,8 @@ def _melt_wall_friction(visc, um):
 
 
 def _rama_o_cero(w, valor):
-    """Si el peso es 0 no evaluamos un F divergente (1/rb cuando φ→0)."""
-    if abs(float(w)) < 1e-16:
+    """Si el peso es ~0 no evaluamos un F divergente (1/rb cuando φ→0)."""
+    if abs(float(w)) < 1e-8:
         return 0.0
     return _fin(valor)
 
@@ -579,15 +608,24 @@ def solv(t0, tf, y0, yp0, atol, rtol, n, param, cond=None):
 
 
 def _estado_unificado(y):
-    """fg, visc, rb, F*, dfgdp, dxdz, dNdz — un solo campo C^∞ en φ."""
+    """fg, visc, rb, F*, dfgdp, dxdz, dNdz — um,ug algebraicas (P,φ,fg,q)."""
     global fragcrit
-    P, phi, Nd_y, xcrys, um, ug = (float(y[0]), float(y[1]), float(y[2]),
-                                   float(y[3]), float(y[4]), float(y[5]))
-    rho_g = P / (R * T)
+    y = _clamp_y(y)
+    P, phi, Nd_y, xcrys = float(y[0]), float(y[1]), float(y[2]), float(y[3])
+    rho_g = max(P / (R * T), 1e-12)
     test = (1.0 - xi) * co - (1.0 - xcrys) * C1 * P ** beta
-    fg_sat = (co * (1.0 - xi) - C1 * (1.0 - xcrys) * P ** beta) / ((1.0 - C1 * P ** beta))
+    den_h = max(1.0 - C1 * P ** beta, 1e-12)
+    fg_sat = (co * (1.0 - xi) - C1 * (1.0 - xcrys) * P ** beta) / den_h
     sH = float(s_henry(test, eps_henry))
-    fg = sH * fg_sat
+    fg = max(0.0, sH * fg_sat)
+    if phi <= 1e-12 or fg <= 1e-16:
+        um = q / rho_m
+        ug = um
+    else:
+        um = q * (1.0 - fg) / ((1.0 - phi) * rho_m)
+        ug = q * fg / (phi * rho_g)
+    um = _fin(um, q / max(rho_m, 1.0))
+    ug = _fin(ug, um)
     rb = ((max(phi, 0.0) / ((4.0 / 3.0) * np.pi * max(Nd_y, 1e-30) * max(1.0 - phi, 1e-12)))) ** (1.0 / 3.0)
     viscl_sat = fvrel(model, xcrys, xi, ar1, ar2, xmax, (um / wr)) * viscosity(
         sio2, tio2, al2o3, feo, mno, mgo, cao, na2o, k2o, p2o5, (C1 * P ** beta) * 100, f2o, Tc)
@@ -603,6 +641,14 @@ def _estado_unificado(y):
     c2 = phi
     viscrel = 0.5 * (AA - BB) * (1.0 - math.erf(np.real(c1 * np.log(max(nca, 1e-30)) + c2))) + BB
     visc = viscrel * viscl
+    w1, w2, w3, w4 = pesos_regimen(phi, limphi1, limphi2, phicrit, eps_phi, eps_frag)
+    if fg <= 1e-16 or phi <= 1e-12:
+        Fmw = _melt_wall_friction(viscl, um)
+        dpdz = -rho_m * g - Fmw
+        return {
+            "fg": 0.0, "dpdz": _fin(dpdz), "dphidz": 0.0, "dNdz": 0.0,
+            "dxdz": 0.0, "um_alg": um, "ug_alg": um, "w": (w1, w2, w3, w4),
+        }
     Fmw, Fgw, Fmg, (w1, w2, w3, w4) = _fuerzas_unificadas(phi, rb, rho_g, visc, um, ug)
 
     f2, xteo, f3, dx1 = tasa_xi(
@@ -623,26 +669,30 @@ def _estado_unificado(y):
     eco = -rho_m * (1.0 - phi) * g + Fmg - Fmw
     fco = rho_g * phi * g + Fmg + Fgw
     den = aco * dco - bco * cco
-    if abs(den) < 1e-30:
-        dphidz, dpdz = 0.0, 0.0
+    if abs(den) < 1e-18 or not np.isfinite(den):
+        dphidz, dpdz = 0.0, -rho_m * (1.0 - phi) * g - Fmw
     else:
         dphidz = (-eco * bco + dco * fco) / den
         dpdz = (-eco * aco + fco * cco) / den
+    dpdz = float(np.clip(_fin(dpdz), -1.0e8, 1.0e5))
+    dphidz = float(np.clip(_fin(dphidz), -5.0, 5.0))
     dvdz = vinicial * (-dfgdp * dpdz * (1.0 - phi) + (1.0 - fg) * dphidz) / max((1.0 - phi) ** 2, 1e-30)
     fragcrit = dvdz * visc / (0.01 * 1e10)
 
-    dNdt_on = -(Nd_y ** (2.0 / 3.0)) * ((1.0 / max(1.0 - phi, 1e-12)) ** (1.0 / 3.0)) * (
-        (1.0 / 9.0) * (rho_m - rho_g) * 9.81 / max(visc, 1e-30)) * (
-        (3.0 * max(phi, 0.0) / (4.0 * np.pi)) ** (2.0 / 3.0)) * (F1 * F1 - F2 * F2) * (
-        1.0 / (1.0 - ((F1 + F2) * ((3.0 * max(phi, 0.0) * (np.pi / (6.0 * phicrit)) / (4.0 * np.pi)) ** (1.0 / 3.0))))) * Fc * (
-        1.0 - phi / phicrit) * (wr - rb) / wr
+    inner = (F1 + F2) * ((3.0 * max(phi, 0.0) * (np.pi / (6.0 * phicrit)) / (4.0 * np.pi)) ** (1.0 / 3.0))
+    den_n = 1.0 - inner
+    if abs(den_n) < 1e-8:
+        dNdt_on = 0.0
+    else:
+        dNdt_on = -(Nd_y ** (2.0 / 3.0)) * ((1.0 / max(1.0 - phi, 1e-12)) ** (1.0 / 3.0)) * (
+            (1.0 / 9.0) * (rho_m - rho_g) * 9.81 / max(visc, 1e-30)) * (
+            (3.0 * max(phi, 0.0) / (4.0 * np.pi)) ** (2.0 / 3.0)) * (F1 * F1 - F2 * F2) * (
+            1.0 / den_n) * Fc * (1.0 - phi / phicrit) * (wr - rb) / wr
     dNdt = float(guarda_coalescencia(rb, wr, phi, phicrit, eps_frac=eps_rb, eps_frag=eps_frag)) * _fin(dNdt_on)
     dNdz = (1.0 - w4) * dNdt / max(abs(um), 1e-6)
     return {
         "fg": fg, "dpdz": _fin(dpdz), "dphidz": _fin(dphidz), "dNdz": _fin(dNdz),
-        "dxdz": _fin(dxdz), "um_alg": q * (1.0 - fg) / ((1.0 - phi) * rho_m) if phi < 0.999 else um,
-        "ug_alg": (q * fg / (phi * rho_g) if phi > 1e-16 and fg > 1e-16 else um),
-        "w": (w1, w2, w3, w4),
+        "dxdz": _fin(dxdz), "um_alg": um, "ug_alg": ug, "w": (w1, w2, w3, w4),
     }
 
 
@@ -676,16 +726,21 @@ def momenteq1_u(t, y):
     ])
 
 
-def solv_u(t0, tf, y0, yp0, atol, rtol, n):
-    """Un solo IDA, 6 variables, sin cortar en limphi/phicrit."""
-    tspan = np.linspace(t0, tf, int(n))
-    y0 = np.asarray(y0, dtype=float).copy()
+def _preparar_y0(t0, y0):
+    y0 = _clamp_y(y0)
     um, ug = _vel_algebraicas(y0[0], y0[1], y0[3], q, rho_m)
     y0[4], y0[5] = um, ug
     yp0 = np.asarray(momenteq1_u(t0, y0), dtype=float).copy()
     yp0[4] = 0.0
     yp0[5] = 0.0
-    vacio = (np.atleast_2d(y0), np.atleast_1d(float(t0)))
+    return y0, yp0
+
+
+def _ida_ventana(t0, tf, y0, atol, rtol, n):
+    y0, yp0 = _preparar_y0(t0, y0)
+    n = max(int(n), 50)
+    tspan = np.linspace(t0, tf, n)
+    vacio = (None, None)
 
     def _armar(compute_ic, first_step=1e-18):
         kw = dict(atol=atol, rtol=rtol, old_api=False, algebraic_vars_idx=[4, 5])
@@ -714,8 +769,39 @@ def solv_u(t0, tf, y0, yp0, atol, rtol, n):
         y_all, t_all = solution.values.y, solution.values.t
         if y_all is None or np.asarray(y_all).size == 0:
             return vacio
-        return np.atleast_2d(y_all), np.asarray(t_all, dtype=float).ravel()
-    return np.vstack(y_values), np.asarray(t_values, dtype=float)
+        return _filtrar_tramo(y_all, t_all, t0, tf)
+    return _filtrar_tramo(np.vstack(y_values), t_values, t0, tf)
+
+
+def solv_u(t0, tf, y0, yp0, atol, rtol, n):
+    """Un solo campo. IDA se reinicia en ventanas (mismo f)."""
+    y0, yp0 = _preparar_y0(t0, y0)
+    vacio = (np.atleast_2d(y0), np.atleast_1d(float(t0)))
+    n_win = 6
+    edges = np.linspace(float(t0), float(tf), n_win + 1)
+    y_acc, t_acc = [], []
+    y = y0
+    t = float(t0)
+    n_each = max(80, int(n) // n_win)
+    for i in range(n_win):
+        ta, tb = float(edges[i]), float(edges[i + 1])
+        if t >= tb - 1e-9:
+            continue
+        ta = max(ta, t)
+        yi, ti = _ida_ventana(ta, tb, y, atol, rtol, n_each)
+        if yi is None or yi.size == 0:
+            break
+        y_acc.append(yi)
+        t_acc.append(ti)
+        y = _clamp_y(yi[-1])
+        t = float(ti[-1])
+        if t >= float(tf) - 1e-6:
+            break
+        if abs(t - ta) < 1e-4:
+            break
+    if not y_acc:
+        return vacio
+    return np.vstack(y_acc), np.concatenate(t_acc)
 
 
 def _aplicar_eps(ef, ep, eh, er, ex, erb):

@@ -63,9 +63,33 @@ def test_cerca_de_cero_es_rama_1():
         assert w4[3] > 0.99
 
 
+def test_sanear_tira_z_de_70km():
+    import numpy as np
+    U = _cargar_mod("RIconduitex5_5_unificado")
+    z = np.array([-70000.0, -35000.0, -7000.0, -3000.0, 0.0, 50.0])
+    sol = np.zeros((6, 6))
+    sol[:, 0] = 1e8
+    z2, s2 = U._sanear_perfil(z, sol, -7050.0, 20.0)
+    assert z2.min() >= -7050.0
+    assert z2.max() <= 20.0
+    assert (-70000.0 not in z2) and (-35000.0 not in z2)
+
+
+def test_filtrar_tramo_tira_basura():
+    import numpy as np
+    U = _cargar_mod("RIconduitex5_5_unificado")
+    t = np.array([-70000.0, -3500.0, -1000.0, 0.0])
+    y = np.ones((4, 6))
+    y2, t2 = U._filtrar_tramo(y, t, -3500.0, 0.0)
+    assert t2.min() >= -3501.0
+    assert t2.max() <= 1.0
+
+
 if __name__ == "__main__":
     test_pesos_suman_uno()
     test_import_unificado_no_pide_suave()
     test_fuerzas_finitas()
     test_cerca_de_cero_es_rama_1()
+    test_sanear_tira_z_de_70km()
+    test_filtrar_tramo_tira_basura()
     print("ok")
