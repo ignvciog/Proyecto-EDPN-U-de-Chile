@@ -232,12 +232,13 @@ def _estado_unificado(y):
     fg_sat = (co * (1.0 - xi) - C1 * (1.0 - xcrys) * P ** beta) / den_h
     sH = float(s_henry(test, eps_henry))
     fg = max(0.0, sH * fg_sat)
-    if phi <= 1e-12 or fg <= 1e-16:
+    if fg <= 1e-16:
         um = q / rho_m
         ug = um
     else:
-        um = q * (1.0 - fg) / ((1.0 - phi) * rho_m)
-        ug = q * fg / (phi * rho_g)
+        phi_eff = max(phi, 1e-10)
+        um = q * (1.0 - fg) / ((1.0 - min(phi_eff, 0.999)) * rho_m)
+        ug = q * fg / (phi_eff * rho_g)
     um = _fin(um, q / max(rho_m, 1.0))
     ug = _fin(ug, um)
     rb = ((max(phi, 0.0) / ((4.0 / 3.0) * np.pi * max(Nd_y, 1e-30) * max(1.0 - phi, 1e-12)))) ** (1.0 / 3.0)
@@ -256,13 +257,9 @@ def _estado_unificado(y):
     viscrel = 0.5 * (AA - BB) * (1.0 - math.erf(np.real(c1 * np.log(max(nca, 1e-30)) + c2))) + BB
     visc = viscrel * viscl
     w1, w2, w3, w4 = pesos_regimen(phi, limphi1, limphi2, phicrit, eps_phi, eps_frag)
-    if fg <= 1e-16 or phi <= 1e-12:
+    if fg <= 1e-16:
         Fmw = _melt_wall_friction(viscl, um)
         dpdz = -rho_m * g - Fmw
-        dphidz = 0.0
-        dxdz = 0.0
-        dNdz = 0.0
-        fragcrit = 0.0
         return {
             "fg": 0.0, "dpdz": _fin(dpdz), "dphidz": 0.0, "dNdz": 0.0,
             "dxdz": 0.0, "um_alg": um, "ug_alg": um, "w": (w1, w2, w3, w4),
@@ -292,8 +289,8 @@ def _estado_unificado(y):
     else:
         dphidz = (-eco * bco + dco * fco) / den
         dpdz = (-eco * aco + fco * cco) / den
-    dpdz = float(np.clip(_fin(dpdz), -1.0e8, 1.0e5))
-    dphidz = float(np.clip(_fin(dphidz), -5.0, 5.0))
+    dpdz = float(np.clip(_fin(dpdz), -1.0e9, 1.0e8))
+    dphidz = float(np.clip(_fin(dphidz), -20.0, 20.0))
     dvdz = vinicial * (-dfgdp * dpdz * (1.0 - phi) + (1.0 - fg) * dphidz) / max((1.0 - phi) ** 2, 1e-30)
     fragcrit = dvdz * visc / (0.01 * 1e10)
 
@@ -344,8 +341,22 @@ def momenteq1_u(t, y):
     ])
 
 
+def _cortar_cruce(y_all, t_all, y0, t0, cond):
+    y_all = np.atleast_2d(np.asarray(y_all, dtype=float))
+    t_all = np.asarray(t_all, dtype=float).ravel()
+    if y_all.size == 0 or t_all.size == 0:
+        return np.atleast_2d(y0), np.atleast_1d(float(t0))
+    phi0 = float(y0[1])
+    for i in range(y_all.shape[0]):
+        phi = float(y_all[i, 1])
+        if (phi0 < cond and phi >= cond) or (phi0 > cond and phi <= cond):
+            return y_all[: i + 1], t_all[: i + 1]
+        phi0 = phi
+    return y_all, t_all
+
+
 def _preparar_y0(t0, y0):
-    y0 = _clamp_y(y0)
+    y0 = np.asarray(y0, dtype=float).copy()
     um, ug = _vel_algebraicas(y0[0], y0[1], y0[3], q, rho_m)
     y0[4], y0[5] = um, ug
     yp0 = np.asarray(momenteq1_u(t0, y0), dtype=float).copy()
@@ -354,12 +365,11 @@ def _preparar_y0(t0, y0):
     return y0, yp0
 
 
-def _ida_ventana(t0, tf, y0, atol, rtol, n):
-    """Un tramo del mismo residual. El campo no cambia; solo se reinicia IDA."""
+def _ida_hasta(t0, tf, y0, atol, rtol, n, cond=None):
+    """Mismo residual que solv_u; si cond no es None, corta al cruzar φ."""
     y0, yp0 = _preparar_y0(t0, y0)
-    n = max(int(n), 50)
-    tspan = np.linspace(t0, tf, n)
-    vacio = (None, None)
+    tspan = np.linspace(t0, tf, max(int(n), 200))
+    vacio = (np.atleast_2d(y0), np.atleast_1d(float(t0)))
 
     def _armar(compute_ic, first_step=1e-18):
         kw = dict(atol=atol, rtol=rtol, old_api=False, algebraic_vars_idx=[4, 5])
@@ -376,47 +386,53 @@ def _ida_ventana(t0, tf, y0, atol, rtol, n):
         ret = solver.init_step(t0, y0, yp0)
     y_values, t_values = [], []
     if not (hasattr(solver, "initialized") and not solver.initialized):
+        y_anterior = float(y0[1])
         for time in tspan[1:]:
             solution = solver.step(time)
             if solution.values.y is None:
                 break
-            y_values.append(np.asarray(solution.values.y, dtype=float).ravel())
+            y_now = np.asarray(solution.values.y, dtype=float).ravel()
+            y_actual = float(y_now[1])
+            y_values.append(y_now)
             t_values.append(solution.values.t)
+            if cond is not None and (
+                (y_anterior < cond and y_actual >= cond)
+                or (y_anterior > cond and y_actual <= cond)
+            ):
+                break
+            y_anterior = y_actual
     if len(y_values) == 0:
         solver = _armar(True, first_step=None)
         solution = solver.solve(tspan, y0, yp0)
         y_all, t_all = solution.values.y, solution.values.t
         if y_all is None or np.asarray(y_all).size == 0:
             return vacio
-        return _filtrar_tramo(y_all, t_all, t0, tf)
+        if cond is None:
+            return _filtrar_tramo(y_all, t_all, t0, tf)
+        y_c, t_c = _cortar_cruce(y_all, t_all, y0, t0, cond)
+        return _filtrar_tramo(y_c, t_c, t0, tf)
     return _filtrar_tramo(np.vstack(y_values), t_values, t0, tf)
 
 
 def solv_u(t0, tf, y0, yp0, atol, rtol, n):
-    """Un solo campo, 6 variables. IDA se reinicia en ventanas (mismo f)."""
+    """Un solo campo. Se reinicia en limphi1, limphi2, phicrit (como el original)."""
     y0, yp0 = _preparar_y0(t0, y0)
     vacio = (np.atleast_2d(y0), np.atleast_1d(float(t0)))
-    n_win = 6
-    edges = np.linspace(float(t0), float(tf), n_win + 1)
     y_acc, t_acc = [], []
     y = y0
     t = float(t0)
-    n_each = max(80, int(n) // n_win)
-    for i in range(n_win):
-        ta, tb = float(edges[i]), float(edges[i + 1])
-        if t >= tb - 1e-9:
-            continue
-        ta = max(ta, t)
-        yi, ti = _ida_ventana(ta, tb, y, atol, rtol, n_each)
-        if yi is None or yi.size == 0:
+    for cond in (limphi1, limphi2, phicrit, None):
+        if t >= float(tf) - 1e-9:
             break
+        yi, ti = _ida_hasta(t, tf, y, atol, rtol, n, cond=cond)
+        if yi is None or np.asarray(yi).size == 0:
+            break
+        yi, ti = np.atleast_2d(yi), np.asarray(ti, dtype=float).ravel()
         y_acc.append(yi)
         t_acc.append(ti)
-        y = _clamp_y(yi[-1])
+        y = yi[-1]
         t = float(ti[-1])
         if t >= float(tf) - 1e-6:
-            break
-        if abs(t - ta) < 1e-4:
             break
     if not y_acc:
         return vacio
@@ -602,13 +618,18 @@ def RIconduitex5_5_unificado_f(radius, Pressure, wt, Temperature, content_crysta
                     if Hi > (-epsd):
                         epsd = -Hi / 10
                     had = Hi + epsd
-                    Pad = Pcrit + dpdzcalc * (had - Hi)
-                    Pad, phiad, viadm, viadg, had2 = _y0_henry(
-                        Pad, xi, q, rho_m, dpdzcalc, Hi, Pcrit)
-                    if had2 is not None:
-                        had = had2
+                    Pad = Pcrit + dpdzcalc * epsd
+                    fgad = (1 - xi) * (co - C1 * Pad ** beta) / (1 - C1 * Pad ** beta)
+                    if fgad <= 1e-16:
+                        Pad = min(Pcrit * 0.999, Pcrit + dpdzcalc * max(epsd, 5.0))
+                        fgad = (1 - xi) * (co - C1 * Pad ** beta) / (1 - C1 * Pad ** beta)
+                    phiad = 1 / (1 + (Pad / (fgad * R * T)) * (1 - fgad) / rho_m)
+                    rho_gad = Pad / (R * T)
+                    viadm = q * (1 - fgad) / ((1 - phiad) * rho_m)
+                    viadg = q * fgad / (phiad * rho_gad)
                     y0 = np.array([Pad, phiad, Nd, xi, viadm, viadg])
                     yp0 = momenteq1_u(had, y0)
+                    print(f"y0 unificado: z={had:.1f} P={Pad:.3e} phi={phiad:.4g} um={viadm:.3g}")
                     y, t = solv_u(t0=had, tf=0, y0=y0, yp0=yp0, atol=errtol, rtol=errtol, n=1e4)
                     zsol = _pegar_t(zsoladi, t)
                     sol = _pegar(sol1, y)
@@ -661,7 +682,15 @@ def RIconduitex5_5_unificado_f(radius, Pressure, wt, Temperature, content_crysta
                     if vmin < v_sec < vmax:
                         vinicial = v_sec
 
-        if pexit < pfinal:
+        # Si IDA no llegó a la boca, el original toma zexit<-5 como "v alta"
+        # y el bisectado se va a 0.1 m/s. Acá eso es el integrador, no el MER.
+        ida_corto = zexit < -50 and phiexit < max(0.05, 0.25 * limphi1)
+        if ida_corto:
+            print("IDA no llegó a la boca (φ chica): subo v, no la bajo.")
+            vmin = v_shot
+            if vinicial == v_shot:
+                vinicial = vmin + (vmax - vmin) / 2
+        elif pexit < pfinal:
             vmax = v_shot
             if vinicial == v_shot:
                 vinicial = vmin + (vmax - vmin) / 2

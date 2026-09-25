@@ -26,6 +26,8 @@ Si el import pide RIconduitex5_5_unificado_f a suave, el unificado.py
 es el wrapper viejo. Reemplazalo por este y poné umbrales_reg.py
 (con tasa_xi y pesos_regimen) al lado. El zip ambos-casos no basta.
 La cámara de Calbuco está en H=−7000 m.
-Si el plot unificado va a −70 km o P_exit queda en decenas de MPa:
-el tiro no cerró (o H no es −7000). Pasá EPS_RUN, no el EPS de vista.
-El eje del gráfico tiene que ser H−200…200, no min(z).
+Si el unificado baja v a <1 m/s y el suave cierra en ~18 m/s:
+el IDA se moría a media columna y el bisectado leía zexit<-5
+como “v alta”. Ahora el y0 es el Henry duro del original, φ no
+se congela, IDA se reinicia en limphi/phicrit (mismo f) y si
+no avanza se SUBE v. El de cuatro tramos no se tocó.
