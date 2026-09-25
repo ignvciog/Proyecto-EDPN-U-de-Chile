@@ -52,6 +52,38 @@ suppress_Fmw = False
 radial_Fmw_override = None
 
 
+def _fg_phi_vel(P, xcrys, qmass, rhom):
+    """fg, phi, um, ug con la misma rampa de Henry que momenteq.
+
+    El tiro original arma y0 con el if duro. Acá el primer punto está
+    justo en test≈0 (Pcrit), sH≈1/2, y IDA no inicializa si um/ug
+    no coinciden con fg = sH * fg_sat.
+    """
+    test = (1.0 - xi) * co - (1.0 - xcrys) * C1 * P ** beta
+    fg_sat = (co * (1.0 - xi) - C1 * (1.0 - xcrys) * P ** beta) / ((1.0 - C1 * P ** beta))
+    sH = float(s_henry(test, eps_henry))
+    fg = sH * fg_sat
+    if fg <= 1e-16:
+        um = qmass / rhom
+        return 0.0, 0.0, um, um
+    phi = 1.0 / (1.0 + (P / (fg * R * T)) * (1.0 - fg) / rhom)
+    rho_g = P / (R * T)
+    um = qmass * (1.0 - fg) / ((1.0 - phi) * rhom)
+    ug = qmass * fg / (phi * rho_g)
+    return fg, phi, um, ug
+
+
+def _ida_inicializo(solver, ret=None):
+    if hasattr(solver, "initialized"):
+        return bool(solver.initialized)
+    if ret is not None and hasattr(ret, "flag"):
+        try:
+            return int(ret.flag) == 0
+        except (TypeError, ValueError):
+            return "SUCCESS" in str(ret.flag).upper()
+    return True
+
+
 def _melt_wall_friction(visc, um):
     if suppress_Fmw:
         return float(radial_Fmw_override) if radial_Fmw_override is not None else 0.0
@@ -323,18 +355,37 @@ def momenteq1(t, y):
         
 def solv(t0, tf, y0, yp0, atol, rtol, n, param, cond=None):
     tspan = np.linspace(t0, tf, int(n))
+    y0 = np.asarray(y0, dtype=float)
+    yp0 = np.asarray(yp0, dtype=float).copy()
+    if param in [1, 2, 3] and yp0.size >= 6:
+        yp0[4] = 0.0
+        yp0[5] = 0.0
+
+    def _armar(compute_ic):
+        kw = dict(
+            first_step_size=1e-18,
+            atol=atol,
+            rtol=rtol,
+            old_api=False,
+        )
+        if compute_ic:
+            kw['compute_initcond'] = 'yp0'
+        if param in [1, 2, 3]:
+            kw['algebraic_vars_idx'] = [4, 5]
+        return dae('ida', momenteq, **kw)
 
     if param in [1,2,3]:
-        solver = dae('ida', momenteq, 
-                compute_initcond='yp0',
-                first_step_size=1e-18,
-                atol=atol,
-                rtol=rtol,
-                algebraic_vars_idx=[4, 5],
-                old_api=False)
-        #print(t0, y0, yp0)
-        solver.init_step(t0, y0, yp0)
-        #print(solver)
+        solver = _armar(True)
+        ret = solver.init_step(t0, y0, yp0)
+        if not _ida_inicializo(solver, ret):
+            # IDACalcIC falló (típico en el umbral de Henry): reintentar con el yp0 ya calculado
+            solver = _armar(False)
+            ret = solver.init_step(t0, y0, yp0)
+        if hasattr(solver, "initialized") and not solver.initialized:
+            raise RuntimeError(
+                'IDA no inicializó. El residual en t0 no es consistente '
+                '(casi siempre Henry en Pcrit). Revisá y0 frente a s_henry.'
+            )
         y_anterior = y0[1]  # Valor inicial de y[1]
         # Lista para almacenar las soluciones
         y_values = []
@@ -562,11 +613,7 @@ def RIconduitex5_5_suave_f(radius,Pressure, wt, Temperature, content_crystal,
 
                     had=Hi+epsd  #altura (o prof) adicional
                     Pad=Pcrit + dpdzcalc*epsd  #presión a esa prof. adicional
-                    fgad=(1-xi)*(co - C1*Pad**beta)/(1-C1*Pad**beta)  #caudal másico para el punto adicional
-                    phiad=1/(1 + (Pad/(fgad*R*T))*(1-fgad)/rho_m)  #contenido de burbujas de este punto adicional
-                    rho_gad=Pad/(R*T)  #Densidad del gas en este punto adicional
-                    viadm= q*(1-fgad)/((1-phiad)*rho_m)  #velocidad inicial en el punto adicional del fundido
-                    viadg= q*fgad/(phiad*rho_gad)  #Velocidad inicial en el punto adicional del gas
+                    fgad, phiad, viadm, viadg = _fg_phi_vel(Pad, xi, q, rho_m)
                     ## Fin calculo
                     
                     n_eq=1
