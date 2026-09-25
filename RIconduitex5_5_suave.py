@@ -18,7 +18,7 @@ from calbuco2015d import *
 from fvrel import *
 from umbrales_reg import (
     EPS_FRAG, EPS_HENRY, EPS_PHI, EPS_RE, EPS_RB, EPS_XI,
-    s_frag, s_henry, s_re, softplus, guarda_coalescencia, mezclar,
+    s_frag, s_henry, s_re, guarda_coalescencia, mezclar, tasa_xi,
 )
 from scikits.odes import dae
 import warnings
@@ -92,18 +92,35 @@ def _pegar_t(zsol, t):
     return zsol if t.size == 0 else np.append(zsol, t)
 
 
+def _interpolar_cruce(y_lo, t_lo, y_hi, t_hi, cond, idx=1):
+    """Punto sobre phi=cond entre dos pasos (evita el salto 0→1 en una celda)."""
+    y_lo = np.asarray(y_lo, dtype=float).ravel()
+    y_hi = np.asarray(y_hi, dtype=float).ravel()
+    a, b = float(y_lo[idx]), float(y_hi[idx])
+    if not np.isfinite(a) or not np.isfinite(b) or b == a:
+        return y_hi, float(t_hi)
+    w = float(np.clip((cond - a) / (b - a), 0.0, 1.0))
+    return (1.0 - w) * y_lo + w * y_hi, (1.0 - w) * float(t_lo) + w * float(t_hi)
+
+
 def _cortar_cruce(y_all, t_all, y0, t0, cond):
     """Recorta solve() al primer cruce de phi=cond (como el loop de step)."""
     y_all = np.atleast_2d(np.asarray(y_all, dtype=float))
     t_all = np.asarray(t_all, dtype=float).ravel()
     if y_all.size == 0 or t_all.size == 0:
         return np.atleast_2d(y0), np.atleast_1d(float(t0))
-    phi0 = float(y0[1])
+    y_prev = np.asarray(y0, dtype=float).ravel()
+    t_prev = float(t0)
     for i in range(y_all.shape[0]):
         phi = float(y_all[i, 1])
+        phi0 = float(y_prev[1])
         if (phi0 < cond and phi >= cond) or (phi0 > cond and phi <= cond):
-            return y_all[: i + 1], t_all[: i + 1]
-        phi0 = phi
+            y_c, t_c = _interpolar_cruce(y_prev, t_prev, y_all[i], t_all[i], cond)
+            if i == 0:
+                return np.atleast_2d(y_c), np.atleast_1d(t_c)
+            return np.vstack((y_all[:i], y_c)), np.append(t_all[:i], t_c)
+        y_prev = y_all[i]
+        t_prev = float(t_all[i])
     return y_all, t_all
 
 
@@ -202,11 +219,9 @@ def momenteq(t, y, yprime, result):
         viscrel=0.5*(AA-BB)*(1-math.erf(np.real(c1*np.log(nca)+c2)))+BB
         visc=viscrel*viscl
 
-        f2=float(softplus((co*(1-xi)-((1-y[3])*C1*y[0]**beta))/(co*(1-xi) - (1-xmax)*C1*(Patm)**beta), eps_xi))
-        xteo=xi + (xmax-xi)*f2
-        f3=float(softplus(1-y[3]/xteo, eps_xi))
-        
-        dxdp=float(softplus((xmax-xi)*f2*f3/(tcar*y[4]), eps_xi))
+        f2, xteo, f3, dxdp = tasa_xi(
+            (co*(1-xi)-((1-y[3])*C1*y[0]**beta))/(co*(1-xi) - (1-xmax)*C1*(Patm)**beta),
+            y[3], xi, xmax, tcar*y[4], eps_xi)
         dfgdp=(-(-dxdp*C1*y[0]**beta + (1-y[3])*C1*beta*y[0]**(beta-1))+(co*(1-xi)-(1-y[3])*C1*y[0]**beta)*C1*beta*y[0]**(beta-1))/((1-C1*y[0]**beta)**2)
         
         
@@ -251,16 +266,16 @@ def momenteq(t, y, yprime, result):
         dNdt=float(guarda_coalescencia(rb, wr, y[1], phi_off, eps_frac=eps_rb, eps_frag=eps_frag))*dNdt_on
 
         if n_eq in [2,3]:
-            f2 = float(softplus((co-(C1*y[0]**beta))/(co - C1*(Patm)**beta), eps_xi))
-            xteo=xi + (xmax-xi)*f2
-            f3 = float(softplus(1-y[3]/xteo, eps_xi))
+            f2, xteo, f3, _ = tasa_xi(
+                (co-(C1*y[0]**beta))/(co - C1*(Patm)**beta),
+                y[3], xi, xmax, tcar, eps_xi)
 
          ########### En momenteq aca va multp. pr y[4] en matlab (Preguntar)
 
         if n_eq==3:
-            dxdz=float(softplus((xmax-xi)*f2*f3/(tcar*y[4]), eps_xi))
+            dxdz = (xmax - xi) * f2 * f3 / max(tcar * y[4], 1e-30)
         else:
-            dxdz=float(softplus((xmax-xi)*f2*f3/(tcar), eps_xi))
+            dxdz = (xmax - xi) * f2 * f3 / max(tcar, 1e-30)
 
         dNdt = (1.0 - sfrag) * dNdt
         dxdz = (1.0 - sfrag) * dxdz
@@ -280,10 +295,9 @@ def momenteq(t, y, yprime, result):
 
         ra=1e-3 
         cd=0.8
-        f2=float(softplus((co*(1-xi)-((1-xfinal)*C1*y[0]**beta))/(co*(1-xi) - (1-xmax)*C1*(Patm)**beta), eps_xi))
-        xteo=xi + (xmax-xi)*f2
-        f3=float(softplus(1-xfinal/xteo, eps_xi))
-        dxdp=float(softplus((xmax-xi)*f2*f3/tcar, eps_xi)) #######Aqui no va multiplicado
+        f2, xteo, f3, dxdp = tasa_xi(
+            (co*(1-xi)-((1-xfinal)*C1*y[0]**beta))/(co*(1-xi) - (1-xmax)*C1*(Patm)**beta),
+            xfinal, xi, xmax, tcar, eps_xi)
         dfgdp_sat=(-(-dxdp*C1*y[0]**beta + (1-xfinal)*C1*beta*y[0]**(beta-1))+(co*(1-xi)-(1-xfinal)*C1*y[0]**beta)*C1*beta*y[0]**(beta-1))/((1-C1*y[0]**beta)**2)
         dfgdp=sH*dfgdp_sat
 
@@ -337,11 +351,9 @@ def momenteq1(t, y):
         viscrel=0.5*(AA-BB)*(1-math.erf(np.real(c1*np.log(nca)+c2)))+BB
         visc=viscrel*viscl
 
-        f2=float(softplus((co*(1-xi)-((1-y[3])*C1*y[0]**beta))/(co*(1-xi) - (1-xmax)*C1*(Patm)**beta), eps_xi))
-        xteo=xi + (xmax-xi)*f2
-        f3=float(softplus(1-y[3]/xteo, eps_xi))
-        
-        dxdp=float(softplus((xmax-xi)*f2*f3/(tcar*y[4]), eps_xi))
+        f2, xteo, f3, dxdp = tasa_xi(
+            (co*(1-xi)-((1-y[3])*C1*y[0]**beta))/(co*(1-xi) - (1-xmax)*C1*(Patm)**beta),
+            y[3], xi, xmax, tcar*y[4], eps_xi)
         dfgdp=(-(-dxdp*C1*y[0]**beta + (1-y[3])*C1*beta*y[0]**(beta-1))+(co*(1-xi)-(1-y[3])*C1*y[0]**beta)*C1*beta*y[0]**(beta-1))/((1-C1*y[0]**beta)**2)
         
         
@@ -385,14 +397,14 @@ def momenteq1(t, y):
         dNdt=float(guarda_coalescencia(rb, wr, y[1], phi_off, eps_frac=eps_rb, eps_frag=eps_frag))*dNdt_on
 
         if n_eq in [2,3]:
-            f2 = float(softplus((co-(C1*y[0]**beta))/(co - C1*(Patm)**beta), eps_xi))
-            xteo=xi + (xmax-xi)*f2
-            f3 = float(softplus(1-y[3]/xteo, eps_xi))
+            f2, xteo, f3, _ = tasa_xi(
+                (co-(C1*y[0]**beta))/(co - C1*(Patm)**beta),
+                y[3], xi, xmax, tcar, eps_xi)
 
         if n_eq==3:
-            dxdz=float(softplus((xmax-xi)*f2*f3/(tcar*y[4]), eps_xi))
+            dxdz = (xmax - xi) * f2 * f3 / max(tcar * y[4], 1e-30)
         else:
-            dxdz=float(softplus((xmax-xi)*f2*f3/(tcar), eps_xi))
+            dxdz = (xmax - xi) * f2 * f3 / max(tcar, 1e-30)
 
         dNdt = (1.0 - sfrag) * dNdt
         dxdz = (1.0 - sfrag) * dxdz
@@ -407,10 +419,9 @@ def momenteq1(t, y):
 
         ra=1e-3 
         cd=0.8
-        f2=float(softplus((co*(1-xi)-((1-xfinal)*C1*y[0]**beta))/(co*(1-xi) - (1-xmax)*C1*(Patm)**beta), eps_xi))
-        xteo=xi + (xmax-xi)*f2
-        f3=float(softplus(1-xfinal/xteo, eps_xi))
-        dxdp=float(softplus((xmax-xi)*f2*f3/tcar, eps_xi)) #######Aqui no va multiplicado
+        f2, xteo, f3, dxdp = tasa_xi(
+            (co*(1-xi)-((1-xfinal)*C1*y[0]**beta))/(co*(1-xi) - (1-xmax)*C1*(Patm)**beta),
+            xfinal, xi, xmax, tcar, eps_xi)
         dfgdp_sat=(-(-dxdp*C1*y[0]**beta + (1-xfinal)*C1*beta*y[0]**(beta-1))+(co*(1-xi)-(1-xfinal)*C1*y[0]**beta)*C1*beta*y[0]**(beta-1))/((1-C1*y[0]**beta)**2)
         dfgdp=sH*dfgdp_sat
 
@@ -470,19 +481,27 @@ def solv(t0, tf, y0, yp0, atol, rtol, n, param, cond=None):
         y_values = []
         t_values = []
         if not (hasattr(solver, "initialized") and not solver.initialized):
-            y_anterior = y0[1]
+            y_prev = np.asarray(y0, dtype=float).ravel()
+            t_prev = float(t0)
+            y_anterior = float(y_prev[1])
             for time in tspan[1:]:
                 solution = solver.step(time)
                 if solution.values.y is None:
                     break
-                y_actual = solution.values.y[1]
-                y_values.append(solution.values.y)
-                t_values.append(solution.values.t)
-                if cond is not None:
-                    if (y_anterior < cond and y_actual >= cond) or (
-                        y_anterior > cond and y_actual <= cond
-                    ):
-                        break
+                y_now = np.asarray(solution.values.y, dtype=float).ravel()
+                t_now = float(solution.values.t)
+                y_actual = float(y_now[1])
+                if cond is not None and (
+                    (y_anterior < cond and y_actual >= cond)
+                    or (y_anterior > cond and y_actual <= cond)
+                ):
+                    y_now, t_now = _interpolar_cruce(y_prev, t_prev, y_now, t_now, cond)
+                    y_values.append(y_now)
+                    t_values.append(t_now)
+                    break
+                y_values.append(y_now)
+                t_values.append(t_now)
+                y_prev, t_prev = y_now, t_now
                 y_anterior = y_actual
 
         if len(y_values) == 0:
@@ -670,6 +689,7 @@ def RIconduitex5_5_suave_f(radius,Pressure, wt, Temperature, content_crystal,
             if not np.isfinite(deltH) or deltH <= 0.0:
                 deltH = min(abs(deltP) / max(abs(dpdzcalc), 1.0), abs(H) * 0.8)
             Hi=float(np.clip(H+deltH, H, -1e-3))
+            deltH = Hi - H
             hspacing = 500
 
             zetash = np.zeros(hspacing)
