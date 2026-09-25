@@ -3,7 +3,7 @@
 **Doble titulación: Geología + Ingeniería Matemática**
 Continuación del proyecto de conducto volcánico 1D/2D (Calbuco 2015) de este repositorio.
 
-**Lo que le das al profesor de matemáticas (1D de la base a la boca, luego 2D con $P,\varphi,N,\xi,u_m,u_g$ en $(r,z)$; inverso de $\Delta P$ o $c_0$):**
+**Lo que le das al profesor de matemáticas (ordenado por leyes: masa, movimiento+$P$, $N$, $\xi$; diccionario $\varphi\neq N\neq n$; inverso de $\Delta P$ o $c_0$):**
 [`propuestas_inverso_control.pdf`](propuestas_inverso_control.pdf).
 
 **Documento formal (el que se les manda a ambos profesores):**

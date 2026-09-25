@@ -5,21 +5,23 @@
 \usepackage[spanish,es-noshorthands]{babel}
 \usepackage{lmodern}
 \usepackage{amsmath,amssymb}
-\usepackage[margin=2.15cm]{geometry}
+\usepackage[margin=2.1cm]{geometry}
 \usepackage{microtype}
 \usepackage{enumitem}
+\usepackage{booktabs}
 \usepackage[colorlinks=true,linkcolor=black,citecolor=black,urlcolor=blue]{hyperref}
 
 \newcommand{\dd}{\,\mathrm{d}}
 \newcommand{\p}{\partial}
 \newcommand{\F}{\mathcal{F}}
-\newcommand{\MER}{\mathrm{MER}}
 \newcommand{\Rv}{\mathcal{R}_v}
 
-\title{\vspace{-1.25cm}
-\textbf{Propuesta: del conducto bifásico 1D al 2D}\\[0.35em]
-\large Primero el estacionario 1D (base $\to$ boca), luego
-$P,\varphi,N,\xi,u_m,u_g$ en $(r,z)$}
+\setlist[itemize]{leftmargin=1.15em,itemsep=0.2em,topsep=0.25em}
+
+\title{\vspace{-1.2cm}
+\textbf{Propuesta: conducto bifásico 1D y 2D, por leyes}\\[0.3em]
+\large Masa, movimiento (con ecuación para $P$), transporte;
+$\varphi$ no es $N$ ni $n$}
 \author{Ignacio Gómez Gómez\\[0.1em]
 {\small Doble titulación Geología / Ingeniería Matemática}}
 \date{\today}
@@ -29,99 +31,121 @@ $P,\varphi,N,\xi,u_m,u_g$ en $(r,z)$}
 \vspace{-0.85cm}
 
 \noindent
-Se escribe primero el \textbf{1D estacionario que ya corre}, en
-orden, de la base a la boca, con la condición de \textbf{cada}
-variable. Después el 2D: las mismas variables, ahora también
-respecto del radio. El inverso, para empezar, es un escalar en
-la base ($\Delta P$ o $c_0$).
+Orden: primero \textbf{qué es cada variable}, después el 1D
+\textbf{por ley de conservación} (masa / movimiento / $N$ /
+$\xi$), con variables principales, ecuación, bordes y
+acoplamientos. Al final el 2D, con la misma plantilla.
+El inverso es un escalar en la base ($\Delta P$ o $c_0$).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section*{Parte I. Estacionario 1D: de la base a la boca}
+\section*{0. Diccionario: $\varphi$, $N$ y $n$ no son lo mismo}
 
-\subsection*{I.1 Dominio y estado}
+Tres cantidades distintas. Mezclarlas es el error de la
+versión anterior.
 
-Intervalo $z\in[H,0]$, $z$ hacia arriba, $H<0$ la base (techo de
-cámara). Cilindro de radio $R$ (Calbuco: $H=-7000\,\mathrm{m}$,
-$R=16\,\mathrm{m}$). Flujo estacionario, isotermo. Estado
-\begin{equation}
-\label{eq:y1d}
-\mathbf{y}(z)
-=\bigl(P(z),\;\varphi(z),\;N(z),\;\xi(z),\;u_m(z),\;u_g(z)\bigr).
-\end{equation}
-$P$ presión, $\varphi$ fracción volumétrica de gas (burbujas),
-$N$ número de burbujas por unidad de volumen de fundido, $\xi$
-fracción de cristales en el fundido, $u_m$ y $u_g$ velocidades
-verticales. Fundido: $\rho_m$ constante. Gas:
-$\rho_g=P/(\Rv T)$. $u_m$ y $u_g$ son \emph{algebraicas}; $P$,
-$\varphi$, $N$ y $\xi$ cumplen un DAE. El caudal másico por
-unidad de área $q$ es constante (el $\MER$ es $\pi R^2 q$).
-$q$ \textbf{no} es dato: sale del tiro.
-
-\subsection*{I.2 En la base $z=H$ (cada variable)}
-
-\begin{itemize}[leftmargin=1.15em,itemsep=0.28em]
-\item $P(H)=P_{\mathrm{lit}}+\Delta P=\rho_{\mathrm{crust}}g|H|+\Delta P$.
-\item $\xi(H)=\xi_0$ (fenocristales; Calbuco $\xi_0=0.25$).
-\item Fracción másica de gas exsuelto (Henry). Si
-  $(1-\xi_0)c_0-(1-\xi)C_1 P^\beta\le 0$ (subsaturado): $n=0$.
-  Si no,
+\begin{itemize}
+\item $\varphi$: \textbf{fracción de volumen} ocupada por gas
+  (burbujas). Adimensional, $\varphi\in[0,1]$. El fundido ocupa
+  $1-\varphi$. Es incógnita de campo: en 1D, $\varphi(z)$; en
+  2D, $\varphi(r,z)$. Cambia si las burbujas \emph{crecen}
+  (baja $P$, exsuelve agua), aunque el \emph{número} de
+  burbujas no cambie.
+\item $N$: \textbf{número de burbujas} por unidad de volumen
+  de fundido. Unidades $\mathrm{m^{-3}}$. No es un volumen.
+  Cambia por coalescencia (se fusionan $\Rightarrow N$ baja)
+  o nucleación. Relación geométrica, no evolutiva:
   \begin{equation}
-  \label{eq:n-1d}
-  n(P,\xi)
-  =\frac{(1-\xi_0)c_0-(1-\xi)\,C_1 P^{\beta}}{1-C_1 P^{\beta}}.
-  \end{equation}
-\item $\varphi(H)$: si $n=0$, $\varphi=0$. Si ya hay gas,
-  \begin{equation}
-  \label{eq:phi-base}
-  \varphi(H)
-  =\Biggl(1+\frac{P(H)}{n\,\Rv T}\frac{1-n}{\rho_m}\Biggr)^{-1}.
-  \end{equation}
-\item $u_m(H)$ y $u_g(H)$: si $n=0$,
-  $u_m=u_g=v_{\mathrm{in}}$ y $q=v_{\mathrm{in}}\rho_m$. Si hay
-  gas,
-  $q=v_{\mathrm{in}}\rho_{t,i}$ con
-  $\rho_{t,i}=P\rho_m/(\rho_m\Rv T\,n+P(1-n))$, y
-  \begin{equation}
-  \label{eq:vel-1d}
-  u_m=\frac{q\,(1-n)}{(1-\varphi)\,\rho_m},
+  \label{eq:rb}
+  \varphi
+  =N\cdot\Bigl(\tfrac43\pi r_b^3\Bigr)\cdot(1-\varphi),
   \qquad
-  u_g=\frac{q\,n}{\varphi\,\rho_g}.
+  r_b
+  =\Biggl(\frac{\varphi}{\tfrac43\pi N(1-\varphi)}\Biggr)^{1/3}.
   \end{equation}
-  En la base, con~\eqref{eq:phi-base}, queda
-  $u_m(H)=u_g(H)=v_{\mathrm{in}}$.
-\item $N(H)$: si no hay exsolución, $N=10^8\,\mathrm{m^{-3}}$.
-  Si hay, Toramaru:
-  $\log_{10}N=1.5\log_{10}\dot P+5$,
-  $\dot P=-(\dd P/\dd z)\,v_{\mathrm{in}}$, con suelo $10^8$.
-\item $v_{\mathrm{in}}$ \textbf{no} es dato: es el parámetro
-  de tiro. $\Delta P$ y $c_0$ sí se fijan en el directo (y son
-  lo que se quiere recuperar en el inverso).
+  $r_b$ es el radio de una burbuja. Mismo $\varphi$, distinto
+  $N$ $\Rightarrow$ pocas burbujas grandes o muchas chicas.
+  Eso cambia el arrastre $F_{mg}$ y la viscosidad.
+\item $n$: \textbf{fracción másica} de agua ya exsuelta (gas).
+  Sale de Henry, $n=n(P,\xi)$. No es $\varphi$: una es masa,
+  la otra volumen. Con $u_m=u_g$ (sin deslizamiento, p.\,ej.\
+  en la base),
+  \begin{equation}
+  \label{eq:phi-noslip}
+  \varphi
+  =\Biggl(1+\frac{P}{n\,\Rv T}\frac{1-n}{\rho_m}\Biggr)^{-1}.
+  \end{equation}
+  Eso \textbf{no} es la ecuación de evolución de $\varphi$.
+  Vale solo si $u_m=u_g$. A lo largo del conducto hay slip
+  ($u_g\neq u_m$) y $\varphi$ evoluciona con masa + momentum.
 \end{itemize}
 
-\subsection*{I.3 A lo largo del conducto ($H<z<0$)}
+Las otras: $P$ presión; $\xi$ fracción de cristales en el
+fundido; $u_m$, $u_g$ velocidades verticales del fundido y del
+gas; $\rho_m$ constante; $\rho_g=P/(\Rv T)$ (EOS del gas,
+\textbf{no} la ecuación de $P$).
 
-En cada $z$, primero los \textbf{cierres algebraicos}, después
-las derivadas.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section*{Parte I. Estacionario 1D, por leyes}
 
-\paragraph{Cierres (cada $z$).}
-$n=n(P,\xi)$ por~\eqref{eq:n-1d}, $\rho_g=P/(\Rv T)$,
-velocidades~\eqref{eq:vel-1d}, radio de burbuja
+Dominio $z\in[H,0]$ ($H<0$ es la base). Caso Calbuco:
+$H=-7000\,\mathrm{m}$, $R=16\,\mathrm{m}$.
+El estado es $\mathbf{y}=(P,\varphi,N,\xi,u_m,u_g)(z)$.
+$q$ (caudal másico por unidad de área) es constante; el
+$\mathrm{MER}$ es $\pi R^2 q$. $q$ no es dato: sale del tiro.
+
+% ----- MASA -----
+\subsection*{I.A Conservación de masa}
+
+\textbf{Variables principales:} $\varphi$, $u_m$, $u_g$, y el
+escalar $q$. Entra $n=n(P,\xi)$ como cierre.
+
+Estacionario, área constante $\Rightarrow$ el flujo másico no
+cambia con $z$:
 \begin{equation}
-\label{eq:rb}
-r_b
-=\Biggl(\frac{\varphi}{\tfrac43\pi N(1-\varphi)}\Biggr)^{1/3}.
+\label{eq:q}
+q
+=\rho_m(1-\varphi)\,u_m
++\rho_g\,\varphi\,u_g
+=\mathrm{const}.
 \end{equation}
-Fricción 1D (no hay perfil en $r$):
-$F_{mw}=c_g\mu u_m/R^2$ ($c_g=8$ cilindro) y $F_{gw}=0$ antes
-de fragmentar; después $F_{mw}=0$ y
-$F_{gw}=0.01\,\rho_g|u_g|u_g/(4R)$.
-$F_{mg}=F_{mg}(\varphi,u_g-u_m,r_b)$ cambia de fórmula al
-cruzar $\varphi_1$, $\varphi_2$ y $\varphi_{\mathrm{crit}}$
-(Stokes / Darcy / inercial / partícula). $\mu=\mu(P,\varphi,\xi)$.
+Se identifica $n$ de Henry con la fracción del flujo que va
+en el gas,
+\begin{equation}
+\label{eq:n-flux}
+n
+=\frac{\rho_g\,\varphi\,u_g}{q},
+\qquad
+1-n
+=\frac{\rho_m(1-\varphi)\,u_m}{q}.
+\end{equation}
+De ahí se \textbf{despejan las velocidades}, no $\varphi$:
+\begin{equation}
+\label{eq:vel}
+u_m
+=\frac{q\,(1-n)}{(1-\varphi)\,\rho_m},
+\qquad
+u_g
+=\frac{q\,n}{\varphi\,\rho_g}.
+\end{equation}
+$u_m$ y $u_g$ son algebraicas. $\varphi$ queda libre: la
+cierran el movimiento (I.B) y, en la base,~\eqref{eq:phi-noslip}
+porque ahí $u_m=u_g=v_{\mathrm{in}}$.
 
-\paragraph{Diferenciales.}
-Momentum de Kozono--Koyaguchi (inercia sí: estacionario no
-quita $u\,\dd u/\dd z$):
+\textbf{Bordes de masa.}
+Base: si $n=0$, $\varphi(H)=0$ y $u_m=u_g=v_{\mathrm{in}}$,
+$q=v_{\mathrm{in}}\rho_m$. Si $n>0$, $\varphi(H)$ por
+\eqref{eq:phi-noslip} y $q=v_{\mathrm{in}}\rho_{t,i}$.
+Boca: no se impone un valor de $u_m$; $\varphi(0)$ entra en
+el cierre efusivo/explosivo (I.F).
+
+% ----- MOVIMIENTO / P -----
+\subsection*{I.B Conservación de momentum, y la ecuación para $P$}
+
+\textbf{Variables principales:} $P$, $u_m$, $u_g$.
+Entran $\varphi$ (fracción de cada fase), las fuerzas y $\mu$.
+
+Estacionario $\Rightarrow$ no hay $\p/\p t$; sí está
+$u\,\dd u/\dd z$:
 \begin{align}
 \label{eq:mom-1d}
 \rho_m(1-\varphi)\,u_m\frac{\dd u_m}{\dd z}
@@ -134,76 +158,132 @@ quita $u\,\dd u/\dd z$):
 -\rho_g\varphi\,g
 -F_{mg}-F_{gw}.
 \end{align}
-Con~\eqref{eq:vel-1d} queda un $2\times 2$ para
-$(\dd P/\dd z,\,\dd\varphi/\dd z)$. Cristales y burbujas van
-con el fundido:
+$F_{mw}=c_g\mu u_m/R^2$ (pared--fundido), $F_{gw}=0$ antes de
+fragmentar, $F_{mg}$ arrastre entre fases.
+
+Sustituyendo~\eqref{eq:vel} en~\eqref{eq:mom-1d} queda un
+$2\times 2$ lineal. \textbf{Ecuación para la presión} (y la
+de $\varphi$ a lo largo):
 \begin{equation}
-\label{eq:Nxi-1d}
-\frac{\dd \xi}{\dd z}
-=\frac{1}{u_m}\Gamma_\xi(P,\xi),
+\label{eq:P-1d}
+\frac{\dd P}{\dd z}
+=\frac{-e\,a+f\,c}{ad-bc}
+=:\mathcal{P}(P,\varphi,N,\xi;q),
 \qquad
+\frac{\dd\varphi}{\dd z}
+=\frac{-e\,b+d\,f}{ad-bc}
+=:\Phi(P,\varphi,N,\xi;q),
+\end{equation}
+\begin{align*}
+a&=\rho_g u_g^2, &
+b&=\varphi-\frac{u_g^2\varphi}{\Rv T}+\frac{\p n}{\p P}\,q\,u_g,\\
+c&=\rho_m u_m^2, &
+d&=\frac{\p n}{\p P}\,q\,u_m-(1-\varphi),\\
+e&=-\rho_m(1-\varphi)\,g+F_{mg}-F_{mw}, &
+f&=\rho_g\varphi\,g+F_{mg}+F_{gw}.
+\end{align*}
+$\rho_g=P/(\Rv T)$ es la EOS del gas: da $\rho_g$ dado $P$,
+no determina $P$. Quien determina $P$ es~\eqref{eq:P-1d}.
+
+\textbf{Bordes de $P$ y $\varphi$.}
+Base: $P(H)=P_{\mathrm{lit}}+\Delta P=\rho_{\mathrm{crust}}g|H|+\Delta P$.
+Boca, efusivo: $P(0)=P_{\mathrm{atm}}$ y
+$\varphi(0)\le\varphi_{\mathrm{crit}}$.
+Boca, explosivo: $P(0)=P_{\mathrm{atm}}$ \textbf{o}
+$u_g(0)\approx c_s=\sqrt{\Rv T}$ (flujo sónico, no onda de
+choque), y $\varphi(0)\ge\varphi_{\mathrm{crit}}$.
+
+% ----- N -----
+\subsection*{I.C Transporte de $N$ (número de burbujas)}
+
+\textbf{Variable principal:} $N$. Entran $\varphi$ y $\mu$
+vía $r_b$ y la coalescencia.
+
+\begin{equation}
+\label{eq:N-1d}
 \frac{\dd N}{\dd z}
 =\frac{1}{u_m}\Gamma_N(P,\varphi,N,\xi).
 \end{equation}
-$\Gamma_\xi\ge 0$ es cinética de primer orden hacia
-$\xi_{\mathrm{eq}}(P)$ (tiempo $\tau_c$). $\Gamma_N\le 0$ es
-coalescencia (Slezin); $\Gamma_N=0$ si $r_b\ge R/2$ o
-$\varphi\ge\varphi_{\mathrm{crit}}$.
-Tras fragmentar se congelan $N$ y $\xi$.
+$\Gamma_N\le 0$ (Slezin): coalescencia. $\Gamma_N=0$ si
+$r_b\ge R/2$ o $\varphi\ge\varphi_{\mathrm{crit}}$. Tras
+fragmentar, $N$ se congela.
 
-El DAE, de una vez:
+\textbf{Bordes.} Base: $N(H)=10^8\,\mathrm{m^{-3}}$ si no hay
+exsolución; si hay, Toramaru
+$\log_{10}N=1.5\log_{10}\dot P+5$,
+$\dot P=-(\dd P/\dd z)\,v_{\mathrm{in}}$.
+Boca: no se impone $N(0)$ (llega desde abajo).
+
+% ----- XI -----
+\subsection*{I.D Transporte de $\xi$ (cristales)}
+
+\textbf{Variable principal:} $\xi$. Entra $P$ (equilibrio).
+
 \begin{equation}
-\label{eq:dae}
-\begin{aligned}
-\frac{\dd P}{\dd z}&=\mathcal{P}(P,\varphi,N,\xi;q),&
-\frac{\dd\varphi}{\dd z}&=\Phi(P,\varphi,N,\xi;q),\\
-\frac{\dd N}{\dd z}&=\frac{1}{u_m}\Gamma_N,&
-\frac{\dd\xi}{\dd z}&=\frac{1}{u_m}\Gamma_\xi,\\
-0&=u_m-\frac{q(1-n)}{(1-\varphi)\rho_m},&
-0&=u_g-\frac{q\,n}{\varphi\,\rho_g}.
-\end{aligned}
+\label{eq:xi-1d}
+\frac{\dd\xi}{\dd z}
+=\frac{1}{u_m}\Gamma_\xi(P,\xi),
+\qquad
+\Gamma_\xi
+=\max\Bigl(0,\;
+(\xi_{\max}-\xi_0)\,f_2 f_3/\tau_c\Bigr).
 \end{equation}
+$f_2,f_3$ interpolan hacia $\xi_{\mathrm{eq}}(P)$. Tras
+fragmentar, $\xi$ se congela.
 
-\subsection*{I.4 En la boca $z=0$ (cada variable)}
+\textbf{Bordes.} Base: $\xi(H)=\xi_0$. Boca: no se impone
+$\xi(0)$.
 
-El DAE es el mismo para efusivo y explosivo; cambia el cierre
-de salida. Eso fija $v_{\mathrm{in}}$ (luego $q$).
+% ----- CIERRES -----
+\subsection*{I.E Cierres que entran en las leyes}
 
-\begin{itemize}[leftmargin=1.15em,itemsep=0.28em]
-\item $P(0)$: efusivo, $P=P_{\mathrm{atm}}$. Explosivo,
-  $P=P_{\mathrm{atm}}$ \textbf{o} el gas llegó a
-  $c_s=\sqrt{\Rv T}$ (flujo sónico: $P(0)$ puede quedar
-  $>P_{\mathrm{atm}}$). No es una onda de choque.
-\item $\varphi(0)$: efusivo, $\varphi\le\varphi_{\mathrm{crit}}$
-  (no fragmentó). Explosivo, $\varphi\ge\varphi_{\mathrm{crit}}$
-  (sí fragmentó).
-\item $u_g(0)$: sin valor impuesto, salvo el caso sónico
-  explosivo $u_g\approx c_s$.
-\item $u_m(0)$: sin condición de borde; sale de~\eqref{eq:vel-1d}.
-\item $N(0)$ y $\xi(0)$: sin condición de borde; las arrastra
-  \eqref{eq:Nxi-1d} desde la base (tras fragmentar, constantes).
-\end{itemize}
+\begin{equation}
+\label{eq:henry}
+n(P,\xi)
+=\max\Biggl(0,\;
+\frac{(1-\xi_0)c_0-(1-\xi)\,C_1 P^{\beta}}{1-C_1 P^{\beta}}\Biggr).
+\end{equation}
+$r_b$ por~\eqref{eq:rb}. $F_{mg}=F_{mg}(\varphi,u_g-u_m,r_b)$
+cambia al cruzar $\varphi_1,\varphi_2,\varphi_{\mathrm{crit}}$.
+$\mu=\mu(P,\varphi,\xi)$.
+
+% ----- ACOPLAMIENTOS 1D -----
+\subsection*{I.F Acoplamientos (1D)}
+
+\begin{center}
+\small
+\begin{tabular}{@{}lll@{}}
+\toprule
+bloque & necesita de & porque \\
+\midrule
+masa (vel.) & $P,\xi,\varphi,q$ & $n(P,\xi)$, $\rho_g(P)$,~\eqref{eq:vel} \\
+$P$ y $\varphi$ (mom.) & $u_m,u_g,N,\xi$ & inercia, $F_{mg}(r_b)$, $\mu$, $\p n/\p P$ \\
+$N$ & $\varphi,u_m,P,\xi$ & $\Gamma_N$, $r_b(\varphi,N)$ \\
+$\xi$ & $P,u_m$ & $\Gamma_\xi(P)$ y Henry (vuelve a $n$) \\
+tiro $q$ & $P(0)$ o $u_g(0)$ & cierra el sistema \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Nada se resuelve solo. El lazo corto es
+$P\leftrightarrow n\leftrightarrow u_m,u_g\leftrightarrow$ momentum
+$\leftrightarrow P$. $N$ y $\xi$ entran más lento (fuerzas y
+Henry). $v_{\mathrm{in}}$ (luego $q$) se busca para cumplir
+la boca.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section*{Parte II. El mismo modelo en 2D}
+\section*{Parte II. El mismo orden en 2D}
 
-Las seis variables del 1D pasan a depender de $(r,z)$.
-Estacionario otra vez: no hay $\p/\p t$; el convectivo
-$(\mathbf{u}\cdot\nabla)\mathbf{u}$ sí.
+Cilindro $\Omega=[0,R]\times[H,0]$. Ahora
+$P,\varphi,N,\xi,u_m,u_g,u_{m,r},u_{g,r}$ dependen de $(r,z)$.
+Misma plantilla: masa / movimiento+$P$ / $N$ / $\xi$.
 
-\subsection*{II.1 Variables}
+% ----- MASA 2D -----
+\subsection*{II.A Conservación de masa}
 
-Cilindro $\Omega=[0,R]\times[H,0]$, axisimétrico, sin swirl.
-\begin{equation}
-\label{eq:y2d}
-P,\varphi,N,\xi,u_m,u_g
-\quad\text{y}\quad
-u_{m,r},\,u_{g,r}
-\quad\text{son funciones de }(r,z).
-\end{equation}
-$u_m,u_g$ verticales; $u_{m,r},u_{g,r}$ radiales.
-
-\subsection*{II.2 Masa y $\varphi=\varphi(r,z)$}
+\textbf{Variables principales:} $\varphi$, $\mathbf{u}_m$,
+$\mathbf{u}_g$. $\Gamma$ es la tasa de exsolución
+(fundido $\to$ gas).
 
 \begin{align}
 \label{eq:masa-m}
@@ -216,7 +296,7 @@ $u_m,u_g$ verticales; $u_{m,r},u_{g,r}$ radiales.
 +\frac{\p}{\p z}\bigl(\rho_g\varphi\,u_g\bigr)
 &=\Gamma.
 \end{align}
-$\Gamma$ es la tasa de exsolución (fundido $\to$ gas).
+El caudal total es constante en $z$:
 \begin{equation}
 \label{eq:Q}
 Q
@@ -225,18 +305,35 @@ Q
 \bigr]\,\dd r
 =\mathrm{const}.
 \end{equation}
-Eso es el $\MER$. Localmente $n=n(P,\xi)$ es~\eqref{eq:n-1d} y
+\textbf{Esto} es la ecuación de $\varphi$ en 2D (junto con el
+momentum). No se usa~\eqref{eq:phi-noslip} dentro del
+conducto: esa fórmula es 1D de \emph{base}, cuando
+$u_m=u_g$. En 2D, $n=n(P,\xi)$ sigue siendo Henry; si se
+identifica con la fracción local del flujo,
 \begin{equation}
-\label{eq:phi-r}
-\varphi
-=\frac{n\,\rho_m\,u_m}{n\,\rho_m\,u_m+(1-n)\,\rho_g\,u_g}.
+\label{eq:n-loc}
+n
+=\frac{\rho_g\,\varphi\,u_g}
+{\rho_m(1-\varphi)\,u_m+\rho_g\,\varphi\,u_g},
 \end{equation}
-Como $u_m$ se anula en la pared y $P$, $\xi$ pueden cambiar
-con $r$, $\varphi$ no es plano en el radio.
+eso cierra \textbf{velocidades} (como~\eqref{eq:vel}), no
+impone $\varphi(r,z)$.
 
-\subsection*{II.3 Momentum: inercia y $P=P(r,z)$}
+\textbf{Bordes de masa.}
+Eje: $u_{m,r}=u_{g,r}=0$.
+Pared: $u_{m,r}=u_{g,r}=0$ (impermeable).
+Base: $\varphi(r,H)=0$ si $n=0$; si no,~\eqref{eq:phi-noslip}
+con $P(r,H)$ (ahí se toma $u_m=u_g$).
+Boca: $\varphi$ en el cierre efusivo/explosivo, igual que I.B.
 
-Eje $z$:
+% ----- MOVIMIENTO / P 2D -----
+\subsection*{II.B Momentum y la ecuación para $P$}
+
+\textbf{Variables principales:} $P$, $\mathbf{u}_m$,
+$\mathbf{u}_g$.
+
+Estacionario: otra vez sin $\p\mathbf{u}/\p t$, con
+$(\mathbf{u}\cdot\nabla)\mathbf{u}$. Eje $z$:
 \begin{align}
 \label{eq:mom-m-z}
 \rho_m(1-\varphi)\Biggl(
@@ -254,7 +351,7 @@ r\,\mu(1-\varphi)\frac{\p u_m}{\p r}
 +\frac{\p}{\p z}\Biggl[
 \mu(1-\varphi)\frac{\p u_m}{\p z}
 \Biggr],
-\\[0.35em]
+\\
 \label{eq:mom-g-z}
 \rho_g\varphi\Biggl(
 u_{g,r}\frac{\p u_g}{\p r}+u_g\frac{\p u_g}{\p z}
@@ -272,128 +369,103 @@ r\,\mu_g\varphi\frac{\p u_g}{\p r}
 \mu_g\varphi\frac{\p u_g}{\p z}
 \Biggr].
 \end{align}
-Eje $r$ (fundido; el gas es análogo). Aquí aparece
-$\p P/\p r$: la presión \textbf{sí} puede depender del radio.
+\textbf{Ecuación para $P$} (las dos componentes de $\nabla P$).
+De~\eqref{eq:mom-m-z} se despeja $\p P/\p z$. Del momentum
+radial del fundido, $\p P/\p r$:
 \begin{equation}
-\label{eq:mom-m-r}
+\label{eq:P-2d}
 \begin{aligned}
-\rho_m(1-\varphi)\Biggl(
+(1-\varphi)\frac{\p P}{\p z}
+&=
+-\rho_m(1-\varphi)\Biggl(
+u_{m,r}\frac{\p u_m}{\p r}+u_m\frac{\p u_m}{\p z}
+\Biggr)
+-\rho_m(1-\varphi)\,g
++F_{mg}
++\mathrm{div}\,\tau_m^{(z)},
+\\[0.25em]
+(1-\varphi)\frac{\p P}{\p r}
+&=
+-\rho_m(1-\varphi)\Biggl(
 u_{m,r}\frac{\p u_{m,r}}{\p r}+u_m\frac{\p u_{m,r}}{\p z}
 \Biggr)
-&=
--(1-\varphi)\frac{\p P}{\p r}
--\mu(1-\varphi)\frac{u_{m,r}}{r^2}
-\\
-&\quad
-+\frac{1}{r}\frac{\p}{\p r}\Biggl[
-r\,\mu(1-\varphi)\frac{\p u_{m,r}}{\p r}
-\Biggr]
-+\frac{\p}{\p z}\Biggl[
-\mu(1-\varphi)\frac{\p u_{m,r}}{\p z}
-\Biggr].
++\mathrm{div}\,\tau_m^{(r)}.
 \end{aligned}
 \end{equation}
-Si $\varepsilon=R/|H|\ll 1$, \eqref{eq:mom-m-r} da
-$\p P/\p r=O(\varepsilon)$ y se puede tomar $P=P(z)$
-(lubricación). Eso es una reducción, no el sistema.
+$P=P(r,z)$. No se impone $P=P(z)$. Si
+$\varepsilon=R/|H|\ll 1$,~\eqref{eq:P-2d}$_2$ da
+$\p P/\p r=O(\varepsilon)$ y se puede reducir a $P=P(z)$
+(lubricación). Eso es un ataque numérico, no el sistema.
+La EOS $\rho_g=P/(\Rv T)$ sigue sin ser la ecuación de $P$.
 
-Al integrar el viscoseo radial en la sección sale la fricción
-de pared (en 1D era $c_g\mu u_m/R^2$):
+Al integrar el viscoseo radial,
 \begin{equation}
 \label{eq:Fmw}
 F_{mw}
-=-\frac{2}{R}\Biggl[
-\mu(1-\varphi)\frac{\p u_m}{\p r}
-\Biggr]_{r=R},
-\qquad
+=-\frac{2}{R}\Biggl[\mu(1-\varphi)\frac{\p u_m}{\p r}\Biggr]_{r=R},
+\quad
 F_{gw}
-=-\frac{2}{R}\Biggl[
-\mu_g\,\varphi\frac{\p u_g}{\p r}
-\Biggr]_{r=R}.
+=-\frac{2}{R}\Biggl[\mu_g\varphi\frac{\p u_g}{\p r}\Biggr]_{r=R}.
 \end{equation}
-En el PDE 2D no se meten como cuerpos: el no-deslizamiento ya
-está en $r=R$. $F_{gw}=0$ antes de fragmentar.
+En el PDE no son cuerpos: el no-deslizamiento está en $r=R$.
 
-\subsection*{II.4 Las otras variables en $r$: $N=N(r,z)$ y $\xi=\xi(r,z)$}
+\textbf{Bordes de movimiento y de $P$.}
+Eje: $\p u_m/\p r=\p u_g/\p r=0$, $\p P/\p r=0$.
+Pared: $u_m=0$ (no deslizamiento del fundido).
+Base: $P(r,H)=P_{\mathrm{lit}}+\Delta P$.
+Boca: $P(r,0)=P_{\mathrm{atm}}$, o explosivo
+$u_g\approx c_s$.
 
-En 1D, \eqref{eq:Nxi-1d} es la derivada material a lo largo
-del fundido. En 2D el fundido también se mueve en $r$, así
-que $N$ y $\xi$ \textbf{no} son planas en el radio:
+% ----- N, XI 2D -----
+\subsection*{II.C Transporte de $N$ y de $\xi$ en $(r,z)$}
+
+\textbf{Variables principales:} $N(r,z)$ y $\xi(r,z)$.
+Mismas $\Gamma_N$, $\Gamma_\xi$ del 1D. El fundido también
+se mueve en $r$, así que no son planas en el radio:
 \begin{align}
-\label{eq:xi-2d}
-u_{m,r}\frac{\p \xi}{\p r}+u_m\frac{\p \xi}{\p z}
-&=\Gamma_\xi(P,\xi),
-\\
-\label{eq:N-2d}
+\label{eq:Nxi-2d}
 u_{m,r}\frac{\p N}{\p r}+u_m\frac{\p N}{\p z}
-&=\Gamma_N(P,\varphi,N,\xi).
-\end{align}
-Son las mismas $\Gamma_\xi$ y $\Gamma_N$ del 1D. Tras
-fragmentar, $\Gamma_N=\Gamma_\xi=0$. El radio de burbuja
-\eqref{eq:rb} queda $r_b=r_b(r,z)$, y con él $F_{mg}$ y $\mu$.
-
-\subsection*{II.5 Condiciones de borde 2D (cada variable)}
-
-\paragraph{Eje $r=0$ (simetría).}
-\begin{equation}
-\label{eq:bc-eje}
-u_{m,r}=u_{g,r}=0,
-\quad
-\frac{\p u_m}{\p r}=\frac{\p u_g}{\p r}=0,
-\quad
-\frac{\p P}{\p r}=\frac{\p \varphi}{\p r}=\frac{\p N}{\p r}=\frac{\p \xi}{\p r}=0.
-\end{equation}
-
-\paragraph{Pared $r=R$.}
-\begin{equation}
-\label{eq:bc-pared}
-u_m=0,
-\qquad
-u_{m,r}=0,
-\qquad
-u_{g,r}=0.
-\end{equation}
-Fundido: no deslizamiento. Gas: $u_g=0$ o deslizamiento más
-tarde. Sin flujo de masa a través de la pared.
-$\varphi$, $N$ y $\xi$ no se imponen en $r=R$: $\varphi$ sale
-de~\eqref{eq:phi-r} con $u_m=0$; $N$ y $\xi$ las arrastra el
-fundido~\eqref{eq:xi-2d}--\eqref{eq:N-2d}.
-
-\paragraph{Base $z=H$ (cada variable, como en I.2, ahora perfiles).}
-\begin{equation}
-\label{eq:bc-base}
-P(r,H)=P_{\mathrm{lit}}+\Delta P,
-\qquad
-\xi(r,H)=\xi_0,
-\qquad
-N(r,H)=N_0
-\end{equation}
-($N_0$ el Toramaru o $10^8$ de I.2). $\varphi(r,H)$:
-$0$ si $n=0$, si no~\eqref{eq:phi-r} con $n(P(r,H),\xi_0)$.
-$u_m(\,\cdot\,,H)$ cumple~\eqref{eq:bc-eje} y $u_m(R,H)=0$;
-si $n=0$, $u_g=u_m=v_{\mathrm{in}}$ en el promedio.
-$v_{\mathrm{in}}$ sigue siendo el tiro.
-
-\paragraph{Boca $z=0$ (cada variable, como en I.4).}
-\begin{align}
-\label{eq:bc-boca}
-\text{efusivo:}&\quad
-P(r,0)=P_{\mathrm{atm}},
-\quad
-\varphi\le\varphi_{\mathrm{crit}},
+&=\Gamma_N(P,\varphi,N,\xi),
 \\
-\text{explosivo:}&\quad
-P(r,0)=P_{\mathrm{atm}}
-\quad\text{o}\quad
-u_g(r,0)\approx c_s=\sqrt{\Rv T}.
+u_{m,r}\frac{\p \xi}{\p r}+u_m\frac{\p \xi}{\p z}
+&=\Gamma_\xi(P,\xi).
 \end{align}
-$u_m$, $N$ y $\xi$ en $z=0$: sin condición de borde (llegan
-desde abajo). Explosivo: además $\varphi\ge\varphi_{\mathrm{crit}}$.
+
+\textbf{Bordes.}
+Eje: $\p N/\p r=\p \xi/\p r=0$.
+Pared: no se imponen (las arrastra el fundido; $u_m=0$).
+Base: $N(r,H)=N_0$, $\xi(r,H)=\xi_0$.
+Boca: no se imponen.
+
+% ----- ACOPLAMIENTOS 2D -----
+\subsection*{II.D Acoplamientos (2D)}
+
+Los mismos del 1D, más el radio:
+
+\begin{itemize}
+\item \textbf{Masa $\leftrightarrow$ movimiento.}
+  $\varphi$ y $\mathbf{u}$ están en las dos. $P$ entra a la
+  masa por $\rho_g(P)$ y por $n(P,\xi)$. El movimiento
+  devuelve $\nabla P$ y el perfil $u_m(r)$ (luego $Q$).
+\item \textbf{$P\leftrightarrow n\leftrightarrow\mathbf{u}$.}
+  Henry $n(P,\xi)$ cierra~\eqref{eq:n-loc}; las velocidades
+  vuelven a~\eqref{eq:P-2d}.
+\item \textbf{$N\leftrightarrow\varphi\leftrightarrow F_{mg},\mu$.}
+  $r_b(\varphi,N)$ cambia el arrastre y la viscosidad, que
+  cambian $P$ y $\varphi$.
+\item \textbf{$\xi\leftrightarrow n,\mu,\Gamma_\xi$.}
+  $\xi$ entra en Henry y en $\mu$; $P$ entra en
+  $\Gamma_\xi$.
+\item \textbf{El tiro $Q$.} Se busca $v_{\mathrm{in}}$ para
+  cumplir la boca. En 2D, $u_m(r)$ y
+  $\varphi,N,\xi$ no planos cambian $Q$: el $\Delta P$
+  recuperado no es el del 1D.
+\end{itemize}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section*{Parte III. El inverso (para empezar)}
+\section*{Parte III. El inverso}
 
-Directo: se resuelve el 2D con I--II y se lee $Q$ en la boca.
+Directo: se resuelve I o II y se lee $Q$ (o $q$) en la boca.
 \[
 \F(\theta)=Q,
 \qquad
@@ -401,22 +473,17 @@ Directo: se resuelve el 2D con I--II y se lee $Q$ en la boca.
 \quad\text{o}\quad
 \theta=c_0.
 \]
-Dato $Q^{\mathrm{obs}}$. Primero $\Delta P$ (es $P|_{z=H}$).
-Después, si cabe, $c_0$. No los dos a la vez.
-
-En mates: inverso de una condición de borde en un sistema 2D
-estacionario. Un escalar. En 2D, $u_m(r)$ y
-$\varphi,N,\xi$ en $r$ cambian $Q$; el $\Delta P$ no es el del 1D.
-
-No se recupera $R(z)$, no hay transiente, no se reescribe el
-solver 1D.
+Dato $Q^{\mathrm{obs}}$. Primero $\Delta P$ (borde de $P$ en
+la base). Después, si cabe, $c_0$ (entra en Henry). No los
+dos a la vez. No se recupera $R(z)$, no hay transiente, no
+se reescribe el solver 1D.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section*{Parte IV. Qué se le pide al profesor}
 
-¿Tiene sentido como tesis de DIM este inverso (un parámetro,
-EDP estacionaria 2D de masa + momentum + transporte de $N$ y
-$\xi$)? Si la lubricación $P=P(z)$ le parece el primer paso,
-se parte de ahí. Primero $\Delta P$, después $c_0$.
+¿Este inverso (un parámetro; EDP 2D estacionaria de masa +
+momentum, con ecuación para $P$, y transporte de $N$ y
+$\xi$) sirve como tesis de DIM? Si la lubricación $P=P(z)$
+le parece el primer paso, se parte de ahí.
 
 \end{document}
