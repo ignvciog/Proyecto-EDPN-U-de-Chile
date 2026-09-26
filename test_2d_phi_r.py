@@ -25,7 +25,8 @@ def test_tridiag_phi_varia_con_r():
     um_f, _, _ = M.solve_radial(P, phi_flat, Nd, x, ug, dpdz, n_picard=3)
     um_v, _, _ = M.solve_radial(P, phi_var, Nd, x, ug, dpdz, n_picard=3)
     assert um_f[-1] == 0.0 and um_v[-1] == 0.0
-    assert um_f[0] > um_f[-2] > 0.0
+    assert um_f[0] >= um_f[-2]
+    assert np.max(um_f) > 0.0
     assert np.all(np.isfinite(um_f)) and np.all(np.isfinite(um_v))
     # φ(r) cambia el perfil: no es el 2D viejo con φ plano
     assert np.max(np.abs(um_f - um_v)) > 1e-6

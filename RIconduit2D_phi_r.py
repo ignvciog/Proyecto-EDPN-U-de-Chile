@@ -253,17 +253,15 @@ def solve_radial(P, phi, Nd, x_cr, ug, dpdz, n_picard=4):
     um = np.maximum(um, 0.0)
     for _ in range(n_picard):
         mu = np.array([_visc_nodo(P, phi[i], x_cr[i], max(um[i], 1e-9), Nd[i]) for i in range(N)])
-        C = _stokes_C(phi, Nd, mu)
+        # Viscoso con φ(r). El Stokes C~1/rb² aplasta u_m a u_g (perfil plano);
+        # el arrastre suave se usa después, en dφ/dz, no aquí.
         body = (1.0 - phi) * dpdz + _G["rho_m"] * (1.0 - phi) * g
-        # L u - C u = body - C ug   (F_mg = C(ug-um) implícito)
         lo, di, up = radial_tridiag(phi, mu)
         nunk = N - 1
-        di = di - C[:nunk]
-        rhs = body[:nunk] - C[:nunk] * ug[:nunk]
         um_new = np.zeros(N)
-        um_new[:nunk] = _thomas(lo, di, up, rhs)
+        um_new[:nunk] = _thomas(lo, di, up, body[:nunk])
         um_new[-1] = 0.0
-        um = np.maximum(um_new, 0.0)
+        um = 0.5 * um + 0.5 * np.maximum(um_new, 0.0)
     um_avg = float(np.trapezoid(um * 2.0 * math.pi * r, r) / (math.pi * wr ** 2))
     mu_w = _visc_nodo(P, phi[-2], x_cr[-2], max(um[-2], 1e-9), Nd[-2])
     dudr_w = (um[-1] - um[-2]) / dr
@@ -315,8 +313,13 @@ def _dN_dx_nodo(P, phi, Nd, x_cr, um):
 def _dphi_nodo(P, phi, Nd, x_cr, um, ug, Fmg, dpdz):
     """dφ/dz local (2×2 de masa+momentum) con dP/dz compartido."""
     fg = _fg(P, x_cr)
-    if fg <= 1e-16 or phi < 1e-12:
+    phi_a = _phi_alg(P, fg)
+    if fg <= 1e-16:
         return 0.0
+    if phi < 1e-8 or um < 1e-3:
+        eps_P = max(abs(P) * 1e-6, 100.0)
+        phi_ep = _phi_alg(P + eps_P, _fg(P + eps_P, x_cr))
+        return float(np.clip((phi_ep - phi_a) / eps_P * dpdz, -20.0, 20.0))
     rg = _rho_g(P)
     um = max(float(um), 1e-9)
     ug = max(float(ug), 1e-9)
@@ -420,6 +423,20 @@ def _clamp_state(P, phi, Nd, x_cr):
     Nd = np.maximum(np.asarray(Nd, dtype=float), 1.0)
     x_cr = np.clip(np.asarray(x_cr, dtype=float), _G["xi"], _G["xmax"])
     return P, phi, Nd, x_cr
+
+
+def _proyectar_phi(P, phi, x_cr):
+    """Banda de la EOS por nodo; la pared copia el interior."""
+    phi = np.asarray(phi, dtype=float).copy()
+    x_cr = np.asarray(x_cr, dtype=float)
+    for i in range(phi.size):
+        pha = _phi_alg(P, _fg(P, x_cr[i]))
+        if pha <= 1e-12:
+            phi[i] = 0.0
+        else:
+            phi[i] = float(np.clip(phi[i], 0.4 * pha, min(0.99, 1.6 * pha)))
+    phi[-1] = phi[-2]
+    return phi
 
 
 def rk4_step(P, phi, Nd, x_cr, dpdz, h):
@@ -543,11 +560,11 @@ def march(vinicial, max_steps=2500, tol=1e-3, verbose=True):
             um_hist.append(um_k)
             ug_hist.append(np.zeros(N))
             Fmw_hist.append(0.0)
-        epsd = max(1.0, abs(Hi) / 1000.0)
+        epsd = max(25.0, abs(Hi) / 200.0)
         z = Hi + epsd
         P = Pcrit + dpdzcalc * epsd
         fgi = max((1.0 - xi) * (co - C1 * P ** beta) / (1.0 - C1 * P ** beta), 1e-12)
-        phi0 = np.full(N, _phi_alg(P, fgi))
+        phi0 = np.full(N, max(_phi_alg(P, fgi), 1e-6))
         Nd0 = np.full(N, _G["Nd0"])
         x0 = np.full(N, xi)
         dpdz = dpdzcalc
@@ -582,12 +599,18 @@ def march(vinicial, max_steps=2500, tol=1e-3, verbose=True):
         P_f, phi_f, Nd_f, x_f, dp_f, _, _, _ = rk4_step(P, phi, Nd, x_cr, dpdz, h)
         P_m, phi_m, Nd_m, x_m, dp_m, _, _, _ = rk4_step(P, phi, Nd, x_cr, dpdz, h / 2.0)
         P_h, phi_h, Nd_h, x_h, dp_h, um_h, ug_h, Fmw_h = rk4_step(P_m, phi_m, Nd_m, x_m, dp_m, h / 2.0)
+        P_f, phi_f, Nd_f, x_f = _clamp_state(P_f, phi_f, Nd_f, x_f)
+        P_h, phi_h, Nd_h, x_h = _clamp_state(P_h, phi_h, Nd_h, x_h)
+        phi_f = _proyectar_phi(P_f, phi_f, x_f)
+        phi_h = _proyectar_phi(P_h, phi_h, x_h)
         err = _error_paso(P_f, phi_f, P_h, phi_h)
         if err > tol and h > h_min * 1.01:
             h = max(h * 0.5, h_min)
             n_rej += 1
             continue
-        P, phi, Nd, x_cr = _clamp_state(P_h, phi_h, Nd_h, x_h)
+        P, phi, Nd, x_cr = P_h, phi_h, Nd_h, x_h
+        if float(np.max(phi)) > 1e-3:
+            h_min = max(h_min, 2.0)
         dpdz = dp_h
         z = z + h
         n_steps += 1
