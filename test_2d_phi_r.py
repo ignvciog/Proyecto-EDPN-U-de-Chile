@@ -45,6 +45,18 @@ def test_Fmg_suave_finito():
     assert np.all(np.isfinite(F))
 
 
+def test_umbrales_como_el_1d():
+    import RIconduit2D_phi_r as M
+
+    M._configurar(16.0, 5e6, 4.0, 1243.15, 0.25, 8, {})
+    M._G["q"] = 10.0 * M._G["rho_ti"]
+    M._actualizar_umbrales(10.0)
+    assert 0.525 <= M._G["phicrit"] <= 0.785
+    assert 0.15 <= M._G["limphi1"] <= 0.40
+    assert abs(M._G["limphi2"] - M._G["limphi1"] - 0.01) < 1e-12
+    assert M._G["Ca"] > 0.0
+
+
 def test_marcha_corta_phi_es_2d():
     import RIconduit2D_phi_r as M
 
@@ -65,5 +77,6 @@ if __name__ == "__main__":
     test_pesos_suman_uno()
     test_tridiag_phi_varia_con_r()
     test_Fmg_suave_finito()
+    test_umbrales_como_el_1d()
     test_marcha_corta_phi_es_2d()
     print("ok")

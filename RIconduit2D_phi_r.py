@@ -501,16 +501,26 @@ def _configurar(radius, Pressure, wt, Temperature, content_crystal, N_r, eps):
 
 
 def _actualizar_umbrales(vinicial):
-    """phicrit / limphi dinámicos, igual que el 2D viejo."""
+    """φ1, φ2, φ_crit: la misma cuenta que RIconduitex5_5 (Ca de referencia)."""
     wr = _G["wr"]
+    rho_m = _G["rho_m"]
+    visc0 = _visc_nodo(_G["Pi"], 0.0, _G["xi"], max(vinicial, 1e-6), 1e8)
+    dpdz0 = -_G["rho_ti"] * (g + _G["cg"] * visc0 * vinicial / (wr ** 2 * _G["rho_ti"]))
+    dpdt0 = abs(dpdz0 * vinicial)
+    Nd0 = float(np.clip(10 ** (1.5 * math.log10(max(dpdt0, 1e-30)) + 5), 1e6, 1e10))
+    if C1 * _G["Pi"] ** beta < _G["co"]:
+        Nd0 = 1e8
+    _G["Nd0"] = Nd0
+
     phisel = 0.2
     Pmin, Pmax = pfinal, (_G["co"] / C1) ** (1.0 / beta)
     Pcalc = 0.5 * (Pmax + Pmin)
     phicalc = 0.2
     ncalc = 1e-3
-    for _ in range(40):
-        ncalc = (1.0 - _G["xi"]) * (_G["co"] - C1 * Pcalc ** beta) / (1.0 - C1 * Pcalc ** beta)
-        phicalc = 1.0 / (1.0 + (Pcalc / max(ncalc * R * _G["T"], 1e-30)) * (1.0 - ncalc) / _G["rho_m"])
+    for _ in range(50):
+        ncalc = (1.0 - _G["xi"]) * (_G["co"] - C1 * Pcalc ** beta) / max(1.0 - C1 * Pcalc ** beta, 1e-12)
+        rhog = Pcalc / (R * _G["T"])
+        phicalc = 1.0 / max((1.0 / max(ncalc, 1e-16) - 1.0) * rhog / rho_m + 1.0, 1e-12)
         if abs(phicalc - phisel) < 0.002:
             break
         if phicalc < phisel - 0.002:
@@ -518,9 +528,28 @@ def _actualizar_umbrales(vinicial):
         else:
             Pmin = Pcalc
         Pcalc = 0.5 * (Pmax + Pmin)
-    viscalc = _visc_nodo(Pcalc, phicalc, _G["xi"], vinicial, _G["Nd0"])
-    rbcalc = _rb(phicalc, _G["Nd0"])
-    Ca = abs((vinicial / wr) * viscalc * rbcalc / 0.3)
+
+    dfgdp = (C1 * beta * Pcalc ** (beta - 1)) * (_G["co"] - 1.0) / max((1.0 - C1 * Pcalc ** beta) ** 2, 1e-30)
+    drhogdp = 1.0 / (R * _G["T"])
+    dphidp = -(
+        -dfgdp * rhog / (rho_m * max(ncalc, 1e-16) ** 2)
+        + (1.0 / max(ncalc, 1e-16) - 1.0) * drhogdp / rho_m
+    ) / max(((1.0 / max(ncalc, 1e-16) - 1.0) * rhog / rho_m + 1.0) ** 2, 1e-30)
+    viscalc = _visc_nodo(Pcalc, phicalc, _G["xi"], vinicial, Nd0)
+    rho_ti_c = Pcalc * rho_m / (rho_m * R * _G["T"] * ncalc + Pcalc * (1.0 - ncalc))
+    velc = math.sqrt(15e9 / rho_m)
+    dpdz2 = (-rho_ti_c * (g + _G["cg"] * viscalc * vinicial / (wr ** 2 * rho_ti_c))) / max(
+        1.0 - (vinicial ** 2) / (velc ** 2), 1e-8
+    )
+    dvdz_exp = (
+        vinicial
+        * (-dfgdp * dpdz2 * (1.0 - phicalc) + (1.0 - ncalc) * dphidp * dpdz2)
+        / max((1.0 - phicalc) ** 2, 1e-30)
+    )
+    dvdz = 0.5 * (dvdz_exp + vinicial / wr)
+    rbcalc = _rb(phicalc, Nd0)
+    Ca = abs(dvdz * viscalc * rbcalc / 0.3)
+    _G["Ca"] = float(Ca)
     _G["phicrit"] = ((lsup - linf) / 2.0) * math.erf(math.log10(max(Ca, 1e-30))) + (lsup + linf) / 2.0
     _G["limphi1"] = ((limperl - limperh) / 2.0) * math.erf(math.log10(max(Ca, 1e-30))) + (limperl + limperh) / 2.0
     _G["limphi2"] = _G["limphi1"] + 0.01
@@ -650,6 +679,11 @@ def march(vinicial, max_steps=2500, tol=1e-3, verbose=True):
         "n_reject": n_rej,
         "vinicial": vinicial,
         "Q": _G["Q"],
+        "phicrit": float(_G["phicrit"]),
+        "limphi1": float(_G["limphi1"]),
+        "limphi2": float(_G["limphi2"]),
+        "Ca": float(_G.get("Ca", np.nan)),
+        "Nd0": float(_G["Nd0"]),
     }
     return out
 

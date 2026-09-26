@@ -253,8 +253,60 @@ $Re_b=2r_b\rho_g|u_g-u_m|/\mu_g$, $\mu_g=10^{-5}\,\mathrm{Pa\,s}$.
 
 \paragraph{Regímenes: sí, parten el dominio.}
 Los umbrales $\varphi_1<\varphi_2<\varphi_{\mathrm{crit}}$
-(permeabilidad y fragmentación; dependen débilmente de $Ca$)
-parten $[H,0]$ en
+no se escriben a mano: el 1D los
+\emph{calcula} antes de integrar, y el 2D hace lo mismo.
+Se elige el estado de referencia $\varphi^\ast=0.2$ y se
+busca $P^\ast$ (bisección entre $P_{\mathrm{atm}}$ y
+$P_{\mathrm{crit}}=(c_0/C_1)^{1/\beta}$) tal que
+$\varphi(P^\ast,\xi_0)=\varphi^\ast$. Ahí
+\begin{equation}
+\label{eq:Ca-ast}
+\begin{aligned}
+\dot\gamma_\ast
+&=\frac12\Biggl(
+v_{\mathrm{in}}
+\frac{
+-\partial_P n\,\partial_z P\,(1-\varphi^\ast)
++(1-n)\,\partial_P\varphi\,\partial_z P
+}{(1-\varphi^\ast)^2}
++\frac{v_{\mathrm{in}}}{R}
+\Biggr),
+\\
+Ca_\ast
+&=\bigl\lvert\dot\gamma_\ast\,\mu_\ast\,r_{b,\ast}/0.3\bigr\rvert.
+\end{aligned}
+\end{equation}
+$\mu_\ast$, $r_{b,\ast}$ y $\partial_z P$ se evalúan en ese
+estado (con $N_0=10^{1.5\log_{10}\lvert\dot P\rvert+5}$, o
+$10^8$ si la base ya está saturada). Cotas de
+\texttt{calbuco2015d}:
+$\varphi_{\mathrm{sup}}=0.785$,
+$\varphi_{\mathrm{inf}}=0.525$,
+$\varphi_{\mathrm{per}}^-=0.15$,
+$\varphi_{\mathrm{per}}^+=0.40$. Entonces
+\begin{equation}
+\label{eq:umbrales-Ca}
+\begin{aligned}
+\varphi_{\mathrm{crit}}
+&=\frac{\varphi_{\mathrm{sup}}-\varphi_{\mathrm{inf}}}{2}\,
+\mathrm{erf}(\log_{10}Ca_\ast)
++\frac{\varphi_{\mathrm{sup}}+\varphi_{\mathrm{inf}}}{2},
+\\
+\varphi_1
+&=\frac{\varphi_{\mathrm{per}}^--\varphi_{\mathrm{per}}^+}{2}\,
+\mathrm{erf}(\log_{10}Ca_\ast)
++\frac{\varphi_{\mathrm{per}}^-+\varphi_{\mathrm{per}}^+}{2},
+\\
+\varphi_2
+&=\varphi_1+0.01.
+\end{aligned}
+\end{equation}
+Así $\varphi_{\mathrm{crit}}\in[0.525,0.785]$ y
+$\varphi_1\in[0.15,0.40]$.
+$Ca_\ast\to0$ manda al piso;
+$Ca_\ast\to\infty$, al techo.
+Se recalculan en cada tiro: $v_{\mathrm{in}}$ mueve $Ca_\ast$.
+Con esos umbrales se parte $[H,0]$ en
 \begin{equation}
 \label{eq:tramos}
 \begin{aligned}
