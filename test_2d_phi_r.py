@@ -57,6 +57,27 @@ def test_umbrales_como_el_1d():
     assert M._G["Ca"] > 0.0
 
 
+def test_dpdz_no_se_apaga_con_phi_de_pared():
+    import RIconduit2D_phi_r as M
+
+    M._configurar(16.0, 5e6, 4.0, 1243.15, 0.25, 10, {})
+    M._G["q"] = 10.0 * M._G["rho_ti"]
+    M._G["Q"] = M._G["q"] * np.pi * 16.0 ** 2
+    N = M._G["N_r"]
+    P = 8e7
+    phi = np.linspace(0.12, 0.85, N)  # pared inflada, como el tiro que veía el usuario
+    Nd = np.full(N, 1e8)
+    x = np.full(N, 0.25)
+    um = 20.0 * (1.0 - (M._G["r"] / 16.0) ** 2)
+    um[-1] = 0.0
+    ug = np.full(N, 22.0)
+    av = M._promedio_seccion(phi, Nd, x, um, ug)
+    Fmw, _ = M._Fmw_seccion(P, av, um)
+    dpdz = M._dpdz_seccion(P, av, Fmw, 0.0)
+    assert Fmw > 0.0
+    assert dpdz < -0.5 * M._G["rho_m"] * 9.81
+
+
 def test_marcha_corta_phi_es_2d():
     import RIconduit2D_phi_r as M
 
@@ -78,5 +99,6 @@ if __name__ == "__main__":
     test_tridiag_phi_varia_con_r()
     test_Fmg_suave_finito()
     test_umbrales_como_el_1d()
+    test_dpdz_no_se_apaga_con_phi_de_pared()
     test_marcha_corta_phi_es_2d()
     print("ok")

@@ -263,10 +263,45 @@ def solve_radial(P, phi, Nd, x_cr, ug, dpdz, n_picard=4):
         um_new[-1] = 0.0
         um = 0.5 * um + 0.5 * np.maximum(um_new, 0.0)
     um_avg = float(np.trapezoid(um * 2.0 * math.pi * r, r) / (math.pi * wr ** 2))
-    mu_w = _visc_nodo(P, phi[-2], x_cr[-2], max(um[-2], 1e-9), Nd[-2])
-    dudr_w = (um[-1] - um[-2]) / dr
-    F_mw = -2.0 * (1.0 - phi[-2]) * mu_w * dudr_w / wr
-    return um, um_avg, float(_fin(F_mw))
+    return um, um_avg, 0.0
+
+
+def _promedio_seccion(phi, Nd, x_cr, um, ug):
+    w = _area_weights()
+    r, wr = _G["r"], _G["wr"]
+    area = math.pi * wr ** 2
+    return {
+        "phi": float(np.dot(w, phi)),
+        "Nd": float(np.dot(w, Nd)),
+        "x": float(np.dot(w, x_cr)),
+        "um": float(np.trapezoid(um * 2.0 * math.pi * r, r) / area),
+        "ug": float(np.trapezoid(np.asarray(ug, dtype=float) * 2.0 * math.pi * r, r) / area),
+    }
+
+
+def _Fmw_seccion(P, av, um):
+    """Fricción de pared con φ de sección, no el nodo de la pared.
+
+    Si se usa φ_{I-1} y el 2×2 la manda a 0.8, (1-φ) se va y P no cae.
+    """
+    mu = _visc_nodo(P, av["phi"], av["x"], max(av["um"], 1e-9), av["Nd"])
+    dudr = (um[-1] - um[-2]) / _G["dr"]
+    F_grad = -2.0 * (1.0 - av["phi"]) * mu * dudr / _G["wr"]
+    F_hp = _G["cg"] * mu * max(av["um"], 0.0) / _G["wr"] ** 2
+    if (not np.isfinite(F_grad)) or F_grad < 0.2 * max(F_hp, 1e-6):
+        return float(_fin(F_hp)), mu
+    return float(_fin(F_grad)), mu
+
+
+def _dpdz_seccion(P, av, Fmw, Fmg):
+    """Lubricación con φ y F_mw de sección (como el 2D viejo).
+
+    El 2×2 1D acá se iba a −10^8 Pa/m y P caía a 0.01 MPa a z=−600 m.
+    """
+    rg = _rho_g(P)
+    phi = float(np.clip(av["phi"], 0.0, 0.99))
+    rho_mix = rg * phi + _G["rho_m"] * (1.0 - phi)
+    return float(-(rho_mix * g + max(float(Fmw), 0.0)))
 
 
 def _dN_dx_nodo(P, phi, Nd, x_cr, um):
@@ -377,11 +412,9 @@ def derivs(P, phi, Nd, x_cr, dpdz_prev):
     um = np.zeros(N)
     F_mw = 0.0
     w = _area_weights()
+    ug_loc = ug0
     for _ in range(4):
-        um, um_avg, F_mw = solve_radial(P, phi, Nd, x_cr, ug0, dpdz)
-        phi_avg = float(np.dot(w, phi))
-        rho_mix = rg * phi_avg + _G["rho_m"] * (1.0 - phi_avg)
-        # caudal de sección → escala um para conservar Q
+        um, um_avg, _ = solve_radial(P, phi, Nd, x_cr, ug0, dpdz)
         ug_loc = np.where((fg > 1e-16) & (phi > 1e-10), ug0, um)
         Q_now = float(
             np.trapezoid(
@@ -392,23 +425,28 @@ def derivs(P, phi, Nd, x_cr, dpdz_prev):
         if Q_now > 1e-8 and um_avg > 1e-10:
             um = um * (_G["Q"] / Q_now)
             um[-1] = 0.0
-            mu_w = _visc_nodo(P, phi[-2], x_cr[-2], max(um[-2], 1e-9), Nd[-2])
-            F_mw = -2.0 * (1.0 - phi[-2]) * mu_w * (um[-1] - um[-2]) / (_G["dr"] * wr)
-        dpdz_new = -(rho_mix * g + F_mw)
+        av = _promedio_seccion(phi, Nd, x_cr, um, ug_loc)
+        F_mw, _mu = _Fmw_seccion(P, av, um)
+        mu_arr = np.array([_visc_nodo(P, phi[i], x_cr[i], max(um[i], 1e-9), Nd[i]) for i in range(N)])
+        Fmg_arr = _Fmg_suave(np.maximum(um, 1e-9), ug_loc, phi, Nd, rg, mu_arr)
+        Fmg_avg = float(np.dot(w, Fmg_arr))
+        dpdz_new = _dpdz_seccion(P, av, F_mw, Fmg_avg)
         if abs(dpdz_new - dpdz) < 1e-4 * max(abs(dpdz), 1.0):
             dpdz = dpdz_new
             break
         dpdz = dpdz_new
 
-    ug = np.where((fg > 1e-16) & (phi > 1e-10), ug0, um)
+    ug = ug_loc
     mu = np.array([_visc_nodo(P, phi[i], x_cr[i], max(um[i], 1e-9), Nd[i]) for i in range(N)])
     Fmg = _Fmg_suave(np.maximum(um, 1e-9), ug, phi, Nd, rg, mu)
 
     dphi = np.zeros(N)
     dNd = np.zeros(N)
     dx = np.zeros(N)
+    um_typ = max(float(np.max(um)), 1e-6)
     for i in range(N - 1):
-        dphi[i] = _dphi_nodo(P, phi[i], Nd[i], x_cr[i], um[i], ug[i], Fmg[i], dpdz)
+        um_d = um[i] if um[i] >= 0.25 * um_typ else 1e-4
+        dphi[i] = _dphi_nodo(P, phi[i], Nd[i], x_cr[i], um_d, ug[i], Fmg[i], dpdz)
         dNd[i], dx[i] = _dN_dx_nodo(P, phi[i], Nd[i], x_cr[i], um[i])
     # pared: u_m=0 → se copia el interior (II.F)
     dphi[-1] = dphi[-2]
@@ -662,8 +700,10 @@ def march(vinicial, max_steps=2500, tol=1e-3, verbose=True):
         phi_a = float(phi_hist[-1][0])
         phi_w = float(phi_hist[-1][-2])
         print(
-            f"  [phi_r] pasos={n_steps} rechazos={n_rej} z={z:.1f} "
-            f"P={P:.3e} phi_eje={phi_a:.4f} phi_pared={phi_w:.4f} dphi={phi_a - phi_w:.4e}"
+            f"  [phi_r] pasos={n_steps} rechazos={n_rej}  "
+            f"z={z:.1f} m ({'boca' if z >= -1.0 else 'aún en el conducto'})  "
+            f"P={P:.3e} Pa = {P/1e6:.2f} MPa  (P_atm={pfinal/1e6:.3f} MPa)  "
+            f"phi_eje={phi_a:.4f} phi_pared={phi_w:.4f} dphi={phi_a - phi_w:.4e}"
         )
     out = {
         "z": np.asarray(z_hist),
