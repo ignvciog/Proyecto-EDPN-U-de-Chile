@@ -78,6 +78,27 @@ def test_dpdz_no_se_apaga_con_phi_de_pared():
     assert dpdz < -0.5 * M._G["rho_m"] * 9.81
 
 
+def test_Fmw_no_muere_si_hay_mucho_gas():
+    """Sin (1-φ) en F_mw: a φ alta la fricción no se apaga (si no, P~20 MPa)."""
+    import RIconduit2D_phi_r as M
+
+    M._configurar(16.0, 5e6, 4.0, 1243.15, 0.25, 10, {})
+    M._G["q"] = 10.0 * M._G["rho_ti"]
+    N = M._G["N_r"]
+    P = 3e7
+    Nd = np.full(N, 1e8)
+    x = np.full(N, 0.25)
+    um = 20.0 * (1.0 - (M._G["r"] / 16.0) ** 2)
+    um[-1] = 0.0
+    ug = np.full(N, 22.0)
+    av_lo = M._promedio_seccion(np.full(N, 0.10), Nd, x, um, ug)
+    av_hi = M._promedio_seccion(np.full(N, 0.70), Nd, x, um, ug)
+    F_lo, _ = M._Fmw_seccion(P, av_lo, um)
+    F_hi, _ = M._Fmw_seccion(P, av_hi, um)
+    assert F_lo > 0.0 and F_hi > 0.0
+    assert F_hi > 0.4 * F_lo
+
+
 def test_sanear_tira_z_de_70km():
     import RIconduit2D_phi_r as M
 
@@ -116,6 +137,7 @@ if __name__ == "__main__":
     test_Fmg_suave_finito()
     test_umbrales_como_el_1d()
     test_dpdz_no_se_apaga_con_phi_de_pared()
+    test_Fmw_no_muere_si_hay_mucho_gas()
     test_sanear_tira_z_de_70km()
     test_marcha_corta_phi_es_2d()
     print("ok")

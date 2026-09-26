@@ -280,23 +280,31 @@ def _promedio_seccion(phi, Nd, x_cr, um, ug):
 
 
 def _Fmw_seccion(P, av, um):
-    """Fricción de pared con φ de sección, no el nodo de la pared.
+    """Fricción de pared como el 1D: F_mw = c_g μ u / R².
 
-    Si se usa φ_{I-1} y el 2×2 la manda a 0.8, (1-φ) se va y P no cae.
+    El τ = (1-φ)μ ∂_r u de la pared mata la fricción cuando φ crece
+    (la columna se aligera y P en la boca se queda en 20–30 MPa).
+    u es el máximo entre el promedio de sección y u_HEM = q/ρ_mix,
+    para que la expansión del gas sí acelere y sume rozamiento.
     """
     mu = _visc_nodo(P, av["phi"], av["x"], max(av["um"], 1e-9), av["Nd"])
-    dudr = (um[-1] - um[-2]) / _G["dr"]
-    F_grad = -2.0 * (1.0 - av["phi"]) * mu * dudr / _G["wr"]
-    F_hp = _G["cg"] * mu * max(av["um"], 0.0) / _G["wr"] ** 2
-    if (not np.isfinite(F_grad)) or F_grad < 0.2 * max(F_hp, 1e-6):
-        return float(_fin(F_hp)), mu
-    return float(_fin(F_grad)), mu
+    rg = _rho_g(P)
+    phi = float(np.clip(av["phi"], 0.0, 0.99))
+    rho_mix = rg * phi + _G["rho_m"] * (1.0 - phi)
+    um_hem = _G.get("q", 0.0) / max(rho_mix, 1.0)
+    um_ref = max(float(av["um"]), float(um_hem), 0.0)
+    F_hp = _G["cg"] * mu * um_ref / _G["wr"] ** 2
+    return float(_fin(max(F_hp, 0.0))), mu
 
 
 def _dpdz_seccion(P, av, Fmw, Fmg):
-    """Lubricación con φ y F_mw de sección (como el 2D viejo).
+    """Lubricación de sección: dP/dz = −(ρ_mix g + F_mw).
 
-    El 2×2 1D acá se iba a −10^8 Pa/m y P caía a 0.01 MPa a z=−600 m.
+    P_i = ρ_crust g |H| + ΔP. El magma es más liviano que la corteza
+    (~2460 vs 2600): sin fricción sobran ~14 MPa en z=0. Si además
+    φ crece, ρ_mix cae y el gradiente hidrostático se debilita.
+    El 2×2 inercial a P alta es más débil que esto; el 1D baja P
+    porque F_mw = c_g μ u / R² crece cuando u = q/ρ_mix se dispara.
     """
     rg = _rho_g(P)
     phi = float(np.clip(av["phi"], 0.0, 0.99))
@@ -707,7 +715,8 @@ def march(vinicial, max_steps=2500, tol=1e-3, verbose=True):
             f"  [phi_r] pasos={n_steps} rechazos={n_rej}  "
             f"z={z:.1f} m ({'boca' if z >= -1.0 else 'aún en el conducto'})  "
             f"P={P:.3e} Pa = {P/1e6:.2f} MPa  (P_atm={pfinal/1e6:.3f} MPa)  "
-            f"phi_eje={phi_a:.4f} phi_pared={phi_w:.4f} dphi={phi_a - phi_w:.4e}"
+            f"phi_eje={phi_a:.4f} phi_pared={phi_w:.4f} dphi={phi_a - phi_w:.4e}  "
+            f"Fmw={float(Fmw_hist[-1]):.2e} Pa/m"
         )
     out = {
         "z": np.asarray(z_hist),
