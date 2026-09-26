@@ -737,6 +737,9 @@ def RIconduit2D_phi_r_f(
     N_r=12,
     max_steps=2500,
     max_count=1,
+    vinicial=10.0,
+    vmin=0.1,
+    vmax=50.0,
     tol=1e-3,
     verbose=True,
     **eps,
@@ -744,10 +747,12 @@ def RIconduit2D_phi_r_f(
     """
     Directo 2D con φ(r,z). Por defecto un solo tiro (marcha).
     max_count > 1 activa bisección sobre vinicial (como el 2D viejo).
+
+    Para bajar P en la boca, lo que más mueve es radius (F_mw ~ μu/R²).
     """
     _configurar(radius, Pressure, wt, Temperature, content_crystal, N_r, eps)
-    vinicial = 10.0
-    vmin, vmax = 0.1, 50.0
+    vinicial = float(vinicial)
+    vmin, vmax = float(vmin), float(vmax)
     best, best_dist = None, 1e30
     for count in range(1, max_count + 1):
         if verbose:
