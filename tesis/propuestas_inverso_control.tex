@@ -825,11 +825,184 @@ Eso es el primer ataque numérico (el 2D que ya corre es
 esto, con $\varphi=\varphi(z)$). El sistema de II.A--II.C
 es el completo.
 
+% ----- DF -----
+\subsection*{II.F Diferencias finitas (de la reducción II.E)}
+
+Malla uniforme. $i=0,\ldots,I$ en $r$, $j=0,\ldots,J$ en $z$:
+\begin{equation}
+\label{eq:malla}
+r_i=i\,\Delta r,\quad
+\Delta r=R/I,
+\qquad
+z_j=H+j\,\Delta z,\quad
+\Delta z=|H|/J.
+\end{equation}
+$i=0$ es el eje, $i=I$ la pared, $j=0$ la base, $j=J$ la boca.
+Se escribe $u_{i,j}\approx u_m(r_i,z_j)$, y lo mismo
+$\varphi_{i,j}$, $N_{i,j}$, $\xi_{i,j}$, $u^g_{i,j}$.
+Con lubricación, $P_j\approx P(z_j)$ (no depende de $i$).
+Los cierres $n$, $\rho_g$, $\mu$, $F_{mg}$, $\Gamma$,
+$\Gamma_N$, $\Gamma_\xi$ se evalúan en el nodo $(i,j)$.
+
+\paragraph{Operadores.}
+Hacia arriba el flujo va en $+\hat z$, se marcha desde la
+base: diferencias \emph{hacia atrás} en $z$, centrales en $r$.
+\begin{align}
+\label{eq:ops}
+(D_z^- f)_{i,j}
+&=\frac{f_{i,j}-f_{i,j-1}}{\Delta z},
+\qquad
+(D_r f)_{i,j}
+=\frac{f_{i+1,j}-f_{i-1,j}}{2\Delta r},
+\\
+(D_r^+ f)_{i,j}
+&=\frac{f_{i+1,j}-f_{i,j}}{\Delta r},
+\qquad
+r_{i+1/2}
+=r_i+\tfrac12\Delta r.
+\end{align}
+El viscoseo radial, forma conservativa (la del código):
+\begin{equation}
+\label{eq:Lr}
+\begin{aligned}
+\bigl(L_r[\mu,\varphi]\,u\bigr)_{i,j}
+&=\frac{1}{r_i\Delta r}\Biggl(
+r_{i+1/2}\,
+\overline{\mu(1-\varphi)}_{i+1/2,j}
+\frac{u_{i+1,j}-u_{i,j}}{\Delta r}
+\\
+&\qquad
+-r_{i-1/2}\,
+\overline{\mu(1-\varphi)}_{i-1/2,j}
+\frac{u_{i,j}-u_{i-1,j}}{\Delta r}
+\Biggr),
+\end{aligned}
+\end{equation}
+con $\overline{a}_{i+1/2,j}=(a_{i,j}+a_{i+1,j})/2$.
+En $i=0$: $r_0=0$, se reemplaza por el límite
+$4\mu_0(1-\varphi_0)(u_{1,j}-u_{0,j})/\Delta r^2$
+(simetría). En $i=I$: $u_{I,j}=0$ (no se despeja).
+
+\paragraph{Masa.}
+\begin{align}
+\label{eq:masa-fd}
+D_z^-\bigl[\rho_m(1-\varphi)\,u\bigr]_{i,j}
+&=-\Gamma_{i,j},
+\\
+D_z^-\bigl[\rho_g(P_j)\,\varphi\,u^g\bigr]_{i,j}
+&=\Gamma_{i,j}.
+\end{align}
+Con $u_r=0$,
+$\Gamma_{i,j}
+=j^z_{i,j}\,D_z^- n_{i,j}$,
+$j^z=\rho_m(1-\varphi)u+\rho_g\varphi u^g$,
+$n_{i,j}=n(P_j,\xi_{i,j})$.
+El caudal,
+\begin{equation}
+\label{eq:Q-fd}
+Q_j
+=2\pi\Delta r\sum_{i=0}^{I-1} r_i
+\bigl[\rho_m(1-\varphi_{i,j})\,u_{i,j}
++\rho_g(P_j)\,\varphi_{i,j}\,u^g_{i,j}\bigr]
+\end{equation}
+(regla del trapecio; $Q_j=Q$ para todo $j$).
+
+\paragraph{Momentum y $P$.}
+\begin{align}
+\label{eq:mom-fd}
+\rho_m(1-\varphi_{i,j})\,u_{i,j}\,(D_z^- u)_{i,j}
+&=
+-(1-\varphi_{i,j})\frac{P_j-P_{j-1}}{\Delta z}
+-\rho_m(1-\varphi_{i,j})\,g
+\nonumber\\
+&\quad
++F_{mg,i,j}
++\bigl(L_r[\mu,\varphi]\,u\bigr)_{i,j},
+\\[0.25em]
+\rho_g\varphi_{i,j}\,u^g_{i,j}\,(D_z^- u^g)_{i,j}
+&=
+-\varphi_{i,j}\frac{P_j-P_{j-1}}{\Delta z}
+-\rho_g\varphi_{i,j}\,g
+-F_{mg,i,j}
++\bigl(L_r[\mu_g,\varphi]\,u^g\bigr)_{i,j}.
+\end{align}
+$F_{mg,i,j}=F_{mg}^{(k)}(\varphi_{i,j},u^g_{i,j}-u_{i,j},r_b,\mu,\rho_g)$
+según el régimen de $\varphi_{i,j}$. La fricción de pared:
+\begin{equation}
+\label{eq:Fmw-fd}
+F_{mw,j}
+=-\frac{2}{R}\,
+\mu_{I,j}(1-\varphi_{I,j})
+\frac{u_{I,j}-u_{I-1,j}}{\Delta r}
+=\frac{2}{R}\,
+\mu_{I,j}(1-\varphi_{I,j})
+\frac{u_{I-1,j}}{\Delta r},
+\end{equation}
+porque $u_{I,j}=0$. En cada $j$,~\eqref{eq:mom-fd}$_1$
+con $u_{I,j}=0$ y $(D_r u)_{0,j}=0$ es un tridiagonal en
+$i$ para $u_{\,\cdot\,,j}$ (Thomas), acoplado a $P_j$ y a
+$\varphi_{\,\cdot\,,j}$.
+
+\paragraph{$N$ y $\xi$.}
+\begin{equation}
+\label{eq:Nxi-fd}
+u_{i,j}\,(D_z^- N)_{i,j}
+=\Gamma_{N,i,j},
+\qquad
+u_{i,j}\,(D_z^- \xi)_{i,j}
+=\Gamma_{\xi,i,j},
+\end{equation}
+con $\Gamma_{N,i,j}$ y $\Gamma_{\xi,i,j}$ las de~II.D
+evaluadas en el nodo. Si $u_{i,j}=0$ (pared), se copia
+el valor del nodo interior.
+
+\paragraph{Bordes discretos.}
+\begin{equation}
+\label{eq:bc-fd}
+\begin{aligned}
+i=0:&\quad
+u_{1,j}=u_{0,j},\ 
+u^g_{1,j}=u^g_{0,j},\ 
+N_{1,j}=N_{0,j},\ 
+\xi_{1,j}=\xi_{0,j},
+\\
+i=I:&\quad
+u_{I,j}=0,
+\\
+j=0:&\quad
+P_0=P_{\mathrm{lit}}+\Delta P,\ 
+\xi_{i,0}=\xi_0,\ 
+N_{i,0}=N_0,
+\\
+j=J:&\quad
+P_J=P_{\mathrm{atm}}
+\quad\text{o}\quad
+\max_i u^g_{i,J}\approx c_s
+\quad\text{(tiro sobre }v_{\mathrm{in}}\text{)}.
+\end{aligned}
+\end{equation}
+
+\paragraph{Orden de un paso $j-1\to j$.}
+Conocido el nivel $j-1$: (1)~$\mu,F_{mg},\Gamma$ en $j-1$;
+(2)~tridiagonal para $u_{\,\cdot\,,j}$ y $u^g_{\,\cdot\,,j}$;
+(3)~$P_j$ de~\eqref{eq:mom-fd} (o del promedio);
+(4)~$\varphi_{i,j}$ de~\eqref{eq:masa-fd};
+(5)~$N_{i,j}$, $\xi_{i,j}$ de~\eqref{eq:Nxi-fd};
+(6)~comprobar $Q_j=Q$. Picard si $\mu$ o $F_{mg}$ dependen
+de $u_{\,\cdot\,,j}$. Al llegar a $j=J$ se acepta o se
+cambia $v_{\mathrm{in}}$.
+
+El 2D completo (II.A--II.C) se discreta igual, sumando
+$D_r$ de los flujos radiales y $u_{m,r}$, $u_{g,r}$ en las
+convecciones; $P$ pasa a $P_{i,j}$ con~\eqref{eq:P-2d}
+discreto. El 2D que ya corre es este esquema con
+$\varphi_{i,j}=\varphi_j$ (plano en $r$).
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section*{Parte III. El inverso}
 
-Directo: se resuelve I, II o la reducción II.E, y se lee
-$Q$ (o $q$) en la boca.
+Directo: se resuelve I, II, la reducción II.E o el esquema
+II.F, y se lee $Q$ (o $q$) en la boca.
 \[
 \F(\theta)=Q,
 \qquad
@@ -848,7 +1021,7 @@ se reescribe el solver 1D.
 ¿Este inverso (un parámetro; EDP 2D estacionaria de masa +
 momentum, con ecuación para $P$, y transporte de $N$ y
 $\xi$) sirve como tesis de DIM? Si empezar por la reducción
-II.E ($u_{m,r}=u_{g,r}=0$, $P=P(z)$) le parece el primer
-paso, se parte de ahí.
+II.E y el esquema II.F le parece el primer paso, se parte
+de ahí.
 
 \end{document}
