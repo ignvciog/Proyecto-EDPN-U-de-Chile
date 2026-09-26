@@ -12,7 +12,7 @@ Implementación en Python de un modelo de conducto volcánico con:
 - **Ambas ramas a la vez:** `mainconduit_ambos.ipynb` (mismo estilo que `mainconduit5_5`) tira explosiva y efusiva con los mismos datos y las 6 figuras encima
 - **1D transiente** (EDPs + esquema IMEX: MOL, FD upwind, RK4)
 - **2D axisimétrico** (perfil radial \(u_m(r)\) con FD, Thomas y Picard)
-- **2D con \(\varphi(r,z)\)** (`RIconduit2D_phi_r.py`, notebook `mainconduit_2d_phi_r.ipynb`): reducción \(u_r=0\), \(P=P(z)\), campos \(\varphi,N,\xi\) en cada nodo radial; paso adaptativo \(h\) vs \(h/2\); umbrales \(\varphi_1,\varphi_2,\varphi_{\mathrm{crit}}\) calculados por \(Ca_\ast\) como el 1D; rampas de `umbrales_reg.py`. El `RIconduit2D_FD.py` no se toca (\(\varphi=\varphi(z)\) ahí).
+- **2D con \(\varphi(r,z)\)** (`RIconduit2D_phi_r.py`, notebook `mainconduit_2d_phi_r.ipynb`): reducción \(u_r=0\), \(P=P(z)\), campos \(\varphi,N,\xi\) en cada nodo radial; paso adaptativo \(h\) vs \(h/2\); umbrales \(\varphi_1,\varphi_2,\varphi_{\mathrm{crit}}\) calculados por \(Ca_\ast\) como el 1D; rampas de `umbrales_reg.py`. El `RIconduit2D_FD.py` no se toca (\(\varphi=\varphi(z)\) ahí). Para bajar: `propuesta_2d_phi_r.zip` (PDF + notebook + código).
 
 Parámetros de prueba: composición y geometría del volcán **Calbuco** (`calbuco2015d.py`).
 
