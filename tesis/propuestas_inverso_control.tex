@@ -996,7 +996,40 @@ El 2D completo (II.A--II.C) se discreta igual, sumando
 $D_r$ de los flujos radiales y $u_{m,r}$, $u_{g,r}$ en las
 convecciones; $P$ pasa a $P_{i,j}$ con~\eqref{eq:P-2d}
 discreto. El 2D que ya corre es este esquema con
-$\varphi_{i,j}=\varphi_j$ (plano en $r$).
+$\varphi_{i,j}=\varphi_j$ (plano en $r$), pero con
+$\Delta z$ \textbf{variable} (abajo).
+
+\paragraph{El paso: fijo en II.F, variable en el código.}
+Arriba $\Delta z=|H|/J$ es constante, para que se lea.
+Eso \textbf{no} es lo que hace IDA ni el 2D que ya corre.
+
+El 1D (\texttt{RIconduitex5\_5}) no es diferencias finitas.
+Es el DAE~\eqref{eq:dae-acop}:
+$M\mathbf{y}'=F(\mathbf{y})$ con
+$M=\mathrm{diag}(1,1,1,1,0,0)$
+($u_m$ y $u_g$ algebraicas).
+Lo integra \texttt{scikits.odes} con el solver
+\texttt{ida} (SUNDIALS IDA): BDF de orden variable (1 a 5)
+y \textbf{paso interno variable}. El primer paso es
+$10^{-18}\,\mathrm{m}$; después IDA agranda o achica
+$\Delta z$ para cumplir $\mathrm{atol}=\mathrm{rtol}$
+(\texttt{errtol}). Se le pide salida en un
+\texttt{linspace}$(H,0,10^4)$: esa malla es solo para
+\emph{guardar}; por dentro IDA da muchos pasos distintos
+y interpola. Al cruzar $\varphi_1,\varphi_2,\varphi_{\mathrm{crit}}$
+se corta y se reinicia otro IDA (otro tramo $J_k$).
+
+El 2D (\texttt{RIconduit2D\_FD}) marcha en $z$ con RK4 y
+paso adaptativo: un paso de $\Delta z$ y dos de
+$\Delta z/2$; si el error relativo es grande, se rechaza y
+se parte $\Delta z$; si es chico, se agranda (con
+$\Delta z_{\min}$ y $\Delta z_{\max}$). En $r$ el paso
+$\Delta r=R/I$ sí es fijo (Thomas).
+
+Si se quiere II.F con paso variable: el mismo esquema,
+cambiando $\Delta z$ por $\Delta z_j$ en $D_z^-$ (elegido
+como IDA o como el RK4 embebido). El operador $L_r$ no
+cambia.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section*{Parte III. El inverso}
