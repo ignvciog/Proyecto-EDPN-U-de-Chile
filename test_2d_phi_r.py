@@ -78,6 +78,22 @@ def test_dpdz_no_se_apaga_con_phi_de_pared():
     assert dpdz < -0.5 * M._G["rho_m"] * 9.81
 
 
+def test_sanear_tira_z_de_70km():
+    import RIconduit2D_phi_r as M
+
+    n, nr = 6, 4
+    out = {
+        "z": np.array([-70000.0, -35000.0, -7000.0, -3000.0, 0.0, 50.0]),
+        "P": np.linspace(1e8, 1e5, n),
+        "phi": np.zeros((n, nr)),
+        "r": np.linspace(0, 16, nr),
+        "n_steps": 3,
+    }
+    out2 = M._sanear_marcha(out)
+    assert out2["z"].min() >= -7001.0
+    assert -70000.0 not in out2["z"]
+
+
 def test_marcha_corta_phi_es_2d():
     import RIconduit2D_phi_r as M
 
@@ -100,5 +116,6 @@ if __name__ == "__main__":
     test_Fmg_suave_finito()
     test_umbrales_como_el_1d()
     test_dpdz_no_se_apaga_con_phi_de_pared()
+    test_sanear_tira_z_de_70km()
     test_marcha_corta_phi_es_2d()
     print("ok")

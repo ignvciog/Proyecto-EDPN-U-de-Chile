@@ -612,7 +612,11 @@ def march(vinicial, max_steps=2500, tol=1e-3, verbose=True):
         Pcrit = (co / C1) ** (1.0 / beta)
         visc_ini = _visc_nodo(Pi, 0.0, xi, max(vinicial, 1e-6), _G["Nd0"])
         dpdzcalc = -rho_m * g - _G["cg"] * visc_ini * vinicial / _G["wr"] ** 2
+        if dpdzcalc >= -1.0:
+            dpdzcalc = -rho_m * g
         Hi = H - (Pi - Pcrit) / dpdzcalc
+        # Calbuco es H=-7000. Si Hi se va a -70 km, el gráfico queda como el de antes.
+        Hi = float(np.clip(Hi, H + 1.0, -1.0))
         nH = max(int(abs(Hi - H) / 50.0), 8)
         z_pre = np.linspace(H, Hi, nH)
         for zz in z_pre[:-1]:
@@ -725,6 +729,21 @@ def march(vinicial, max_steps=2500, tol=1e-3, verbose=True):
         "Ca": float(_G.get("Ca", np.nan)),
         "Nd0": float(_G["Nd0"]),
     }
+    return _sanear_marcha(out)
+
+
+def _sanear_marcha(out):
+    """Tira cotas fuera de [H, 0] (el eje a −70 km del 1D)."""
+    z = np.asarray(out["z"], dtype=float)
+    lo, hi = float(H) - 1.0, 20.0
+    ok = np.isfinite(z) & (z >= lo) & (z <= hi)
+    if ok.sum() < 2:
+        return out
+    for k, v in list(out.items()):
+        if k == "z":
+            out[k] = z[ok]
+        elif isinstance(v, np.ndarray) and v.shape[:1] == z.shape:
+            out[k] = v[ok]
     return out
 
 
