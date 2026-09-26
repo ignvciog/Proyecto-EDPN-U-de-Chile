@@ -1026,10 +1026,107 @@ se parte $\Delta z$; si es chico, se agranda (con
 $\Delta z_{\min}$ y $\Delta z_{\max}$). En $r$ el paso
 $\Delta r=R/I$ sí es fijo (Thomas).
 
-Si se quiere II.F con paso variable: el mismo esquema,
-cambiando $\Delta z$ por $\Delta z_j$ en $D_z^-$ (elegido
-como IDA o como el RK4 embebido). El operador $L_r$ no
-cambia.
+\paragraph{Paso interno variable, en diferencias finitas.}
+El perfil no es suave: cerca de la exsolución y de
+$\varphi_{\mathrm{crit}}$, $\dd\varphi/\dd z$ y $\dd P/\dd z$
+pegan. Un $\Delta z$ fijo o es enorme (no resuelve el salto)
+o ridículo en todo $[H,0]$. Por eso IDA no usa paso fijo, y
+el FD tampoco debería.
+
+Mismo esquema de arriba, con $\Delta z_j$ distinto en cada
+nivel. Un paso $j-1\to j$ con tamaño $h$:
+\[
+\mathbf{Y}_j
+=\Psi\bigl(\mathbf{Y}_{j-1};h\bigr)
+\]
+($\Psi$ es masa + $L_r$ + $P$ + $N,\xi$). Estimación de
+error, como el 2D que ya corre (RK4 embebido): un paso $h$
+frente a dos de $h/2$,
+\begin{equation}
+\label{eq:err-h}
+e_j
+=\max\Biggl\{
+\frac{\lvert P^{(h)}_j-P^{(h/2)}_j\rvert}{1+\lvert P^{(h/2)}_j\rvert},\;
+\frac{\lVert\varphi^{(h)}_j-\varphi^{(h/2)}_j\rVert_\infty}{1+\lVert\varphi^{(h/2)}_j\rVert_\infty}
+\Biggr\}.
+\end{equation}
+Control (parecido a IDA, sin el BDF):
+\begin{equation}
+\label{eq:dz-adapt}
+\begin{aligned}
+\text{si }e_j>\tau:&\quad
+\text{rechazar, }h\leftarrow\max(h/2,\,h_{\min}),
+\text{ repetir},
+\\
+\text{si }e_j\le\tau:&\quad
+\text{aceptar }\mathbf{Y}^{(h/2)}_j,\;
+h\leftarrow\mathrm{clip}\bigl(h\cdot(\tau/e_j)^{1/2},\,h_{\min},\,h_{\max}\bigr).
+\end{aligned}
+\end{equation}
+$\tau$ es la tolerancia (el \texttt{errtol} de IDA).
+$h_{\min}$, $h_{\max}$ evitan pasos nulos o que se salten
+un régimen. $L_r$ no cambia: $\Delta r$ sigue fijo.
+
+Análogo a IDA: IDA estima el error local del BDF y mueve
+el paso; aquí se estima con $h$ vs $h/2$ y se mueve $h$.
+No es el mismo integrador (IDA trata el DAE implícito;
+esto es marcha explícita/semi-implícita en $z$), pero la
+lógica del paso sí.
+
+\paragraph{Saltos de los acoplamientos: suavizarlos.}
+$F_{mg}^{(k)}$, $F_{mw}/F_{gw}$ y el corte de $\Gamma_N$,
+$\Gamma_\xi$ saltan en $\varphi_1,\varphi_2,\varphi_{\mathrm{crit}}$
+(y $Re_b=2200$). En el 1D original eso parte el dominio y
+se reinicia IDA. En FD un salto en el nodo hace que $e_j$
+explote y $h$ se vaya a $h_{\min}$.
+
+Conviene \textbf{sí} suavizar, con las mismas rampas del
+laboratorio (\texttt{umbrales\_reg}):
+\begin{equation}
+\label{eq:s-tanh}
+s(x;x_\ast,\varepsilon)
+=\tfrac12\Bigl(1+\tanh\frac{x-x_\ast}{\varepsilon}\Bigr),
+\qquad
+\varepsilon\to0
+\text{ recupera el }\mathrm{if}.
+\end{equation}
+Pesos $w_1+w_2+w_3+w_4=1$,
+\begin{equation}
+\label{eq:wk}
+\begin{aligned}
+w_1&=1-s_1,&
+w_2&=s_1(1-s_2),\\
+w_3&=s_1 s_2(1-s_f),&
+w_4&=s_1 s_2 s_f,
+\end{aligned}
+\end{equation}
+$s_1=s(\varphi;\varphi_1,\varepsilon_\varphi)$, etc. Entonces
+\begin{equation}
+\label{eq:Fmg-suave}
+F_{mg}
+=\sum_{k=1}^4 w_k(\varphi)\,F_{mg}^{(k)}.
+\end{equation}
+Igual para mezclar $F_{mw}$ con $F_{gw}$ y para apagar
+$\Gamma_N$, $\Gamma_\xi$ al fragmentar. El DAE/FD queda
+$C^\infty$ en $\varphi$; el operador del inverso
+$\F(\theta)=Q$ deja de ser solo $C^0$ en los umbrales.
+$\varepsilon$ chico (el lab usa $10^{-3}$ en $\varphi$):
+si es ancho, el tiro no cierra.
+
+\paragraph{El 2D que ya corre: $\varphi$ \textbf{no} cambia con $r$.}
+En \texttt{RIconduit2D\_FD},
+\[
+P=P(z),\qquad
+\varphi=\varphi(z),\qquad
+N=N(z),\qquad
+\xi=\xi(z),\qquad
+u_m=u_m(r,z).
+\]
+Solo el perfil de velocidad es 2D. $\varphi$ es el mismo
+en el eje y en la pared. Eso es lo que se quiere
+\emph{cambiar}: que $\varphi=\varphi(r,z)$ (y $N$, $\xi$)
+como en II.A--II.D. El código actual es II.F con
+$\varphi_{i,j}=\varphi_j$.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section*{Parte III. El inverso}
