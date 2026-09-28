@@ -1,0 +1,451 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish,es-noshorthands]{babel}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{microtype}
+\usepackage[colorlinks=true,linkcolor=black,citecolor=black,urlcolor=blue]{hyperref}
+
+\newcommand{\dd}{\,\mathrm{d}}
+\newcommand{\p}{\partial}
+\newcommand{\sat}{\mathrm{sat}}
+\newcommand{\lit}{\mathrm{lit}}
+
+\theoremstyle{plain}
+\newtheorem{proposicion}{Proposición}
+\theoremstyle{definition}
+\newtheorem{hipotesis}{Hipótesis}
+\theoremstyle{remark}
+\newtheorem*{obs}{Observación}
+
+\title{\vspace{-1.4cm}
+\textbf{Pendiente de presión en el tramo sin burbujas}\\[0.35em]
+\large Promedio en la sección del momento 2D, con el divisor de compresibilidad}
+\author{Ignacio Gómez Gómez}
+\date{\today}
+
+\begin{document}
+\maketitle
+\vspace{-0.7cm}
+
+\begin{abstract}\noindent
+En el tramo en que el agua sigue disuelta, el momento vertical del fundido,
+promediado en la sección y evaluado sobre la parábola de Poiseuille, da
+\[
+\frac{\dd P}{\dd z}
+=
+-\,
+\frac{\rho_m g+8\mu\bar u/R^2}
+{1-\dfrac{4}{3}\,\bar u^2/c^2},
+\qquad
+c^2=\frac{K}{\rho_m}.
+\]
+El numerador es el peso más el roce de pared. El denominador es la inercia
+que aparece al comprimir el fundido manteniendo el caudal de cada radio.
+El factor \(4/3\) es \(\langle u^2\rangle/\bar u^2\) de esa parábola.
+Esta nota escribe la cadena desde las ecuaciones reducidas hasta esa fórmula.
+\end{abstract}
+
+\section{Ecuaciones de partida}
+
+El conducto es el cilindro \(0\le r\le R\), \(H\le z\le 0\), con \(z\) hacia
+arriba. En la reducción las velocidades radiales son nulas. Mientras el agua
+sigue disuelta,
+\begin{equation}
+\varphi\equiv 0,
+\qquad
+\Gamma\equiv 0,
+\qquad
+F_{mg}\equiv 0,
+\qquad
+H\le z\le z_{\sat}.
+\label{eq:phi0}
+\end{equation}
+La masa del fundido en cada radio es
+\begin{equation}
+\frac{\p}{\p z}\bigl(\rho_m u\bigr)=0.
+\label{eq:masa}
+\end{equation}
+El momento vertical del fundido es
+\begin{equation}
+\rho_m u\frac{\p u}{\p z}
+=
+-\frac{\p P}{\p z}
+-\rho_m g
++\frac{1}{r}\frac{\p}{\p r}\!\left(r\mu\frac{\p u}{\p r}\right)
++\frac{\p}{\p z}\!\left(\mu\frac{\p u}{\p z}\right).
+\label{eq:mom}
+\end{equation}
+La componente radial del momento, con velocidad radial nula, da
+\(\p P/\p r=0\). Por tanto
+\begin{equation}
+P=P(z).
+\label{eq:Pdez}
+\end{equation}
+Cada término de la masa y del momento del gas lleva un factor \(\varphi\) o
+\(F_{mg}\). Con~\eqref{eq:phi0} esas dos ecuaciones quedan en la identidad
+\(0=0\), y \(u_g\) no entra en este tramo.
+
+Las condiciones de borde del tramo son
+\begin{equation}
+\frac{\p u}{\p r}(0,z)=0,
+\qquad
+u(R,z)=0,
+\qquad
+P(H)=P_{\lit}+\Delta P.
+\label{eq:bc}
+\end{equation}
+
+\begin{hipotesis}
+\label{hip:cierre}
+Se toman tres cierres, los mismos que producen la recta algebraica del modelo
+1D.
+\begin{enumerate}
+\item \(\mu\) es constante en \(r\) y en \(z\).
+\item El módulo de compresibilidad \(K\) es constante:
+      \(\dd P=K\,\dd\rho_m/\rho_m\).
+\item El perfil ya está desarrollado: tiene la forma parabólica que se
+      construye en la sección~\ref{sec:parabola}, en todo
+      \(H\le z\le z_{\sat}\).
+\end{enumerate}
+\end{hipotesis}
+
+\section{Lo que fija la masa}
+
+Como \(P=P(z)\) y \(\rho_m=\rho_m(P)\), la densidad depende solo de \(z\).
+Integrar~\eqref{eq:masa} en \(z\) deja un caudal másico por unidad de área,
+distinto en cada radio y constante a lo largo del conducto:
+\begin{equation}
+\rho_m(z)\,u(r,z)=q(r).
+\label{eq:q}
+\end{equation}
+Derivando~\eqref{eq:q},
+\begin{equation}
+\frac{\p u}{\p z}
+=
+-\frac{u}{\rho_m}\frac{\dd\rho_m}{\dd z}.
+\label{eq:du}
+\end{equation}
+
+\section{Compresibilidad}
+
+Con la hipótesis~\ref{hip:cierre}.2,
+\begin{equation}
+\frac{\dd\rho_m}{\dd z}
+=
+\frac{\rho_m}{K}\frac{\dd P}{\dd z}.
+\label{eq:eos}
+\end{equation}
+Se define \(c^2=K/\rho_m\), de modo que \(K=\rho_m c^2\).
+Sustituyendo~\eqref{eq:eos} en~\eqref{eq:du},
+\begin{equation}
+\frac{\p u}{\p z}
+=
+-\frac{u}{K}\frac{\dd P}{\dd z}
+=
+-\frac{u}{\rho_m c^2}\frac{\dd P}{\dd z}.
+\label{eq:duP}
+\end{equation}
+La inercia de~\eqref{eq:mom} queda
+\begin{equation}
+\rho_m u\frac{\p u}{\p z}
+=
+-\frac{u(r,z)^2}{c^2}\frac{\dd P}{\dd z}.
+\label{eq:inercia}
+\end{equation}
+El divisor de la fórmula final sale de este término, al pasarlo al lado de
+\(\dd P/\dd z\).
+
+\section{Ecuación puntual}
+
+Se lleva~\eqref{eq:inercia} a~\eqref{eq:mom}:
+\begin{equation}
+-\frac{u^2}{c^2}\frac{\dd P}{\dd z}
+=
+-\frac{\dd P}{\dd z}
+-\rho_m g
++\frac{1}{r}\frac{\p}{\p r}\!\left(r\mu\frac{\p u}{\p r}\right)
++\frac{\p}{\p z}\!\left(\mu\frac{\p u}{\p z}\right).
+\end{equation}
+Al agrupar \(\dd P/\dd z\),
+\begin{equation}
+\frac{\dd P}{\dd z}
+\left(1-\frac{u(r,z)^2}{c^2}\right)
+=
+-\rho_m g
++\frac{1}{r}\frac{\p}{\p r}\!\left(r\mu\frac{\p u}{\p r}\right)
++\frac{\p}{\p z}\!\left(\mu\frac{\p u}{\p z}\right).
+\label{eq:puntual}
+\end{equation}
+El factor \(1-u^2/c^2\) depende de \(r\): en el eje \(u\) es máximo y en la
+pared \(u=0\), así que ahí el factor vale \(1\). Una sola función \(P(z)\)
+se obtiene cumpliendo~\eqref{eq:puntual} en promedio sobre la sección.
+
+\section{Promedio en la sección}
+
+Para una función \(f(r)\),
+\begin{equation}
+\langle f\rangle
+=
+\frac{2}{R^2}\int_0^R f(r)\,r\,\dd r.
+\label{eq:media}
+\end{equation}
+El promedio de una cantidad que depende solo de \(z\) es ella misma.
+Aplicando~\eqref{eq:media} a~\eqref{eq:puntual},
+\begin{equation}
+\begin{aligned}
+\frac{\dd P}{\dd z}
+\left(1-\frac{\langle u^2\rangle}{c^2}\right)
+&=
+-\rho_m g
++\left\langle
+\frac{1}{r}\frac{\p}{\p r}\!\left(r\mu\frac{\p u}{\p r}\right)
+\right\rangle
+\\
+&\qquad
++\left\langle
+\frac{\p}{\p z}\!\left(\mu\frac{\p u}{\p z}\right)
+\right\rangle.
+\end{aligned}
+\label{eq:prom}
+\end{equation}
+
+\section{El viscoseo radial, integrado}
+
+Con \(\mu\) constante,
+\begin{align}
+\left\langle
+\frac{1}{r}\frac{\p}{\p r}\!\left(r\mu\frac{\p u}{\p r}\right)
+\right\rangle
+&=
+\frac{2}{R^2}\int_0^R
+\frac{\p}{\p r}\!\left(r\mu\frac{\p u}{\p r}\right)\dd r
+=
+\frac{2}{R^2}
+\left[
+r\mu\frac{\p u}{\p r}
+\right]_0^R.
+\label{eq:Lr-int}
+\end{align}
+En el eje, \(r\,\p u/\p r\to 0\) por~\eqref{eq:bc}. En la pared queda
+\begin{equation}
+\left\langle L_r u\right\rangle
+=
+\frac{2\mu}{R}
+\left.\frac{\p u}{\p r}\right|_{r=R}.
+\label{eq:Lr-pared}
+\end{equation}
+La identidad~\eqref{eq:Lr-pared} vale para cualquier perfil que cumpla
+\(u(R)=0\) y la simetría en el eje. El factor \(8\) aparece al evaluar la
+derivada de la parábola.
+
+\section{La parábola}
+\label{sec:parabola}
+
+Se busca un perfil \(u=A(z)+B(z)\,r^2\) que cumpla~\eqref{eq:bc}.
+La simetría en \(r=0\) elimina un término lineal en \(r\).
+La pared \(u(R,z)=0\) fija
+\begin{equation}
+u(r,z)=u_c(z)\left(1-\frac{r^2}{R^2}\right).
+\label{eq:uc}
+\end{equation}
+La velocidad media es, con \(\eta=r/R\),
+\begin{align}
+\bar u(z)
+&=
+\langle u\rangle
+=
+\frac{2}{R^2}\int_0^R
+u_c\left(1-\frac{r^2}{R^2}\right)r\,\dd r
+=
+2u_c\int_0^1(1-\eta^2)\eta\,\dd\eta
+\nonumber\\
+&=
+2u_c\left[\frac{\eta^2}{2}-\frac{\eta^4}{4}\right]_0^1
+=
+2u_c\left(\frac12-\frac14\right)
+=
+\frac{u_c}{2}.
+\label{eq:media-u}
+\end{align}
+Luego \(u_c=2\bar u\) y
+\begin{equation}
+u(r,z)=2\bar u(z)\left(1-\frac{r^2}{R^2}\right).
+\label{eq:parabola}
+\end{equation}
+La derivada radial es
+\begin{equation}
+\frac{\p u}{\p r}
+=
+-\frac{4\bar u\, r}{R^2},
+\qquad
+\left.\frac{\p u}{\p r}\right|_{r=R}
+=
+-\frac{4\bar u}{R}.
+\label{eq:dur}
+\end{equation}
+El esfuerzo en la pared es \(\tau_w=\mu\cdot 4\bar u/R\).
+Sustituyendo~\eqref{eq:dur} en~\eqref{eq:Lr-pared},
+\begin{equation}
+\left\langle L_r u\right\rangle
+=
+\frac{2\mu}{R}\left(-\frac{4\bar u}{R}\right)
+=
+-\frac{8\mu\bar u}{R^2}.
+\label{eq:F}
+\end{equation}
+El término \(8\mu\bar u/R^2\) es el roce \(\tau_w\cdot 2\pi R\) repartido en el
+área \(\pi R^2\). En el balance 2D entra por~\eqref{eq:F}; no se suma un
+\(F\) adicional.
+
+Con~\eqref{eq:q} y~\eqref{eq:parabola}, el caudal medio
+\(\bar q=\langle q\rangle\) cumple
+\begin{equation}
+\bar u(z)=\frac{\bar q}{\rho_m(z)}.
+\label{eq:ubar}
+\end{equation}
+La forma parabólica se conserva en todo el tramo. La amplitud cambia solo
+cuando cambia \(\rho_m\).
+
+\section{El promedio de \texorpdfstring{\(u^2\)}{u al cuadrado}}
+
+En el divisor de~\eqref{eq:prom} entra \(\langle u^2\rangle\).
+Con~\eqref{eq:parabola},
+\begin{align}
+\langle u^2\rangle
+&=
+\frac{2}{R^2}\int_0^R
+4\bar u^2\left(1-\frac{r^2}{R^2}\right)^2 r\,\dd r
+=
+8\bar u^2\int_0^1(1-\eta^2)^2\eta\,\dd\eta
+\nonumber\\
+&=
+8\bar u^2\int_0^1\bigl(1-2\eta^2+\eta^4\bigr)\eta\,\dd\eta
+=
+8\bar u^2\int_0^1\bigl(\eta-2\eta^3+\eta^5\bigr)\,\dd\eta
+\nonumber\\
+&=
+8\bar u^2\left[\frac{\eta^2}{2}-\frac{2\eta^4}{4}+\frac{\eta^6}{6}\right]_0^1
+=
+8\bar u^2\left(\frac12-\frac12+\frac16\right)
+=
+\frac{4}{3}\bar u^2.
+\label{eq:u2}
+\end{align}
+El factor \(4/3\) es el exceso de \(\langle u^2\rangle\) sobre \(\bar u^2\):
+en la parábola el centro va al doble de la media, y el promedio del cuadrado
+pesa ese centro.
+
+\section{Esfuerzo axial de esta compresión}
+
+Con \(K\) constante,~\eqref{eq:duP} da
+\(\p u/\p z=-(u/K)\,\dd P/\dd z\).
+Para el perfil~\eqref{eq:parabola} y \(\mu\) constante,
+\begin{equation}
+\frac{\p}{\p z}\!\left(\mu\frac{\p u}{\p z}\right)
+=
+\frac{\mu u}{K^2}\left(\frac{\dd P}{\dd z}\right)^2
+-
+\frac{\mu u}{K}\frac{\dd^2 P}{\dd z^2}.
+\label{eq:axial}
+\end{equation}
+Frente al viscoseo radial~\eqref{eq:F}, el primer término de~\eqref{eq:axial}
+está en la razón
+\begin{equation}
+\frac{\mu\bar u\,|\dd P/\dd z|^2/K^2}{8\mu\bar u/R^2}
+=
+\frac{R^2}{8}\,\frac{|\dd P/\dd z|^2}{K^2}.
+\label{eq:razon}
+\end{equation}
+Con \(|\dd P/\dd z|\sim 3\times 10^4\,\mathrm{Pa\,m^{-1}}\),
+\(K=1.5\times 10^{10}\,\mathrm{Pa}\) y \(R=16\,\mathrm{m}\),
+\eqref{eq:razon} es del orden de \(10^{-10}\).
+El término con \(\dd^2P/\dd z^2\) queda en ese orden mientras la pendiente
+varíe en la escala de la columna. Se retira~\eqref{eq:axial} de~\eqref{eq:prom}.
+
+\section{La pendiente}
+
+\begin{proposicion}
+Bajo~\eqref{eq:phi0},~\eqref{eq:bc} y la hipótesis~\ref{hip:cierre},
+la pendiente de presión del tramo sin burbujas es
+\begin{equation}
+\frac{\dd P}{\dd z}
+=
+-\,
+\frac{\rho_m g+8\mu\bar u/R^2}
+{1-\dfrac{4}{3}\,\bar u^2/c^2},
+\qquad
+c^2=\frac{K}{\rho_m},
+\qquad
+\bar u=\frac{\bar q}{\rho_m}.
+\label{eq:dpdz}
+\end{equation}
+\end{proposicion}
+
+\begin{proof}
+Se sustituyen~\eqref{eq:F} y~\eqref{eq:u2} en~\eqref{eq:prom},
+retirado el esfuerzo axial~\eqref{eq:axial}:
+\begin{equation}
+\frac{\dd P}{\dd z}
+\left(1-\frac{4}{3}\frac{\bar u^2}{c^2}\right)
+=
+-\rho_m g-\frac{8\mu\bar u}{R^2}.
+\end{equation}
+Despejar \(\dd P/\dd z\) da~\eqref{eq:dpdz}.
+La relación \(\bar u=\bar q/\rho_m\) es~\eqref{eq:ubar}.
+\end{proof}
+
+El numerador es el peso más el roce de pared de la parábola.
+El denominador es la inercia de la compresión, después de promediar
+\(u(r)^2\). Si en~\eqref{eq:u2} se reemplaza el perfil por una velocidad
+plana, \(\langle u^2\rangle=\bar u^2\) y el denominador queda
+\(1-\bar u^2/c^2\), que es el factor escrito en la recta algebraica del 1D.
+
+\section{La recta de coeficientes congelados}
+
+En el tramo algebraico del 1D se congelan \(\rho_m\), \(\mu\) y
+\(\bar u=v_{\mathrm{in}}\), con \(K=15\,\mathrm{GPa}\).
+Entonces~\eqref{eq:dpdz} es constante y
+\begin{equation}
+P(z)=P(H)+\frac{\dd P}{\dd z}\,(z-H),
+\label{eq:recta}
+\end{equation}
+hasta la altura definida por
+\begin{equation}
+P(z_{\sat})
+=
+P_{\sat}
+=
+\left(\frac{c_0}{C_1}\right)^{1/\beta}.
+\label{eq:Psat}
+\end{equation}
+Esa constante es la línea \texttt{dpdzcalc} del código 1D.
+El denominador del código es \(1-v_{\mathrm{in}}^2/c^2\).
+El de~\eqref{eq:dpdz} es \(1-(4/3)\bar u^2/c^2\), porque el promedio se hace
+sobre la parábola.
+
+\begin{obs}
+En la base de Calbuco, con \(\bar u=18.3\,\mathrm{m\,s^{-1}}\),
+\(c=2468\,\mathrm{m\,s^{-1}}\) y \(\rho_m=2463\,\mathrm{kg\,m^{-3}}\),
+se tiene \(\bar u^2/c^2=5.5\times 10^{-5}\).
+El denominador de~\eqref{eq:dpdz} vale \(1-7.3\times 10^{-5}\).
+Sobre una pendiente de \(2.677\times 10^4\,\mathrm{Pa\,m^{-1}}\),
+el divisor corrige unos \(2\,\mathrm{Pa\,m^{-1}}\).
+\end{obs}
+
+\begin{obs}[Dónde vale la parábola]
+El dato de la base puede ser un tapón, \(u=v_{\mathrm{in}}\) para \(r<R\)
+y \(u(R)=0\). Ese tapón cumple~\eqref{eq:bc} y tiene laplaciano nulo en el
+interior, así que~\eqref{eq:parabola} lo describe una vez que el viscoseo
+radial ya acomodó el perfil. La longitud de ese acomodo es el balance entre
+inercia y viscoseo radial, \(L\sim\rho_m v_{\mathrm{in}} R^2/\mu\).
+Con los números de la base queda del orden de \(2.5\,\mathrm{km}\).
+La fórmula~\eqref{eq:dpdz} describe el tramo sin burbujas ya desarrollado,
+desde ahí hasta \(z_{\sat}\). En Calbuco \(z_{\sat}\) cae cerca de
+\(-3.7\,\mathrm{km}\).
+\end{obs}
+
+\end{document}
