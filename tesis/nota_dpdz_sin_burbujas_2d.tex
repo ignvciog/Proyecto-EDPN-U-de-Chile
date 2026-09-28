@@ -13,6 +13,8 @@
 \newcommand{\p}{\partial}
 \newcommand{\sat}{\mathrm{sat}}
 \newcommand{\lit}{\mathrm{lit}}
+\newcommand{\ad}{\mathrm{ad}}
+\newcommand{\Rv}{\mathcal{R}}
 
 \theoremstyle{plain}
 \newtheorem{proposicion}{Proposición}
@@ -46,7 +48,11 @@ c^2=\frac{K}{\rho_m}.
 El numerador es el peso más el roce de pared. El denominador es la inercia
 que aparece al comprimir el fundido manteniendo el caudal de cada radio.
 El factor \(4/3\) es \(\langle u^2\rangle/\bar u^2\) de esa parábola.
-Esta nota escribe la cadena desde las ecuaciones reducidas hasta esa fórmula.
+Un metro por encima de la saturación, el estado inicial de la marcha
+diferencial queda determinado: \(\varphi\) es el volumen de Henry y
+\(u_m(r)=u_g(r)\) conserva la parábola del caudal.
+Esta nota escribe la cadena desde las ecuaciones reducidas hasta esas
+expresiones.
 \end{abstract}
 
 \section{Ecuaciones de partida}
@@ -446,6 +452,120 @@ Con los números de la base queda del orden de \(2.5\,\mathrm{km}\).
 La fórmula~\eqref{eq:dpdz} describe el tramo sin burbujas ya desarrollado,
 desde ahí hasta \(z_{\sat}\). En Calbuco \(z_{\sat}\) cae cerca de
 \(-3.7\,\mathrm{km}\).
+\end{obs}
+
+\section{El metro donde empieza la exsolución}
+\label{sec:eps}
+
+En \(z_{\sat}\) se tiene \(n=0\) y \(\varphi=0\). La velocidad del gas,
+escrita como caudal de gas sobre \(\varphi\rho_g\), queda indeterminada.
+El estado inicial de la marcha diferencial se arma un metro más arriba.
+Se toma \(\varepsilon=1\,\mathrm{m}\). Si la saturación cae a menos de un
+metro de la boca, \(\varepsilon=-z_{\sat}/10\). El punto adicional es
+\begin{equation}
+z_{\ad}=z_{\sat}+\varepsilon,
+\qquad
+P_{\ad}
+=
+P_{\sat}+\frac{\dd P}{\dd z}\,\varepsilon.
+\label{eq:Pad}
+\end{equation}
+Como \(\dd P/\dd z<0\), se tiene \(P_{\ad}<P_{\sat}\) y Henry ya suelta agua.
+La fracción másica exsuelta, con \(\xi\) todavía igual a \(\xi_0\), es
+\begin{equation}
+n_{\ad}
+=
+(1-\xi_0)\,
+\frac{c_0-C_1 P_{\ad}^{\beta}}{1-C_1 P_{\ad}^{\beta}}.
+\label{eq:n}
+\end{equation}
+\(P_{\ad}\) y \(\xi_0\) no dependen de \(r\), así que \(n_{\ad}\) es
+constante en la sección. La densidad del gas es la del gas ideal,
+\(\rho_{g,\ad}=P_{\ad}/(\Rv T)\).
+
+\begin{proposicion}
+\label{prop:ad}
+En \(z_{\ad}\), con el caudal \(q(r)\) heredado del tramo sin burbujas,
+\begin{align}
+\varphi_{\ad}
+&=
+\left(
+1+\frac{P_{\ad}}{n_{\ad}\Rv T}\,\frac{1-n_{\ad}}{\rho_m}
+\right)^{-1},
+\label{eq:phi}\\[0.4em]
+u_m(r)
+&=
+u_g(r)
+=
+\frac{q(r)\,(1-n_{\ad})}{(1-\varphi_{\ad})\,\rho_m}
+=
+2\bar u_{\ad}\left(1-\frac{r^2}{R^2}\right),
+\label{eq:velocidades}
+\end{align}
+donde
+\begin{equation}
+\bar u_{\ad}
+=
+\frac{\bar q\,(1-n_{\ad})}{(1-\varphi_{\ad})\,\rho_m}
+=
+\frac{\bar q\, n_{\ad}}{\varphi_{\ad}\,\rho_{g,\ad}},
+\qquad
+q(r)=2\bar q\left(1-\frac{r^2}{R^2}\right).
+\label{eq:uad}
+\end{equation}
+En la pared, \(q(R)=0\), así que \(u_m(R)=u_g(R)=0\).
+\(N\) y \(\xi\) siguen en los valores de la base, \(N_0\) y \(\xi_0\).
+\end{proposicion}
+
+\begin{proof}
+La suma de las dos masas, con \(u_r=0\), conserva el caudal de cada radio.
+El valor que trae el tramo sin burbujas es \(q(r)\) de~\eqref{eq:q}:
+\begin{equation}
+\rho_m(1-\varphi)\,u_m+\rho_g\,\varphi\,u_g=q(r).
+\label{eq:qtotal}
+\end{equation}
+En este punto se parte el caudal con la fracción de Henry~\eqref{eq:n},
+\begin{equation}
+\rho_g\,\varphi\,u_g=n_{\ad}\,q(r),
+\qquad
+\rho_m(1-\varphi)\,u_m=(1-n_{\ad})\,q(r).
+\label{eq:reparto}
+\end{equation}
+El volumen de gas por unidad de masa es \(n_{\ad}/\rho_{g,\ad}\) y el del
+fundido es \((1-n_{\ad})/\rho_m\). Su cociente es \(\varphi_{\ad}\), que es
+\eqref{eq:phi} al escribir \(\rho_{g,\ad}=P_{\ad}/(\Rv T)\).
+De esa definición,
+\begin{equation}
+\frac{1-\varphi_{\ad}}{\varphi_{\ad}}
+=
+\frac{\rho_{g,\ad}\,(1-n_{\ad})}{n_{\ad}\,\rho_m},
+\end{equation}
+y por tanto
+\begin{equation}
+\frac{1-n_{\ad}}{(1-\varphi_{\ad})\,\rho_m}
+=
+\frac{n_{\ad}}{\varphi_{\ad}\,\rho_{g,\ad}}.
+\label{eq:igualdad}
+\end{equation}
+Las dos velocidades de~\eqref{eq:reparto} coinciden:
+\begin{equation}
+u_m(r)
+=
+\frac{q(r)\,(1-n_{\ad})}{(1-\varphi_{\ad})\,\rho_m}
+=
+\frac{q(r)\,n_{\ad}}{\varphi_{\ad}\,\rho_{g,\ad}}
+=
+u_g(r).
+\end{equation}
+Con la parábola \(q(r)=2\bar q\,(1-r^2/R^2)\) se obtiene~\eqref{eq:velocidades}
+y~\eqref{eq:uad}. El nodo \(r=R\) hereda \(q(R)=0\).
+\end{proof}
+
+\begin{obs}
+\(\varphi_{\ad}\) no depende de \(r\). Las dos velocidades sí: conservan la
+forma del caudal y se anulan en la pared. El deslizamiento \(u_g-u_m\)
+empieza recién al integrar el momento desde \(z_{\ad}\); en este punto la
+igualdad~\eqref{eq:igualdad} lo deja en cero.
 \end{obs}
 
 \end{document}
