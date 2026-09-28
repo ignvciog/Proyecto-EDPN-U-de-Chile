@@ -803,18 +803,25 @@ Esto no es el 1D.
 
 \paragraph{Masa.}
 Los flujos radiales de~\eqref{eq:masa-m}--\eqref{eq:masa-g}
-se anulan. Queda solo la parte en $z$, local en cada $r$:
-\begin{align}
+se anulan. La masa del fundido queda local en cada $r$:
+\begin{equation}
 \label{eq:masa-red}
-\frac{\p}{\p z}\bigl(\rho_m(1-\varphi)\,u_m\bigr)
-&=-\Gamma,
-\\
-\frac{\p}{\p z}\bigl(\rho_g\varphi\,u_g\bigr)
-&=\Gamma.
-\end{align}
-$Q$~\eqref{eq:Q} sigue constante en $z$. En cada $r$ es un
-balance 1D, pero acoplado a los otros $r$ por $P$ y por el
-perfil $u_m(r)$.
+\frac{\p}{\p z}\bigl(\rho_m(P)\,(1-\varphi)\,u_m\bigr)
+=-\Gamma.
+\end{equation}
+La masa del gas no se escribe radio por radio. Con un solo
+$\p P/\p z$ sobraban $M-1$ ecuaciones. Queda integrada en
+la sección,
+\begin{equation}
+\label{eq:Q-red}
+Q=\int_0^R 2\pi r\,j_z\,\dd r=\mathrm{const},
+\end{equation}
+con
+$j_z=\rho_m(P)\,(1-\varphi)\,u_m+\rho_g\,\varphi\,u_g$.
+Es~\eqref{eq:Q}, y es la ecuación de $P(z)$.
+$\Gamma=j_z\,\p n/\p z$ sigue en~\eqref{eq:masa-red}
+($n=n(P,\xi)$). Con un solo radio,~\eqref{eq:Q-red} y la
+masa del gas puntual coinciden, y el 1D conserva las dos.
 
 \paragraph{Momentum y $P$.}
 En~\eqref{eq:mom-m-z}--\eqref{eq:mom-g-z} cae solo
@@ -867,9 +874,10 @@ de~\eqref{eq:P-2d}$_2$ se anula y queda
 \qquad\Rightarrow\qquad
 P=P(z).
 \end{equation}
-$P(z)$ sale del promedio en la sección
-de~\eqref{eq:mom-red}. $F_{mw}$ y $F_{gw}$ siguen
-siendo~\eqref{eq:Fmw}.
+$P(z)$ sale de~\eqref{eq:Q-red}. Los dos momentos siguen
+en cada radio y los dos llevan $\p P/\p z$; el promedio
+de~\eqref{eq:mom-red} no es otra ecuación.
+$F_{mw}$ y $F_{gw}$ siguen siendo~\eqref{eq:Fmw}.
 
 \paragraph{Cómo se resuelve~\eqref{eq:mom-red}.}
 $L_r$ (el viscoseo radial) es elíptico en $r$. La inercia
@@ -924,6 +932,8 @@ $\Gamma$ cambian con $r$.
 
 \paragraph{Qué se perdió y qué no.}
 Se perdió el flujo radial y, con $u_r=0$, $\p P/\p r$.
+Se perdió la masa del gas en cada radio; queda
+$Q$~\eqref{eq:Q-red}.
 No se perdieron la inercia vertical ni el esfuerzo axial:
 están en~\eqref{eq:mom-red} y entran en la diagonal del
 tridiagonal. No se perdió la dependencia en $r$ de
@@ -933,10 +943,33 @@ $\varphi=\varphi(z)$, $N=N(z)$, $\xi=\xi(z)$ y reemplazar
 el viscoseo radial por $F_{mw}=c_g\mu u_m/R^2$.
 
 \textbf{Bordes que quedan.}
-Eje: $\p u_m/\p r=\p u_g/\p r=0$, $\p N/\p r=\p \xi/\p r=0$.
-Pared: $u_m=0$. Base y boca: las de $P$, $\varphi$ y el
-tiro, iguales que en II.A--II.C. $u_{m,r}=u_{g,r}=0$ ya
-no es una condición: es la hipótesis.
+El orden de cada ecuación dice cuántos pide.
+$u_{m,r}=u_{g,r}=0$ no es borde: es la hipótesis.
+\begin{itemize}
+\item $u_m$: segundo orden en $r$ y, con el esfuerzo
+  axial, segundo orden en $z$. Pide eje
+  $\p u_m/\p r=0$, pared $u_m=0$, y en la base el perfil
+  $u_m(r,H)=v_{\mathrm{in}}$ junto con $\sigma_{i,0}=0$.
+  Esos cuatro están. En la boca no se impone $u_m$.
+\item $u_g$: el mismo orden. Están el eje
+  $\p u_g/\p r=0$, la base $u_g(r,H)=v_{\mathrm{in}}$
+  (ahí $u_m=u_g$) y $\sigma^g_{i,0}=0$. Falta la pared:
+  el viscoseo radial del gas pide $u_g(R)$ o
+  $\p u_g/\p r$ en $r=R$. Hoy solo está $u_m(R)=0$.
+\item $\varphi$: primer orden en $z$. Basta la base,
+  $\varphi(r,H)=0$ si $n=0$ y~\eqref{eq:phi-noslip} si
+  $n>0$. En la boca $\varphi$ no es dato: entra en el
+  criterio efusivo/explosivo.
+\item $P$: primer orden en $z$. Basta
+  $P(H)=P_{\mathrm{lit}}+\Delta P$. La boca
+  ($P=P_{\mathrm{atm}}$ o $u_g\approx c_s$) cierra el
+  escalar $v_{\mathrm{in}}$, no es un segundo dato de $P$.
+\item $N$ y $\xi$: primer orden en $z$. Bastan
+  $N(r,H)=N_0$ y $\xi(r,H)=\xi_0$.
+  $\p N/\p r=\p\xi/\p r=0$ en el eje es simetría del
+  dato: \eqref{eq:Nxi-red} no tiene $\p/\p r$ de $N$ ni
+  de $\xi$, y en la pared no se imponen.
+\end{itemize}
 
 Eso es el balance de la reducción. El sistema de
 II.A--II.C es el completo (con $u_r$). El 2D que ya corre
@@ -1004,28 +1037,26 @@ $4\mu_0(1-\varphi_0)(u_{1,j}-u_{0,j})/\Delta r^2$
 \paragraph{Masa.}
 $\rho_{m,j}=\rho_m(P_j)$ y $\rho_{m,j-1}=\rho_m(P_{j-1})$:
 no se saca $\rho_m$ de la diferencia.
-\begin{align}
+\begin{equation}
 \label{eq:masa-fd}
 D_z^-\bigl[\rho_m(P)\,(1-\varphi)\,u\bigr]_{i,j}
-&=-\Gamma_{i,j},
-\\
-D_z^-\bigl[\rho_g(P_j)\,\varphi\,u^g\bigr]_{i,j}
-&=\Gamma_{i,j}.
-\end{align}
+=-\Gamma_{i,j}.
+\end{equation}
 Con $u_r=0$,
 $\Gamma_{i,j}
 =j^z_{i,j}\,D_z^- n_{i,j}$,
 $j^z=\rho_m(P_j)\,(1-\varphi)u+\rho_g\varphi u^g$,
 $n_{i,j}=n(P_j,\xi_{i,j})$.
-El caudal,
+La masa del gas es el caudal de la sección (trapecio),
+y esa igualdad fija $P_j$:
 \begin{equation}
 \label{eq:Q-fd}
 Q_j
 =2\pi\Delta r\sum_{i=0}^{I-1} r_i
 \bigl[\rho_m(P_j)\,(1-\varphi_{i,j})\,u_{i,j}
 +\rho_g(P_j)\,\varphi_{i,j}\,u^g_{i,j}\bigr]
+=Q.
 \end{equation}
-(regla del trapecio; $Q_j=Q$ para todo $j$).
 
 \paragraph{Momentum y $P$.}
 La inercia usa $D_z^-$ con el factor de velocidad congelado
@@ -1106,7 +1137,8 @@ u_{I,j}=0,
 j=0:&\quad
 P_0=P_{\mathrm{lit}}+\Delta P,\ 
 \xi_{i,0}=\xi_0,\ 
-N_{i,0}=N_0,
+N_{i,0}=N_0,\ 
+u_{i,0}=u^g_{i,0}=v_{\mathrm{in}}\ (i<I),
 \\
 j=J:&\quad
 P_J=P_{\mathrm{atm}}
@@ -1122,12 +1154,13 @@ $\sigma_{\,\cdot\,,j-1}$ en el nivel anterior;
 (2)~tridiagonal para $u_{\,\cdot\,,j}$ y $u^g_{\,\cdot\,,j}$,
 con inercia y esfuerzo axial en la diagonal
 (\eqref{eq:inercia-axial});
-(3)~$P_j$ del promedio de~\eqref{eq:mom-fd};
-(4)~$\varphi_{i,j}$ de~\eqref{eq:masa-fd};
-(5)~$N_{i,j}$, $\xi_{i,j}$ de~\eqref{eq:Nxi-fd};
-(6)~comprobar $Q_j=Q$. Picard: $\mu$, $F_{mg}$ y el factor
-$u^\star$ dependen de $u_{\,\cdot\,,j}$. Al llegar a $j=J$
-se acepta o se cambia $v_{\mathrm{in}}$.
+(3)~$P_j$ de $Q_j=Q$~\eqref{eq:Q-fd};
+(4)~$\varphi_{i,j}$ de la masa del fundido~\eqref{eq:masa-fd};
+(5)~$N_{i,j}$, $\xi_{i,j}$ de~\eqref{eq:Nxi-fd}.
+Picard: $\mu$, $F_{mg}$, $u^\star$ y $Q_j$ dependen de
+$u_{\,\cdot\,,j}$ y de $P_j$. Al llegar a $j=J$ se acepta
+o se cambia $v_{\mathrm{in}}$. En $i=I$ sigue faltando
+el dato de $u^g$.
 
 El 2D completo (II.A--II.C) se discreta igual, sumando
 $D_r$ de los flujos radiales y $u_{m,r}$, $u_{g,r}$ en las
