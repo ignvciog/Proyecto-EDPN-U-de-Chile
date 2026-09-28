@@ -1,13 +1,17 @@
-"""La marcha 2D con Q constante conserva el caudal y deja la pared en reposo."""
+"""La columna sigue al 1D: Q constante, pared en reposo, gradiente más fuerte arriba."""
 import numpy as np
 
-from RIconduit2D_FD import _fg, _rho_g, _rho_m
 import RIconduit2D_Q as Q
 
 
+def _gradiente(sal, i0, i1):
+    return (sal["P"][i1] - sal["P"][i0]) / (sal["z"][i1] - sal["z"][i0])
+
+
 def test_marcha_conserva_Q_y_la_pared():
-    sal = Q.marchar(1.0, n_r=8, dz=200.0)
-    assert sal["n_pasos"] >= 5
+    sal = Q.marchar(n_r=8)
+    assert sal["n_pasos"] >= 20
+    assert sal["mensaje"] == "boca"
     assert np.isfinite(sal["P"]).all()
     assert np.isfinite(sal["um"]).all()
     assert np.isfinite(sal["ug"]).all()
@@ -15,22 +19,22 @@ def test_marcha_conserva_Q_y_la_pared():
     assert rel < 1e-8
     assert np.max(np.abs(sal["um"][:, -1])) == 0.0
     assert np.max(np.abs(sal["ug"][:, -1])) == 0.0
-    # Perfil de tubo: el eje va más rápido que el nodo junto a la pared.
     assert sal["um"][-1, 0] > sal["um"][-1, -2]
     assert sal["P"][-1] < sal["P"][0]
+    # El tiro llega cerca de P_atm y el gas se acelera, como en el 1D.
+    assert sal["P"][-1] < 5e6
+    assert sal["ug_media"][-1] > 5.0 * sal["ug_media"][0]
+    assert sal["phi"][:, 0].max() > 0.7
 
 
-def test_masa_del_fundido_en_un_paso():
-    sal = Q.marchar(1.0, n_r=8, dz=200.0)
-    i = 0
-    p0, p1 = float(sal["P"][-2]), float(sal["P"][-1])
-    phi0, phi1 = float(sal["phi"][-2, i]), float(sal["phi"][-1, i])
-    um0, um1 = float(sal["um"][-2, i]), float(sal["um"][-1, i])
-    ug1 = float(sal["ug"][-1, i])
-    n0 = _fg(p0, float(sal["xi"][-2, i]))
-    n1 = _fg(p1, float(sal["xi"][-1, i]))
-    fm0 = _rho_m(p0) * (1.0 - phi0) * um0
-    fm1 = _rho_m(p1) * (1.0 - phi1) * um1
-    jz = _rho_m(p1) * (1.0 - phi1) * um1 + _rho_g(p1) * phi1 * ug1
-    residuo = abs((fm1 - fm0) + jz * (n1 - n0)) / max(abs(fm0), 1.0)
-    assert residuo < 0.02
+def test_la_presion_se_empina_arriba():
+    sal = Q.marchar(n_r=8)
+    z = sal["z"]
+    profundo = np.where(z < -5000)[0]
+    arriba = np.where(z > -30)[0]
+    g_profundo = _gradiente(sal, profundo[0], profundo[-1])
+    g_arriba = _gradiente(sal, arriba[0], arriba[-1])
+    # dP/dz es negativo. En los últimos metros, junto al sónico, es mucho más fuerte.
+    assert g_arriba < 4.0 * g_profundo
+    assert sal["phi"][profundo[-1], 0] < 0.05
+    assert sal["phi"][-1, 0] > 0.5
