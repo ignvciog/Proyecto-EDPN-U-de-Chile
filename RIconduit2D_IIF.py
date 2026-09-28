@@ -1,7 +1,10 @@
 """
 Diferencias finitas de la reducción II.F.
 
-En cada altura, con Picard:
+Hasta la saturación la columna es algebraica: presión en recta, φ=0 y la
+parábola de Poiseuille con la pared en 0. Un metro más arriba se evalúan
+φ, u_m y u_g con Henry y con el caudal de cada radio. Desde ahí, en cada
+altura, con Picard:
 
 1. Cierres en el nivel nuevo: n(P, ξ), φ, μ, régimen.
 2. Thomas en r. Pared en 0. Eje con 4 μ (1-φ) (u_1-u_0)/Δr².
@@ -38,24 +41,47 @@ from calbuco2015d import (
     Patm,
     R,
     T1,
+    ar1,
+    ar2,
     beta,
+    f2o,
+    feo,
     g,
+    geometry,
     h2o1,
+    k2o,
     limperh,
     limperl,
+    linf,
+    lsup,
+    mno,
+    mgo,
+    model,
+    na2o,
     overP1,
+    p2o5,
     pfinal,
     phicrit,
     radius1,
     rcrust,
+    sio2,
     tcar,
+    tio2,
     xi1,
     xmax,
+    al2o3,
+    cao,
 )
+from fvrel import fvrel
+from viscosity import viscosity
 from RIconduit2D_FD import _effective_visc, _fg, _rho_g, _rho_m, _thomas
 from umbrales_reg import pesos_regimen
 
 PHI_FRAG = float(phicrit)
+# Módulo del fundido en la recta sin burbujas. El mismo 15 GPa del 1D.
+K_FUNDI = 15e9
+# Metro por encima de la saturación donde arranca la marcha diferencial.
+EPS_EXSOL = 1.0
 # Caída de presión máxima que se acepta en un paso. Si es mayor, se parte h.
 DP_PASO = 3.0e6
 TAU_H = 0.02
@@ -120,19 +146,20 @@ def _media_caudal(r, flujo):
     return float(np.trapezoid(flujo * 2.0 * math.pi * r, r))
 
 
-def _gamma_n(p, phi, nd, mu, w4, radius):
+def _gamma_n(p, phi, nd, mu, w4, radius, phicrit_reg):
     out = np.zeros(len(phi))
     rm = _rho_m(p)
     rg = _rho_g(p)
+    tope = float(phicrit_reg) - 1e-3
     for i in range(len(phi) - 1):
-        if w4[i] > 0.5 or phi[i] < 1e-5 or phi[i] > PHI_FRAG - 1e-3:
+        if w4[i] > 0.5 or phi[i] < 1e-5 or phi[i] > tope:
             continue
-        phi_c = float(np.clip(phi[i], 1e-6, PHI_FRAG - 1e-3))
+        phi_c = float(np.clip(phi[i], 1e-6, tope))
         nd_s = max(float(nd[i]), 1.0)
         rb = (phi_c / ((4.0 / 3.0) * math.pi * nd_s * max(1.0 - phi_c, 1e-6))) ** (1.0 / 3.0)
         if rb >= 0.5 * radius:
             continue
-        den = 1.0 - (F1 + F2) * ((3.0 * phi_c * (math.pi / (6.0 * PHI_FRAG)) / (4.0 * math.pi)) ** (1.0 / 3.0))
+        den = 1.0 - (F1 + F2) * ((3.0 * phi_c * (math.pi / (6.0 * phicrit_reg)) / (4.0 * math.pi)) ** (1.0 / 3.0))
         if abs(den) < 1e-8:
             continue
         out[i] = (
@@ -143,7 +170,7 @@ def _gamma_n(p, phi, nd, mu, w4, radius):
             * (F1 ** 2 - F2 ** 2)
             / den
             * Fc
-            * (1.0 - phi_c / PHI_FRAG)
+            * (1.0 - phi_c / phicrit_reg)
             * (radius - rb)
             / radius
             * (1.0 - float(w4[i]))
@@ -206,7 +233,7 @@ def _paso(estado, h, co, xi0, temperatura):
 
     for _ in range(6):
         phi = _phi_henry(p, xi_prev, temperatura)
-        w1, w2, w3, w4 = pesos_regimen(phi, limperl, limperh, PHI_FRAG)
+        w1, w2, w3, w4 = pesos_regimen(phi, estado["limphi1"], estado["limphi2"], estado["phicrit_ca"])
         # En la pared u=0 no es la tasa de corte: esa la da el nodo interior.
         u_mu = np.maximum(u, 1.0)
         u_mu[-1] = max(float(u[-2]), 1.0)
@@ -249,12 +276,12 @@ def _paso(estado, h, co, xi0, temperatura):
     ug = u.copy()
 
     phi = _phi_henry(p, xi_prev, temperatura)
-    w1, w2, w3, w4 = pesos_regimen(phi, limperl, limperh, PHI_FRAG)
+    w1, w2, w3, w4 = pesos_regimen(phi, estado["limphi1"], estado["limphi2"], estado["phicrit_ca"])
     u_mu = np.maximum(u, 1.0)
     u_mu[-1] = max(float(u[-2]), 1.0)
     mu = _viscosidad(p, np.minimum(phi, PHI_FRAG - 1e-3), xi_prev, u_mu, nd_prev)
     sig = mu * (1.0 - phi) * (u - u_prev) / h
-    gN = _gamma_n(p, phi, nd_prev, mu, w4, radius)
+    gN = _gamma_n(p, phi, nd_prev, mu, w4, radius, estado["phicrit_ca"])
     tasa = _tasa_xi(p, xi_prev, xi0, co, w4)
     nd = np.maximum(nd_prev + h * gN / np.maximum(u, 1e-3), 1.0)
     xi = np.clip(xi_prev + h * tasa / np.maximum(u, 1e-3), xi0, xmax)
@@ -278,6 +305,9 @@ def _paso(estado, h, co, xi0, temperatura):
         "Q_obj": q_obj,
         "z": float(estado["z"] + h),
         "frag": frag,
+        "limphi1": estado["limphi1"],
+        "limphi2": estado["limphi2"],
+        "phicrit_ca": estado["phicrit_ca"],
         "ok": True,
         "mensaje": "",
     }
@@ -330,36 +360,196 @@ def _paso_controlado(estado, h, h_min, h_max, co, xi0, temperatura):
     return medio2, err, h_nuevo
 
 
-def marchar(vinicial=25.0, radius=radius1, pressure=overP1, wt=h2o1, temperature=T1,
-            content_crystal=xi1, n_r=12, h0=40.0, h_min=1.0, h_max=80.0, z_tope=0.0):
-    """Una marcha desde la base con velocidad de entrada v_in. Paso adaptativo."""
-    r, dr = _malla(n_r, radius)
-    co, pi = _configurar_fd(radius, pressure, wt, temperature, content_crystal)
-    rm0 = _rho_m(pi)
-    u0 = np.full(len(r), float(vinicial))
-    u0[-1] = 0.0
-    q0 = _media_caudal(r, rm0 * u0)
-    cs = math.sqrt(R * float(temperature))
-    estado = {
+def _perfil(r, u_media):
+    """Parábola de media u_media en la malla, con la pared en cero."""
+    radio = float(r[-1])
+    forma = 2.0 * (1.0 - (r / radio) ** 2)
+    forma[-1] = 0.0
+    area = math.pi * radio ** 2
+    media = _media_caudal(r, forma) / area
+    return forma * (float(u_media) / media)
+
+
+def _mu_liquido(p, xi, corte, temperatura, co):
+    """Viscosidad del fundido sin burbujas, al corte de referencia."""
+    dis = min(float(co), C1 * float(p) ** beta) * 100.0
+    tc = float(temperatura) - 273.15
+    return float(
+        fvrel(model, xi, xi, ar1, ar2, xmax, corte)
+        * viscosity(sio2, tio2, al2o3, feo, mno, mgo, cao, na2o, k2o, p2o5, dis, f2o, tc)
+    )
+
+
+def _dpdz_liquido(rho, mu, u_media, radius):
+    """Pendiente del tramo sin burbujas, promediada sobre la parábola."""
+    c2 = K_FUNDI / float(rho)
+    roce = 8.0 * float(mu) * float(u_media) / float(radius) ** 2
+    return -(float(rho) * g + roce) / (1.0 - (4.0 / 3.0) * float(u_media) ** 2 / c2)
+
+
+def _nd_entrada(dpdz, u_media, p, co):
+    """Densidad de nucleación del 1D: 1e8 si el ingreso ya viene exsuelto."""
+    if C1 * float(p) ** beta < float(co):
+        return 1e8
+    dpdt = abs(float(dpdz) * float(u_media))
+    return 10.0 ** (1.5 * math.log10(max(dpdt, 1e-30)) + 5.0)
+
+
+def limites_regiones(vinicial, radius, p_in, rho, mu_in, co, xi, temperatura):
+    """Los cuatro cortes del 1D, evaluados una vez por tiro en un φ de referencia.
+
+    Se busca la presión en que Henry da φ=0.2. Con esa presión se arma el
+    número capilar Ca = |du/dz| μ r_b / 0.3 y
+        φ_crit = ((φ_sup-φ_inf)/2) erf(log10 Ca) + (φ_sup+φ_inf)/2,
+        φ_1    = ((φ_per,bajo-φ_per,alto)/2) erf(log10 Ca) + (φ_per,bajo+φ_per,alto)/2,
+        φ_2    = φ_1 + 0.01.
+    Ca chico deja la fragmentación en 0.525 y la permeabilidad en 0.40.
+    Ca grande las deja en 0.785 y 0.15. fragcrit es un diagnóstico, no un corte.
+    """
+    pmax = (float(co) / C1) ** (1.0 / beta)
+    pmin = float(pfinal)
+    pcalc = 0.5 * (pmax + pmin)
+    ncalc, rhog, phicalc = 0.0, 0.0, 0.0
+    for _ in range(50):
+        ncalc = (1.0 - xi) * (co - C1 * pcalc ** beta) / (1.0 - C1 * pcalc ** beta)
+        rhog = pcalc / (R * float(temperatura))
+        phicalc = 1.0 / ((1.0 / ncalc - 1.0) * rhog / rho + 1.0)
+        if abs(phicalc - 0.2) < 0.002:
+            break
+        if phicalc < 0.198:
+            pmax = pcalc
+        else:
+            pmin = pcalc
+        pcalc = 0.5 * (pmax + pmin)
+    dfgdp = (C1 * beta * pcalc ** (beta - 1.0)) * (co - 1.0) / (1.0 - C1 * pcalc ** beta) ** 2
+    drhogdp = 1.0 / (R * float(temperatura))
+    dphidp = -(
+        -dfgdp * rhog / (rho * ncalc ** 2) + (1.0 / ncalc - 1.0) * drhogdp / rho
+    ) / (((1.0 / ncalc - 1.0) * rhog / rho + 1.0) ** 2)
+    mu_ref = _mu_liquido(pcalc, xi, float(vinicial) / float(radius), temperatura, co)
+    cg = 3.0 if geometry == "dyke" else 8.0
+    rho_t = pcalc * rho / (rho * R * float(temperatura) * ncalc + pcalc * (1.0 - ncalc))
+    c2 = K_FUNDI / float(rho)
+    dpdz2 = (-rho_t * (g + cg * mu_ref * float(vinicial) / (float(radius) ** 2 * rho_t))) / (
+        1.0 - float(vinicial) ** 2 / c2
+    )
+    dvdz = float(vinicial) * (
+        -dfgdp * dpdz2 * (1.0 - phicalc) + (1.0 - ncalc) * dphidp * dpdz2
+    ) / (1.0 - phicalc) ** 2
+    dvdz = 0.5 * (dvdz + float(vinicial) / float(radius))
+    nd = _nd_entrada(
+        _dpdz_liquido(rho, mu_in, vinicial, radius), vinicial, p_in, co
+    )
+    rb = (phicalc / ((4.0 / 3.0) * math.pi * nd * (1.0 - phicalc))) ** (1.0 / 3.0)
+    ca = abs(dvdz * mu_ref * rb / 0.3)
+    ca = max(ca, 1e-30)
+    erf = math.erf(math.log10(ca))
+    phicrit_ca = ((lsup - linf) / 2.0) * erf + (lsup + linf) / 2.0
+    limphi1 = ((limperl - limperh) / 2.0) * erf + (limperl + limperh) / 2.0
+    return {
+        "Ca": float(ca),
+        "fragcrit": float(dvdz * mu_in / (0.01 * 1e10)),
+        "phicrit_ca": float(phicrit_ca),
+        "limphi1": float(limphi1),
+        "limphi2": float(limphi1 + 0.01),
+        "Nd": float(nd),
+        "P_ref": float(pcalc),
+        "phi_ref": float(phicalc),
+    }
+
+
+def _estado(r, dr, z, p, dpdz, u, phi, nd, xi, q_obj, limites):
+    flujo = _rho_m(p) * (1.0 - phi) * u + _rho_g(p) * phi * u
+    return {
         "r": r,
         "dr": dr,
-        "P": float(pi),
-        "dpdz": -rm0 * g,
-        "u": u0,
-        "ug": u0.copy(),
-        "phi": np.zeros(len(r)),
-        "N": np.full(len(r), 1e8),
-        "xi": np.full(len(r), float(content_crystal)),
+        "P": float(p),
+        "dpdz": float(dpdz),
+        "u": u,
+        "ug": u.copy(),
+        "phi": phi,
+        "N": np.full(len(r), float(nd)),
+        "xi": np.full(len(r), float(xi)),
         "sigma": np.zeros(len(r)),
         "sigmag": np.zeros(len(r)),
-        "Q": q0,
-        "Q_obj": q0,
-        "z": float(H),
+        "Q": _media_caudal(r, flujo),
+        "Q_obj": float(q_obj),
+        "z": float(z),
         "frag": False,
+        "limphi1": limites["limphi1"],
+        "limphi2": limites["limphi2"],
+        "phicrit_ca": limites["phicrit_ca"],
         "ok": True,
         "mensaje": "",
     }
-    historia = [estado]
+
+
+def _tramo_algebraico(r, dr, vinicial, radius, pi, rm0, co, xi, temperatura, limites):
+    """Recta sin burbujas y, un metro arriba de la saturación, el estado de Henry."""
+    mu = _mu_liquido(pi, xi, float(vinicial) / float(radius), temperatura, co)
+    dpdz = _dpdz_liquido(rm0, mu, vinicial, radius)
+    nd = limites["Nd"]
+    u_base = _perfil(r, vinicial)
+    q_nodo = rm0 * u_base
+    q_obj = _media_caudal(r, q_nodo)
+    n_base = _fg(pi, xi)
+    niveles = []
+    if n_base > 0.0:
+        phi = _phi_henry(pi, np.full(len(r), xi), temperatura)
+        u = q_nodo * (1.0 - n_base) / ((1.0 - phi) * rm0)
+        u[-1] = 0.0
+        niveles.append(_estado(r, dr, H, pi, dpdz, u, phi, nd, xi, q_obj, limites))
+        niveles[0]["Q"] = q_obj
+        return niveles, dpdz, float(H), float(H)
+
+    p_sat = (float(co) / C1) ** (1.0 / beta)
+    p_sat = max(p_sat, float(Patm))
+    z_sat = float(H) + (p_sat - float(pi)) / dpdz
+    z_sat = min(z_sat, 0.0)
+    n_lin = 40
+    for z in np.linspace(float(H), z_sat, n_lin):
+        p = float(pi) + dpdz * (float(z) - float(H))
+        niveles.append(_estado(
+            r, dr, z, p, dpdz, u_base, np.zeros(len(r)), nd, xi, q_obj, limites
+        ))
+    eps = EPS_EXSOL
+    if z_sat > -eps:
+        eps = max(-z_sat / 10.0, 0.0)
+    z_ad = z_sat + eps
+    if z_ad >= 0.0 or eps <= 0.0:
+        for nivel in niveles:
+            nivel["Q"] = q_obj
+        return niveles, dpdz, z_sat, z_sat
+    p_ad = p_sat + dpdz * eps
+    n_ad = (1.0 - xi) * (co - C1 * p_ad ** beta) / (1.0 - C1 * p_ad ** beta)
+    rho_g = p_ad / (R * float(temperatura))
+    phi_ad = 1.0 / (1.0 + (p_ad / (n_ad * R * float(temperatura))) * (1.0 - n_ad) / rm0)
+    phi_ad = float(np.clip(phi_ad, 0.0, 0.97))
+    u_ad = q_nodo * (1.0 - n_ad) / ((1.0 - phi_ad) * rm0)
+    u_ad[-1] = 0.0
+    niveles.append(_estado(
+        r, dr, z_ad, p_ad, dpdz, u_ad, np.full(len(r), phi_ad), nd, xi, q_obj, limites
+    ))
+    for nivel in niveles:
+        nivel["Q"] = q_obj
+    return niveles, dpdz, z_sat, z_ad
+
+
+def marchar(vinicial=25.0, radius=radius1, pressure=overP1, wt=h2o1, temperature=T1,
+            content_crystal=xi1, n_r=12, h0=40.0, h_min=1.0, h_max=80.0, z_tope=0.0):
+    """Recta sin burbujas, metro de exsolución, y desde ahí la marcha en diferencias finitas."""
+    r, dr = _malla(n_r, radius)
+    co, pi = _configurar_fd(radius, pressure, wt, temperature, content_crystal)
+    rm0 = _rho_m(pi)
+    xi = float(content_crystal)
+    mu_in = _mu_liquido(pi, xi, float(vinicial) / float(radius), temperature, co)
+    limites = limites_regiones(vinicial, radius, pi, rm0, mu_in, co, xi, temperature)
+    historia, dpdz_liq, z_sat, z_ad = _tramo_algebraico(
+        r, dr, vinicial, radius, pi, rm0, co, xi, temperature, limites
+    )
+    q0 = float(historia[0]["Q_obj"])
+    cs = math.sqrt(R * float(temperature))
+    estado = historia[-1]
     h = min(float(h0), float(h_max))
     mensaje = "boca"
     for _ in range(8000):
@@ -430,6 +620,15 @@ def marchar(vinicial=25.0, radius=radius1, pressure=overP1, wt=h2o1, temperature
         "rho_m_base": float(rm0),
         "n_pasos": len(historia) - 1,
         "cs": float(cs),
+        "dpdz_liquido": float(dpdz_liq),
+        "z_sat": float(z_sat),
+        "z_ad": float(z_ad),
+        "Ca": limites["Ca"],
+        "fragcrit": limites["fragcrit"],
+        "phicrit_ca": limites["phicrit_ca"],
+        "limphi1": limites["limphi1"],
+        "limphi2": limites["limphi2"],
+        "Nd": limites["Nd"],
     }
 
 

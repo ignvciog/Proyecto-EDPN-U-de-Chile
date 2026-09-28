@@ -11,7 +11,7 @@ def _gradiente(sal, i0, i1):
 def test_el_tiro_alto_se_ahoga_y_se_empina():
     sal = IIF.marchar(23.0, n_r=8)
     assert sal["mensaje"] == "ahogado"
-    assert -400.0 < sal["z"][-1] < -20.0
+    assert -1600.0 < sal["z"][-1] < -900.0
     assert np.isfinite(sal["P"]).all()
     assert np.isfinite(sal["um"]).all()
     assert np.isfinite(sal["ug"]).all()
@@ -33,8 +33,39 @@ def test_el_tiro_alto_se_ahoga_y_se_empina():
     assert g_cola < 3.0 * g_profundo
 
 
+def test_la_recta_sin_burbujas_llega_hasta_el_metro_de_exsolucion():
+    sal = IIF.marchar(23.0, n_r=8)
+    assert sal["z_ad"] > sal["z_sat"]
+    assert abs((sal["z_ad"] - sal["z_sat"]) - 1.0) < 1e-9
+    profundo = sal["z"] < sal["z_sat"] - 1.0
+    assert np.max(sal["phi"][profundo]) == 0.0
+    i_ad = int(np.argmin(np.abs(sal["z"] - sal["z_ad"])))
+    assert sal["phi"][i_ad, 0] > 0.0
+    assert np.max(sal["phi"][i_ad]) - np.min(sal["phi"][i_ad]) < 1e-12
+    assert sal["um"][i_ad, -1] == 0.0
+    assert sal["ug"][i_ad, -1] == 0.0
+    assert np.allclose(sal["um"][i_ad], sal["ug"][i_ad])
+    assert sal["um"][i_ad, 0] > sal["um"][i_ad, -2]
+    base = np.argmin(np.abs(sal["z"] - sal["z"][0]))
+    assert sal["um"][base, -1] == 0.0
+    assert sal["um"][base, 0] > sal["vinicial"]
+
+
+def test_los_limites_salen_del_numero_capilar():
+    co, pi = IIF._configurar_fd(16.0, 5.0e6, 4.0, 1243.15, 0.25)
+    rho = IIF._rho_m(pi)
+    mu = IIF._mu_liquido(pi, 0.25, 18.0 / 16.0, 1243.15, co)
+    lim = IIF.limites_regiones(18.0, 16.0, pi, rho, mu, co, 0.25, 1243.15)
+    assert 0.525 < lim["phicrit_ca"] < 0.785
+    assert 0.15 < lim["limphi1"] < 0.40
+    assert abs(lim["limphi2"] - (lim["limphi1"] + 0.01)) < 1e-12
+    assert lim["Ca"] > 0.0
+    assert lim["Nd"] > 0.0
+    assert abs(lim["phi_ref"] - 0.2) < 0.002
+
+
 def test_un_caudal_menor_llega_a_la_boca():
-    sal = IIF.marchar(18.0, n_r=8)
+    sal = IIF.marchar(10.0, n_r=8)
     assert sal["mensaje"] == "boca"
     assert sal["z"][-1] > -1.0
     assert sal["P"][-1] < sal["P"][0]
