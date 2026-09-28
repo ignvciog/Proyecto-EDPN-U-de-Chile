@@ -77,6 +77,22 @@ def _rho_g(P):
     return max(float(np.real(P)), 1e4) / (R * _G["T"])
 
 
+def _rho_m(P):
+    """Bottinga y Weill en este nodo: P y agua disuelta min(c_0, C_1 P^β).
+
+    No depende de ξ. _G['rho_m'] es el valor de la base (salida del solver).
+    """
+    P = max(float(np.real(P)), 1e4)
+    dis = min(_G["co"], C1 * P ** beta)
+    return float(density(sio2, tio2, al2o3, feo, mgo, cao, na2o, k2o, dis * 100.0, _G["Tc"], P / 1e6))
+
+
+def _drho_m_dP(P):
+    P = max(float(np.real(P)), 1e4)
+    dP = max(abs(P) * 1e-4, 1e3)
+    return (_rho_m(P + dP) - _rho_m(P - dP)) / (2.0 * dP)
+
+
 def _effective_visc(P, phi, x_cr, um_avg, Nd):
     """Viscosidad efectiva (fundido + burbujas) de Kozono."""
     wr, Tc = _G["wr"], _G["Tc"]
@@ -239,7 +255,7 @@ def solve_radial(P, phi, Nd, x_cr, ug, dpdz, n_picard=5):
     rg = _rho_g(P)
 
     # inicialización con perfil parabólico
-    drive = max(-(dpdz + _G["rho_m"] * g), 0.0)
+    drive = max(-(dpdz + _rho_m(P) * g), 0.0)
     um = drive / max(4e3, 1e-6) * (wr ** 2 - r ** 2)
     um[-1] = 0.0
     um = np.maximum(um, 0.0)
@@ -252,7 +268,7 @@ def solve_radial(P, phi, Nd, x_cr, ug, dpdz, n_picard=5):
         Fmg_arr = np.array([
             _Fmg(max(um[i], 1e-9), ug, phi, Nd, rg, mu_arr[i]) for i in range(N)
         ])
-        rhs = (1.0 - phi) * dpdz + _G["rho_m"] * (1.0 - phi) * g - Fmg_arr
+        rhs = (1.0 - phi) * dpdz + _rho_m(P) * (1.0 - phi) * g - Fmg_arr
 
         lo, di, up = _radial_tridiag(phi, mu_arr)
         # contribución del nodo de pared (u=0) al nodo N-2: up[-1]*0 → 0
@@ -299,7 +315,8 @@ def _derivs(P, phi, Nd, x_cr, dpdz_prev, frag=False):
     Usa Picard interno para consistencia dpdz ↔ u_m(r).
     """
     q = _G["q"]
-    rho_m = _G["rho_m"]
+    P = max(float(P), 1e4)
+    rho_m = _rho_m(P)
     wr = _G["wr"]
     rg = _rho_g(P)
 
@@ -331,7 +348,7 @@ def _derivs(P, phi, Nd, x_cr, dpdz_prev, frag=False):
         aco = rg * ug**2
         bco = phi - ug**2 * phi / (R * _G["T"]) + dfgdp_val * q * ug
         cco = rho_m * um_avg**2
-        dco = dfgdp_val * q * um_avg - (1 - phi)
+        dco = dfgdp_val * q * um_avg - (1 - phi) + (1 - phi) * um_avg**2 * _drho_m_dP(P)
         eco = -rho_m * (1 - phi) * g + Fmg - F_mw
         fco = rg * phi * g + Fmg + Fgw
         det = aco * dco - bco * cco
@@ -345,7 +362,6 @@ def _derivs(P, phi, Nd, x_cr, dpdz_prev, frag=False):
     # Modelo de equilibrio homogéneo: ug = um_avg (no slip).
     # Evita la inestabilidad ug→∞ del modelo bifásico separado cuando φ→0.
     # La contribución 2D novedosa está en el perfil radial u_m(r) via FD.
-    P = max(float(P), 1e4)
     fg = _fg(P, x_cr)
 
     # Fracción volumétrica de gas desde la ecuación de estado algebraica
@@ -388,7 +404,7 @@ def _derivs(P, phi, Nd, x_cr, dpdz_prev, frag=False):
     # dφ/dz por diferenciación numérica de la ecuación de estado
     eps_P  = max(abs(P) * 1e-6, 100.0)
     fg_ep  = _fg(P + eps_P, x_cr)
-    phi_ep = (1.0 / (1.0 + ((P + eps_P) / (fg_ep * R * _G["T"])) * (1.0 - fg_ep) / rho_m)
+    phi_ep = (1.0 / (1.0 + ((P + eps_P) / (fg_ep * R * _G["T"])) * (1.0 - fg_ep) / _rho_m(P + eps_P))
               if fg_ep > 0 else 0.0)
     phi_ep = float(np.clip(phi_ep, 0.0, _G["phicrit"]))
     dphidz = (phi_ep - phi_alg) / eps_P * dpdz
@@ -406,7 +422,7 @@ def _derivs(P, phi, Nd, x_cr, dpdz_prev, frag=False):
     rb = (phi_c / ((4.0 / 3) * math.pi * Nd_s * (1 - phi_c))) ** (1.0 / 3)
     lim = 0.5
     if rb < lim * _G["wr"] and phi_alg < min(0.5, _G["phicrit"]):
-        dNdt = -(Nd_s ** (2/3)) * ((1/(1-phi_c)) ** (1/3)) * ((1/9) * (_G["rho_m"] - rg) * 9.81 / visc) \
+        dNdt = -(Nd_s ** (2/3)) * ((1/(1-phi_c)) ** (1/3)) * ((1/9) * (rho_m - rg) * 9.81 / visc) \
                * ((3*phi_c/(4*math.pi)) ** (2/3)) * (F1**2 - F2**2) \
                / (1 - (F1+F2) * ((3*phi_c*(math.pi/(6*_G["phicrit"]))/(4*math.pi)) ** (1/3))) \
                * Fc * (1 - phi_c / _G["phicrit"]) * (_G["wr"] - rb) / _G["wr"]
@@ -523,7 +539,7 @@ def _march(vinicial):
         fgi = (1 - xi) * (co - C1 * P_start ** beta) / (1 - C1 * P_start ** beta)
         fgi = max(fgi, 1e-12)
         rg_start = P_start / (R * T)
-        phi_start = 1.0 / (1.0 + (P_start / (fgi * R * T)) * (1 - fgi) / rho_m)
+        phi_start = 1.0 / (1.0 + (P_start / (fgi * R * T)) * (1 - fgi) / _rho_m(P_start))
         phi_start = max(phi_start, 1e-9)
 
         # Estimar Nd a partir de dp/dt
@@ -556,7 +572,7 @@ def _march(vinicial):
     # Estimar dpdz inicial
     q = _G["q"]
     fg_start = _fg(P_start, x_start)
-    um_avg0 = (1 - fg_start) * q / (rho_m * max(1 - phi_start, 1e-6)) if fg_start >= 0 else vinicial
+    um_avg0 = (1 - fg_start) * q / (_rho_m(P_start) * max(1 - phi_start, 1e-6)) if fg_start >= 0 else vinicial
     ug0 = fg_start * q / (_rho_g(P_start) * max(phi_start, 1e-9)) if fg_start > 0 else vinicial
     visc0 = _effective_visc(P_start, phi_start, x_start, max(um_avg0, 1e-6), Nd_start)
     dpdz_cur = -rho_m * g * (1 + _G["cg"] * visc0 / (wr**2 * rho_m * g) * um_avg0)
@@ -640,7 +656,7 @@ def _march(vinicial):
         if not frag:
             fg_n = _fg(P_n, x_n)
             if fg_n > 0:
-                phi_n = 1.0 / (1.0 + (P_n / (fg_n * R * _G["T"])) * (1.0 - fg_n) / _G["rho_m"])
+                phi_n = 1.0 / (1.0 + (P_n / (fg_n * R * _G["T"])) * (1.0 - fg_n) / _rho_m(P_n))
             else:
                 phi_n = 0.0
             phi_n = float(np.clip(phi_n, 0.0, _G["phicrit"] - 1e-6))
@@ -775,11 +791,8 @@ def RIconduit2D_FD_f(radius, Pressure, wt, Temperature, content_crystal, N_r=20,
     Pi = rcrust * g * abs(H) + overP
     _G["Pi"] = Pi
 
-    dis = C1 * Pi ** beta
-    if dis > _G["co"]:
-        dis = _G["co"]
-    _G["rho_m"] = density(sio2, tio2, al2o3, feo, mgo, cao, na2o, k2o,
-                          dis * 100, _G["Tc"], Pi / 1e6)
+    # Valor de la base. En cada nodo la marcha usa _rho_m(P).
+    _G["rho_m"] = _rho_m(Pi)
 
     exi = (1 - _G["xi"]) * (_G["co"] - C1 * Pi ** beta) / (1 - C1 * Pi ** beta)
     if exi <= 0:
@@ -804,7 +817,8 @@ def RIconduit2D_FD_f(radius, Pressure, wt, Temperature, content_crystal, N_r=20,
     for _ in range(50):
         ncalc = (1-_G["xi"])*(_G["co"] - C1*Pcalc**beta) / (1 - C1*Pcalc**beta)
         rhogcalc = Pcalc / (R * _G["T"])
-        phicalc = 1.0 / (1.0 + (Pcalc / (ncalc * R * _G["T"])) * (1-ncalc) / _G["rho_m"])
+        rho_loc = _rho_m(Pcalc)
+        phicalc = 1.0 / (1.0 + (Pcalc / (ncalc * R * _G["T"])) * (1-ncalc) / rho_loc)
         if abs(phicalc - phisel) < 0.002:
             break
         if phicalc < phisel - 0.002:
@@ -817,8 +831,8 @@ def RIconduit2D_FD_f(radius, Pressure, wt, Temperature, content_crystal, N_r=20,
     rbcalc = max((phicalc / ((4/3) * math.pi * _G["Nd0"] * (1-phicalc))) ** (1/3), 1e-9)
     dfgdpcalc = (C1 * beta * Pcalc**(beta-1)) * (_G["co"] - 1) / (1 - C1*Pcalc**beta)**2
     drhogdp = 1 / (R * _G["T"])
-    rhoticalc = Pcalc * _G["rho_m"] / (_G["rho_m"]*R*_G["T"]*ncalc + Pcalc*(1-ncalc))
-    dpdzcalc2 = (-rhoticalc*(g + _G["cg"]*viscalc*vinicial0/(wr**2*rhoticalc))) / (1-(vinicial0**2)/(15e9/_G["rho_m"]))
+    rhoticalc = Pcalc * rho_loc / (rho_loc*R*_G["T"]*ncalc + Pcalc*(1-ncalc))
+    dpdzcalc2 = (-rhoticalc*(g + _G["cg"]*viscalc*vinicial0/(wr**2*rhoticalc))) / (1-(vinicial0**2)/(15e9/rho_loc))
     dvdz_est = vinicial0 * (-dfgdpcalc*dpdzcalc2*(1-phicalc)) / max((1-phicalc)**2, 1e-9)
     dvdz_est = 0.5 * (dvdz_est + vinicial0 / wr)
     Ca = abs(dvdz_est * viscalc * rbcalc / 0.3)

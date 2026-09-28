@@ -105,12 +105,28 @@ def _phi_alg(P, fg):
     if fg <= 1e-16:
         return 0.0
     P = max(float(P), 1e4)
-    phi = 1.0 / (1.0 + (P / (fg * R * _G["T"])) * (1.0 - fg) / _G["rho_m"])
+    phi = 1.0 / (1.0 + (P / (fg * R * _G["T"])) * (1.0 - fg) / _rho_m(P))
     return float(np.clip(phi, 0.0, 0.99))
 
 
 def _rho_g(P):
     return max(float(np.real(P)), 1e4) / (R * _G["T"])
+
+
+def _rho_m(P):
+    """Bottinga y Weill en este nodo: P y agua disuelta min(c_0, C_1 P^β).
+
+    No depende de ξ. _G['rho_m'] queda como el valor de la base.
+    """
+    P = max(float(np.real(P)), 1e4)
+    dis = min(_G["co"], C1 * P ** beta)
+    return float(density(sio2, tio2, al2o3, feo, mgo, cao, na2o, k2o, dis * 100.0, _G["Tc"], P / 1e6))
+
+
+def _drho_m_dP(P):
+    P = max(float(np.real(P)), 1e4)
+    dP = max(abs(P) * 1e-4, 1e3)
+    return (_rho_m(P + dP) - _rho_m(P - dP)) / (2.0 * dP)
 
 
 def _rb(phi, Nd):
@@ -255,7 +271,7 @@ def solve_radial(P, phi, Nd, x_cr, ug, dpdz, n_picard=4):
         mu = np.array([_visc_nodo(P, phi[i], x_cr[i], max(um[i], 1e-9), Nd[i]) for i in range(N)])
         # Viscoso con φ(r). El Stokes C~1/rb² aplasta u_m a u_g (perfil plano);
         # el arrastre suave se usa después, en dφ/dz, no aquí.
-        body = (1.0 - phi) * dpdz + _G["rho_m"] * (1.0 - phi) * g
+        body = (1.0 - phi) * dpdz + _rho_m(P) * (1.0 - phi) * g
         lo, di, up = radial_tridiag(phi, mu)
         nunk = N - 1
         um_new = np.zeros(N)
@@ -290,7 +306,7 @@ def _Fmw_seccion(P, av, um):
     mu = _visc_nodo(P, av["phi"], av["x"], max(av["um"], 1e-9), av["Nd"])
     rg = _rho_g(P)
     phi = float(np.clip(av["phi"], 0.0, 0.99))
-    rho_mix = rg * phi + _G["rho_m"] * (1.0 - phi)
+    rho_mix = rg * phi + _rho_m(P) * (1.0 - phi)
     um_hem = _G.get("q", 0.0) / max(rho_mix, 1.0)
     um_ref = max(float(av["um"]), float(um_hem), 0.0)
     F_hp = _G["cg"] * mu * um_ref / _G["wr"] ** 2
@@ -308,7 +324,7 @@ def _dpdz_seccion(P, av, Fmw, Fmg):
     """
     rg = _rho_g(P)
     phi = float(np.clip(av["phi"], 0.0, 0.99))
-    rho_mix = rg * phi + _G["rho_m"] * (1.0 - phi)
+    rho_mix = rg * phi + _rho_m(P) * (1.0 - phi)
     return float(-(rho_mix * g + max(float(Fmw), 0.0)))
 
 
@@ -337,7 +353,7 @@ def _dN_dx_nodo(P, phi, Nd, x_cr, um):
         dNdt_on = (
             -(max(Nd, 1.0) ** (2.0 / 3.0))
             * ((1.0 / max(1.0 - phi, 1e-12)) ** (1.0 / 3.0))
-            * ((1.0 / 9.0) * (_G["rho_m"] - rg) * 9.81 / max(visc, 1e-30))
+            * ((1.0 / 9.0) * (_rho_m(P) - rg) * 9.81 / max(visc, 1e-30))
             * ((3.0 * max(phi, 0.0) / (4.0 * math.pi)) ** (2.0 / 3.0))
             * (F1 * F1 - F2 * F2)
             / den_n
@@ -380,11 +396,13 @@ def _dphi_nodo(P, phi, Nd, x_cr, um, ug, Fmg, dpdz):
         -(-dxdp * C1 * P ** beta + (1.0 - x_cr) * C1 * beta * P ** (beta - 1))
         + (_G["co"] * (1.0 - _G["xi"]) - (1.0 - x_cr) * C1 * P ** beta) * C1 * beta * P ** (beta - 1)
     ) / max((1.0 - C1 * P ** beta) ** 2, 1e-30)
+    rm = _rho_m(P)
     aco = rg * ug ** 2
     bco = phi - ug ** 2 * phi / (R * _G["T"]) + dfgdp * _G["q"] * ug
-    cco = _G["rho_m"] * um ** 2
-    dco = dfgdp * _G["q"] * um - (1.0 - phi)
-    eco = -_G["rho_m"] * (1.0 - phi) * g + Fmg
+    cco = rm * um ** 2
+    # (1-φ) u² dρ_m/dP: ρ_m(P) al derivar u_m = q(1-n)/((1-φ)ρ_m)
+    dco = dfgdp * _G["q"] * um - (1.0 - phi) + (1.0 - phi) * um ** 2 * _drho_m_dP(P)
+    eco = -rm * (1.0 - phi) * g + Fmg
     fco = rg * phi * g + Fmg
     den = aco * dco - bco * cco
     if abs(den) < 1e-18 or not np.isfinite(den):
@@ -426,7 +444,7 @@ def derivs(P, phi, Nd, x_cr, dpdz_prev):
         ug_loc = np.where((fg > 1e-16) & (phi > 1e-10), ug0, um)
         Q_now = float(
             np.trapezoid(
-                (_G["rho_m"] * (1.0 - phi) * um + rg * phi * ug_loc) * 2.0 * math.pi * r,
+                (_rho_m(P) * (1.0 - phi) * um + rg * phi * ug_loc) * 2.0 * math.pi * r,
                 r,
             )
         )
@@ -532,8 +550,7 @@ def _configurar(radius, Pressure, wt, Temperature, content_crystal, N_r, eps):
     _G["eps_rb"] = float(eps.get("eps_rb", EPS_RB))
     Pi = rcrust * g * abs(H) + float(Pressure)
     _G["Pi"] = Pi
-    dis = min(C1 * Pi ** beta, _G["co"])
-    _G["rho_m"] = density(sio2, tio2, al2o3, feo, mgo, cao, na2o, k2o, dis * 100, _G["Tc"], Pi / 1e6)
+    _G["rho_m"] = _rho_m(Pi)
     exi = (1.0 - _G["xi"]) * (_G["co"] - C1 * Pi ** beta) / (1.0 - C1 * Pi ** beta)
     if exi <= 0:
         _G["rho_ti"] = _G["rho_m"]
@@ -549,7 +566,6 @@ def _configurar(radius, Pressure, wt, Temperature, content_crystal, N_r, eps):
 def _actualizar_umbrales(vinicial):
     """φ1, φ2, φ_crit: la misma cuenta que RIconduitex5_5 (Ca de referencia)."""
     wr = _G["wr"]
-    rho_m = _G["rho_m"]
     visc0 = _visc_nodo(_G["Pi"], 0.0, _G["xi"], max(vinicial, 1e-6), 1e8)
     dpdz0 = -_G["rho_ti"] * (g + _G["cg"] * visc0 * vinicial / (wr ** 2 * _G["rho_ti"]))
     dpdt0 = abs(dpdz0 * vinicial)
@@ -566,6 +582,7 @@ def _actualizar_umbrales(vinicial):
     for _ in range(50):
         ncalc = (1.0 - _G["xi"]) * (_G["co"] - C1 * Pcalc ** beta) / max(1.0 - C1 * Pcalc ** beta, 1e-12)
         rhog = Pcalc / (R * _G["T"])
+        rho_m = _rho_m(Pcalc)
         phicalc = 1.0 / max((1.0 / max(ncalc, 1e-16) - 1.0) * rhog / rho_m + 1.0, 1e-12)
         if abs(phicalc - phisel) < 0.002:
             break
