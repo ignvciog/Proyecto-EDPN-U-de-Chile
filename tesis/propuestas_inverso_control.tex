@@ -810,9 +810,11 @@ balance 1D, pero acoplado a los otros $r$ por $P$ y por el
 perfil $u_m(r)$.
 
 \paragraph{Momentum y $P$.}
-En~\eqref{eq:mom-m-z}--\eqref{eq:mom-g-z} cae
-$u_{\,\cdot\,,r}\p u/\p r$. Queda la inercia vertical y el
-viscoseo (el radial es el que da el perfil de Poiseuille):
+En~\eqref{eq:mom-m-z}--\eqref{eq:mom-g-z} cae solo
+$u_{\,\cdot\,,r}\p u/\p r$, porque $u_r=0$. La inercia
+vertical y los dos esfuerzos viscosos se quedan. El radial
+es el que da el perfil; el axial es
+$\p_z\bigl(\mu(1-\varphi)\,\p_z u\bigr)$:
 \begin{align}
 \label{eq:mom-red}
 \rho_m(1-\varphi)\,u_m\frac{\p u_m}{\p z}
@@ -822,6 +824,11 @@ viscoseo (el radial es el que da el perfil de Poiseuille):
 +F_{mg}
 +\frac{1}{r}\frac{\p}{\p r}\Biggl[
 r\,\mu(1-\varphi)\frac{\p u_m}{\p r}
+\Biggr]
+\nonumber\\
+&\quad
++\frac{\p}{\p z}\Biggl[
+\mu(1-\varphi)\frac{\p u_m}{\p z}
 \Biggr],
 \\
 \rho_g\varphi\,u_g\frac{\p u_g}{\p z}
@@ -831,20 +838,69 @@ r\,\mu(1-\varphi)\frac{\p u_m}{\p r}
 -F_{mg}
 +\frac{1}{r}\frac{\p}{\p r}\Biggl[
 r\,\mu_g\varphi\frac{\p u_g}{\p r}
+\Biggr]
+\nonumber\\
+&\quad
++\frac{\p}{\p z}\Biggl[
+\mu_g\varphi\frac{\p u_g}{\p z}
 \Biggr].
 \end{align}
-(Se omitió $\p/\p z$ del esfuerzo axial: es $O(\varepsilon^2)$
-si $\varepsilon=R/|H|\ll 1$.) En el eje $r$, con
-$u_{m,r}=0$, el lado derecho de~\eqref{eq:P-2d}$_2$ se anula
-y queda
+El esfuerzo axial es $O(\varepsilon^2)$ frente al radial si
+$\varepsilon=R/|H|\ll 1$ (en Calbuco $\varepsilon\sim 1/400$),
+pero entra en el mismo tridiagonal: no hace falta otro
+solver. Sin él, $u_m(r)$ en cada $z$ es solo el equilibrio
+del viscoseo radial con $dP/dz$; con él, $u_m$ tiene
+ecuación propia en $z$.
+
+En el eje $r$, con $u_{m,r}=0$, el lado derecho
+de~\eqref{eq:P-2d}$_2$ se anula y queda
 \begin{equation}
 \label{eq:P-red}
 \frac{\p P}{\p r}=0
 \qquad\Rightarrow\qquad
 P=P(z).
 \end{equation}
-$P(z)$ sale de integrar~\eqref{eq:mom-red} (o su promedio en
-la sección). $F_{mw}$ y $F_{gw}$ siguen siendo~\eqref{eq:Fmw}.
+$P(z)$ sale del promedio en la sección
+de~\eqref{eq:mom-red}. $F_{mw}$ y $F_{gw}$ siguen
+siendo~\eqref{eq:Fmw}.
+
+\paragraph{Cómo se resuelve~\eqref{eq:mom-red}.}
+$L_r$ (el viscoseo radial) es elíptico en $r$. La inercia
+y el esfuerzo axial derivan en $z$ y acoplan el nivel
+anterior, pero en cada radio son locales: no abren la
+matriz en $r$. Se marcha de la base hacia la boca. En el
+paso $j-1\to j$, con $u_{i,j-1}$ conocido y $u^\star$ el
+iterado de Picard,
+\begin{align}
+\label{eq:inercia-axial}
+\rho_m(1-\varphi)\,u^\star\,
+\frac{u_{i,j}-u_{i,j-1}}{\Delta z}
+&\quad\text{(inercia; el factor $u^\star$ se congela),}
+\\
+\sigma_{i,j}
+&=\mu_{i,j}(1-\varphi_{i,j})
+\frac{u_{i,j}-u_{i,j-1}}{\Delta z},
+\qquad
+\frac{\sigma_{i,j}-\sigma_{i,j-1}}{\Delta z}
+\quad\text{(esfuerzo axial).}
+\end{align}
+En la base, $j=0$, el perfil de entrada ya está impuesto y
+se toma $\sigma_{i,0}=0$. Los pedazos proporcionales a
+$u_{i,j}$ (inercia $\rho(1-\varphi)u^\star/\Delta z$ y
+esfuerzo axial $\mu(1-\varphi)/\Delta z^2$) se suman a la
+diagonal del tridiagonal de $L_r$. El resto, que solo usa
+niveles ya conocidos, pasa al lado derecho junto con
+$-(1-\varphi)\,dP/dz$, el peso y $F_{mg}$. Se invierte
+\textbf{un} Thomas en $i$, igual que si el balance fuera
+solo radial. Picard porque $\mu$ y $u^\star$ dependen de
+$u_{\,\cdot\,,j}$. Lo mismo para $u_g$, con $\mu_g$.
+
+\texttt{RIconduit2D\_FD.solve\_radial} hoy no mete ni la
+inercia ni $\sigma$: resuelve
+$L_r u=(1-\varphi)\,dP/dz+\rho_m(1-\varphi)g-F_{mg}$.
+Por eso ahí $u_m$ cambia con $z$ solo porque cambia el
+forzamiento. El balance que se discretiza para que $u_m$
+tenga ecuación en $z$ es~\eqref{eq:mom-red}.
 
 \paragraph{$N$ y $\xi$.}
 Cae el transporte en $r$:
@@ -860,8 +916,10 @@ Siguen pudiendo ser $N(r,z)$ y $\xi(r,z)$: $u_m$ y las
 $\Gamma$ cambian con $r$.
 
 \paragraph{Qué se perdió y qué no.}
-Se perdió el flujo radial y $\p P/\p r$ (si se hace
-lubricación). No se perdió la dependencia en $r$ de
+Se perdió el flujo radial y, con $u_r=0$, $\p P/\p r$.
+No se perdieron la inercia vertical ni el esfuerzo axial:
+están en~\eqref{eq:mom-red} y entran en la diagonal del
+tridiagonal. No se perdió la dependencia en $r$ de
 $u_m,\varphi,N,\xi$. El 1D de la Parte~I sale de aquí
 recién al \emph{promediar} en $r$, imponer
 $\varphi=\varphi(z)$, $N=N(z)$, $\xi=\xi(z)$ y reemplazar
@@ -873,9 +931,10 @@ Pared: $u_m=0$. Base y boca: las de $P$, $\varphi$ y el
 tiro, iguales que en II.A--II.C. $u_{m,r}=u_{g,r}=0$ ya
 no es una condición: es la hipótesis.
 
-Eso es el primer ataque numérico (el 2D que ya corre es
-esto, con $\varphi=\varphi(z)$). El sistema de II.A--II.C
-es el completo.
+Eso es el balance de la reducción. El sistema de
+II.A--II.C es el completo (con $u_r$). El 2D que ya corre
+es esta reducción con $\varphi=\varphi(z)$ y, además, sin
+la inercia ni el esfuerzo axial: solo $L_r$.
 
 % ----- DF -----
 \subsection*{II.F Diferencias finitas (de la reducción II.E)}
@@ -960,24 +1019,35 @@ Q_j
 (regla del trapecio; $Q_j=Q$ para todo $j$).
 
 \paragraph{Momentum y $P$.}
+La inercia usa $D_z^-$ con el factor de velocidad congelado
+en el Picard ($u^\star_{i,j}$, no $u_{i,j}\,D_z^-u$, que es
+cuadrático). El esfuerzo axial es la divergencia de
+$\sigma_{i,j}$ en~\eqref{eq:inercia-axial}:
 \begin{align}
 \label{eq:mom-fd}
-\rho_m(1-\varphi_{i,j})\,u_{i,j}\,(D_z^- u)_{i,j}
+\rho_m(1-\varphi_{i,j})\,u^\star_{i,j}\,(D_z^- u)_{i,j}
 &=
 -(1-\varphi_{i,j})\frac{P_j-P_{j-1}}{\Delta z}
 -\rho_m(1-\varphi_{i,j})\,g
 \nonumber\\
 &\quad
 +F_{mg,i,j}
-+\bigl(L_r[\mu,\varphi]\,u\bigr)_{i,j},
++\bigl(L_r[\mu,\varphi]\,u\bigr)_{i,j}
++\frac{\sigma_{i,j}-\sigma_{i,j-1}}{\Delta z},
 \\[0.25em]
-\rho_g\varphi_{i,j}\,u^g_{i,j}\,(D_z^- u^g)_{i,j}
+\rho_g\varphi_{i,j}\,u^{g\star}_{i,j}\,(D_z^- u^g)_{i,j}
 &=
 -\varphi_{i,j}\frac{P_j-P_{j-1}}{\Delta z}
 -\rho_g\varphi_{i,j}\,g
 -F_{mg,i,j}
-+\bigl(L_r[\mu_g,\varphi]\,u^g\bigr)_{i,j}.
+\nonumber\\
+&\quad
++\bigl(L_r[\mu_g,\varphi]\,u^g\bigr)_{i,j}
++\frac{\sigma^g_{i,j}-\sigma^g_{i,j-1}}{\Delta z},
 \end{align}
+$\sigma^g_{i,j}
+=\mu_g\,\varphi_{i,j}\,(u^g_{i,j}-u^g_{i,j-1})/\Delta z$
+y $\sigma^g_{i,0}=0$.
 $F_{mg,i,j}=F_{mg}^{(k)}(\varphi_{i,j},u^g_{i,j}-u_{i,j},r_b,\mu,\rho_g)$
 según el régimen de $\varphi_{i,j}$. La fricción de pared:
 \begin{equation}
@@ -991,8 +1061,11 @@ F_{mw,j}
 \frac{u_{I-1,j}}{\Delta r},
 \end{equation}
 porque $u_{I,j}=0$. En cada $j$,~\eqref{eq:mom-fd}$_1$
-con $u_{I,j}=0$ y $(D_r u)_{0,j}=0$ es un tridiagonal en
-$i$ para $u_{\,\cdot\,,j}$ (Thomas), acoplado a $P_j$ y a
+con $u_{I,j}=0$ y $(D_r u)_{0,j}=0$ sigue siendo un
+tridiagonal en $i$ para $u_{\,\cdot\,,j}$ (Thomas). La
+inercia y $\sigma_{i,j}$ solo tocan la diagonal del nodo
+$i$; no acoplan $i\pm 1$ más de lo que ya acopla $L_r$.
+El sistema queda acoplado a $P_j$ y a
 $\varphi_{\,\cdot\,,j}$.
 
 \paragraph{$N$ y $\xi$.}
@@ -1035,21 +1108,25 @@ P_J=P_{\mathrm{atm}}
 \end{equation}
 
 \paragraph{Orden de un paso $j-1\to j$.}
-Conocido el nivel $j-1$: (1)~$\mu,F_{mg},\Gamma$ en $j-1$;
-(2)~tridiagonal para $u_{\,\cdot\,,j}$ y $u^g_{\,\cdot\,,j}$;
-(3)~$P_j$ de~\eqref{eq:mom-fd} (o del promedio);
+Conocido el nivel $j-1$: (1)~$\mu,F_{mg},\Gamma$ y
+$\sigma_{\,\cdot\,,j-1}$ en el nivel anterior;
+(2)~tridiagonal para $u_{\,\cdot\,,j}$ y $u^g_{\,\cdot\,,j}$,
+con inercia y esfuerzo axial en la diagonal
+(\eqref{eq:inercia-axial});
+(3)~$P_j$ del promedio de~\eqref{eq:mom-fd};
 (4)~$\varphi_{i,j}$ de~\eqref{eq:masa-fd};
 (5)~$N_{i,j}$, $\xi_{i,j}$ de~\eqref{eq:Nxi-fd};
-(6)~comprobar $Q_j=Q$. Picard si $\mu$ o $F_{mg}$ dependen
-de $u_{\,\cdot\,,j}$. Al llegar a $j=J$ se acepta o se
-cambia $v_{\mathrm{in}}$.
+(6)~comprobar $Q_j=Q$. Picard: $\mu$, $F_{mg}$ y el factor
+$u^\star$ dependen de $u_{\,\cdot\,,j}$. Al llegar a $j=J$
+se acepta o se cambia $v_{\mathrm{in}}$.
 
 El 2D completo (II.A--II.C) se discreta igual, sumando
 $D_r$ de los flujos radiales y $u_{m,r}$, $u_{g,r}$ en las
 convecciones; $P$ pasa a $P_{i,j}$ con~\eqref{eq:P-2d}
-discreto. El 2D que ya corre es este esquema con
-$\varphi_{i,j}=\varphi_j$ (plano en $r$), pero con
-$\Delta z$ \textbf{variable} (abajo).
+discreto. El 2D que ya corre usa $\varphi_{i,j}=\varphi_j$
+(plano en $r$) y $\Delta z$ \textbf{variable} (abajo), y en
+el radial se queda solo con $L_r$: no arma la diagonal de
+inercia ni de $\sigma$.
 
 \paragraph{El paso: fijo en II.F, variable en el código.}
 Arriba $\Delta z=|H|/J$ es constante, para que se lea.
