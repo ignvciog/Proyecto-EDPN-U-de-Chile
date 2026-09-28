@@ -803,25 +803,22 @@ Esto no es el 1D.
 
 \paragraph{Masa.}
 Los flujos radiales de~\eqref{eq:masa-m}--\eqref{eq:masa-g}
-se anulan. La masa del fundido queda local en cada $r$:
-\begin{equation}
+se anulan. En cada radio quedan las dos masas en $z$:
+\begin{align}
 \label{eq:masa-red}
 \frac{\p}{\p z}\bigl(\rho_m(P)\,(1-\varphi)\,u_m\bigr)
-=-\Gamma.
-\end{equation}
-La masa del gas no se escribe radio por radio. Con un solo
-$\p P/\p z$ sobraban $M-1$ ecuaciones. Queda integrada en
-la sección,
-\begin{equation}
-\label{eq:Q-red}
-Q=\int_0^R 2\pi r\,j_z\,\dd r=\mathrm{const},
-\end{equation}
-con
-$j_z=\rho_m(P)\,(1-\varphi)\,u_m+\rho_g\,\varphi\,u_g$.
-Es~\eqref{eq:Q}, y es la ecuación de $P(z)$.
-$\Gamma=j_z\,\p n/\p z$ sigue en~\eqref{eq:masa-red}
-($n=n(P,\xi)$). Con un solo radio,~\eqref{eq:Q-red} y la
-masa del gas puntual coinciden, y el 1D conserva las dos.
+&=-\Gamma,
+\\
+\label{eq:masa-g-red}
+\frac{\p}{\p z}\bigl(\rho_g\,\varphi\,u_g\bigr)
+&=\Gamma.
+\end{align}
+$\Gamma=j_z\,\p n/\p z$, con
+$j_z=\rho_m(P)\,(1-\varphi)\,u_m+\rho_g\,\varphi\,u_g$
+y $n=n(P,\xi)$. La suma de~\eqref{eq:masa-red}
+y~\eqref{eq:masa-g-red}, integrada en $r$, es
+$Q$~\eqref{eq:Q}: constante en $z$. No reemplaza a la
+masa del gas.
 
 \paragraph{Momentum y $P$.}
 En~\eqref{eq:mom-m-z}--\eqref{eq:mom-g-z} cae solo
@@ -874,10 +871,9 @@ de~\eqref{eq:P-2d}$_2$ se anula y queda
 \qquad\Rightarrow\qquad
 P=P(z).
 \end{equation}
-$P(z)$ sale de~\eqref{eq:Q-red}. Los dos momentos siguen
-en cada radio y los dos llevan $\p P/\p z$; el promedio
-de~\eqref{eq:mom-red} no es otra ecuación.
-$F_{mw}$ y $F_{gw}$ siguen siendo~\eqref{eq:Fmw}.
+$P(z)$ sale del promedio en la sección
+de~\eqref{eq:mom-red}. $F_{mw}$ y $F_{gw}$ siguen
+siendo~\eqref{eq:Fmw}.
 
 \paragraph{Cómo se resuelve~\eqref{eq:mom-red}.}
 $L_r$ (el viscoseo radial) es elíptico en $r$. La inercia
@@ -932,8 +928,8 @@ $\Gamma$ cambian con $r$.
 
 \paragraph{Qué se perdió y qué no.}
 Se perdió el flujo radial y, con $u_r=0$, $\p P/\p r$.
-Se perdió la masa del gas en cada radio; queda
-$Q$~\eqref{eq:Q-red}.
+No se perdió la masa del gas: sigue en cada radio,
+\eqref{eq:masa-g-red}.
 No se perdieron la inercia vertical ni el esfuerzo axial:
 están en~\eqref{eq:mom-red} y entran en la diagonal del
 tridiagonal. No se perdió la dependencia en $r$ de
@@ -1037,26 +1033,29 @@ $4\mu_0(1-\varphi_0)(u_{1,j}-u_{0,j})/\Delta r^2$
 \paragraph{Masa.}
 $\rho_{m,j}=\rho_m(P_j)$ y $\rho_{m,j-1}=\rho_m(P_{j-1})$:
 no se saca $\rho_m$ de la diferencia.
-\begin{equation}
+\begin{align}
 \label{eq:masa-fd}
 D_z^-\bigl[\rho_m(P)\,(1-\varphi)\,u\bigr]_{i,j}
-=-\Gamma_{i,j}.
-\end{equation}
+&=-\Gamma_{i,j},
+\\
+\label{eq:masa-g-fd}
+D_z^-\bigl[\rho_g(P_j)\,\varphi\,u^g\bigr]_{i,j}
+&=\Gamma_{i,j}.
+\end{align}
 Con $u_r=0$,
 $\Gamma_{i,j}
 =j^z_{i,j}\,D_z^- n_{i,j}$,
 $j^z=\rho_m(P_j)\,(1-\varphi)u+\rho_g\varphi u^g$,
 $n_{i,j}=n(P_j,\xi_{i,j})$.
-La masa del gas es el caudal de la sección (trapecio),
-y esa igualdad fija $P_j$:
+El caudal (trapecio) sale de sumar las dos masas,
 \begin{equation}
 \label{eq:Q-fd}
 Q_j
 =2\pi\Delta r\sum_{i=0}^{I-1} r_i
 \bigl[\rho_m(P_j)\,(1-\varphi_{i,j})\,u_{i,j}
-+\rho_g(P_j)\,\varphi_{i,j}\,u^g_{i,j}\bigr]
-=Q.
++\rho_g(P_j)\,\varphi_{i,j}\,u^g_{i,j}\bigr],
 \end{equation}
+y $Q_j=Q$ en todo $j$. No sustituye a~\eqref{eq:masa-g-fd}.
 
 \paragraph{Momentum y $P$.}
 La inercia usa $D_z^-$ con el factor de velocidad congelado
@@ -1154,13 +1153,15 @@ $\sigma_{\,\cdot\,,j-1}$ en el nivel anterior;
 (2)~tridiagonal para $u_{\,\cdot\,,j}$ y $u^g_{\,\cdot\,,j}$,
 con inercia y esfuerzo axial en la diagonal
 (\eqref{eq:inercia-axial});
-(3)~$P_j$ de $Q_j=Q$~\eqref{eq:Q-fd};
-(4)~$\varphi_{i,j}$ de la masa del fundido~\eqref{eq:masa-fd};
-(5)~$N_{i,j}$, $\xi_{i,j}$ de~\eqref{eq:Nxi-fd}.
-Picard: $\mu$, $F_{mg}$, $u^\star$ y $Q_j$ dependen de
-$u_{\,\cdot\,,j}$ y de $P_j$. Al llegar a $j=J$ se acepta
-o se cambia $v_{\mathrm{in}}$. En $i=I$ sigue faltando
-el dato de $u^g$.
+(3)~$P_j$ del promedio de~\eqref{eq:mom-fd};
+(4)~$\varphi_{i,j}$ y el flujo de gas de~\eqref{eq:masa-fd}
+y~\eqref{eq:masa-g-fd};
+(5)~$N_{i,j}$, $\xi_{i,j}$ de~\eqref{eq:Nxi-fd};
+(6)~comprobar $Q_j=Q$.
+Picard: $\mu$, $F_{mg}$ y el factor $u^\star$ dependen de
+$u_{\,\cdot\,,j}$. Al llegar a $j=J$ se acepta o se
+cambia $v_{\mathrm{in}}$. En $i=I$ sigue faltando el dato
+de $u^g$.
 
 El 2D completo (II.A--II.C) se discreta igual, sumando
 $D_r$ de los flujos radiales y $u_{m,r}$, $u_{g,r}$ en las
