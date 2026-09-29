@@ -52,7 +52,9 @@ Un metro por encima de la saturación, el estado inicial de la marcha
 diferencial queda determinado: \(\varphi\) es el volumen de Henry y
 \(u_m(r)=u_g(r)\) conserva la parábola del caudal.
 Esta nota escribe la cadena desde las ecuaciones reducidas hasta esas
-expresiones.
+expresiones, y cierra con el método con que se marcha la columna:
+diferencias finitas en \(z\) y en \(r\), la iteración de Picard del
+sistema no lineal, y el cierre algebraico del régimen fragmentado.
 \end{abstract}
 
 \section{Ecuaciones de partida}
@@ -877,6 +879,130 @@ es chico frente a \(\bar u/R\), el eje cae del lado
 \(\varphi_{\mathrm{crit}}=0.525\), y la pared se corre hacia
 \(\mathrm{Ca}\) mayor, con \(\varphi_1\) más bajo y
 \(\varphi_{\mathrm{crit}}\) más alto.
+\end{obs}
+
+\section{La marcha numérica}
+\label{sec:marcha}
+
+Una llamada con una velocidad de entrada fija integra una columna.
+Esa velocidad no se ajusta durante la marcha. El método del tiro es el
+lazo exterior: se repite la integración cambiando \(v_{\mathrm{in}}\) hasta
+que la boca cumple
+\begin{equation}
+P(0)=P_{\mathrm{atm}}
+\qquad\text{o}\qquad
+\max_r u_g(r,0)\approx c_s,
+\qquad
+c_s=\sqrt{\Rv T}.
+\label{eq:boca}
+\end{equation}
+La función que busca el mayor \(v_{\mathrm{in}}\) que todavía llega a
+\(z=0\) hace ese lazo. Una columna sónica bajo la superficie es un tiro
+con su \(v_{\mathrm{in}}\) dado: el lazo que solo acepta la llegada a
+\(z=0\) no la elige.
+
+\subsection{Diferencias finitas antes de fragmentar}
+
+La malla es \(r_i=i\Delta r\), \(i=0,\ldots,I\), con \(r_I=R\), y una
+sucesión de alturas \(z_j\) de paso \(h_j\) variable. En \(z\) las
+derivadas van hacia atrás,
+\begin{equation}
+(D_z^- f)_{i,j}=\frac{f_{i,j}-f_{i,j-1}}{h_j}.
+\label{eq:Dz}
+\end{equation}
+En \(r\), el término viscoso de la mezcla es la diferencia conservativa
+\(L_r[\mu,\varphi]\,u\). En el eje se reemplaza por su límite
+\(4\mu(1-\varphi)(u_1-u_0)/\Delta r^2\). En la pared, \(u_I=u^g_I=0\).
+
+En un paso en que \(\varphi\) todavía no ha pasado \(\varphi_{\mathrm{crit}}\)
+en toda la sección, el momento que se discretiza es el de la mezcla, con
+una sola velocidad. La viscosidad depende de esa velocidad y el coeficiente
+de inercia también. El sistema algebraico del paso es no lineal. Se resuelve
+por la iteración de Picard: en el iterado \(k\) se congelan
+\begin{equation}
+\mu^{(k)}=\mu\bigl(u^{(k)}\bigr),
+\qquad
+u^{\star}=u^{(k)},
+\label{eq:picard-coef}
+\end{equation}
+y se resuelve el sistema lineal
+\begin{equation}
+\begin{aligned}
+&L_r\bigl[\mu^{(k)},\varphi\bigr]\,u^{(k+1)}
++\frac{\rho_c\,u^{\star}}{h}\,u^{(k+1)}
+\\
+&\qquad=
+-\rho_c g
++\frac{\sigma^{\star}-\sigma_{j-1}}{h}
++\frac{\rho_c\,u^{\star}}{h}\,u_{j-1}
+-(1-\varphi)\frac{\dd P}{\dd z}.
+\end{aligned}
+\label{eq:picard}
+\end{equation}
+\(L_r\) con el término de inercia en la diagonal es tridiagonal. Cada
+iterado lo resuelve el algoritmo de Thomas, que es la eliminación de un
+sistema tridiagonal: no es otro modelo. El gradiente \(\dd P/\dd z\) es el
+único número que hace que el flujo de \(\rho_c u^{(k+1)}\) integre el
+caudal \(Q\). Se reemplaza \(u^{(k)}\) por \(u^{(k+1)}\) y se repite. La
+presión del paso nuevo no vuelve a entrar en esa iteración: si \(\varphi\)
+se actualizara con \(P\) dentro del mismo Picard, la densidad bajaría y
+\(\dd P/\dd z\) se dispararía.
+
+Picard no reemplaza a las diferencias finitas. Es el método con que se
+resuelve, en cada altura, el sistema no lineal que esas diferencias
+producen. El esfuerzo axial entra congelado, como fuerza del lado derecho.
+Puesto implícito, \(\mu/h^2\) le gana a la viscosidad radial y la matriz
+cambia de signo.
+
+Cerrado el iterado, se acepta el paso si un paso de tamaño \(h\) y dos de
+tamaño \(h/2\) difieren poco en \(P\) y en \(\varphi\). Si no, se rechaza
+y se parte \(h\). Eso elige el paso. No es otra discretización.
+
+En este tramo
+\begin{equation}
+\varphi_i=\varphi_{\mathrm{Henry}}\bigl(P,\xi_i\bigr),
+\qquad
+u^g_i=u_i.
+\label{eq:henry-nodo}
+\end{equation}
+\(P=P(z)\) no tiene índice radial. \(\xi\) parte de \(\xi_0\) en todos los
+radios y casi no se mueve, así que \(\varphi_i\) sale igual en todos los
+nodos. La malla sí tiene un valor de \(\varphi\) en cada \(r_i\). El cierre
+\eqref{eq:henry-nodo} no le entrega una fuente que dependa de \(r\).
+
+\subsection{El régimen fragmentado no rearma el Thomas}
+
+Cuando \(\varphi_i\ge\varphi_{\mathrm{crit}}(r_i)\) en toda la sección, se
+deja el momento de la mezcla. El caudal \(q(r)\) de cada radio sigue siendo
+el de la base. Con \(n=n(P,\xi)\) congelado en \(\xi\),
+\begin{equation}
+u_m(r)=\frac{q(r)\,(1-n)}{(1-\varphi)\,\rho_m},
+\qquad
+u_g(r)=\frac{q(r)\,n}{\varphi\,\rho_g}.
+\label{eq:masas-paso}
+\end{equation}
+En la pared \(q(R)=0\), luego las dos velocidades siguen en cero.
+\(\dd P/\dd z\) y \(\dd\varphi/\dd z\) salen del sistema algebraico del
+régimen fragmentado del conducto 1D, evaluado en los promedios de sección
+\(\bar\varphi\), \(\bar q=Q/(\pi R^2)\) y \(\bar\xi\). El roce del fundido
+con la pared no entra. Ese sistema no se discretiza en \(r\): es el mismo
+par \((\dd P/\dd z,\dd\varphi/\dd z)\) del 1D. Después,
+\begin{equation}
+\varphi_i\;\longleftarrow\;\varphi_i+h\,\frac{\dd\varphi}{\dd z}.
+\label{eq:phi-plano}
+\end{equation}
+El incremento es el mismo en todos los radios. Si \(\varphi\) era plano en
+\(r\), sigue plano. \(N\) y \(\xi\) quedan en el valor del cruce.
+\(Q\) se comprueba: la suma de las dos masas de \eqref{eq:masas-paso} es
+\(q(r)\), y su integral es el caudal de la base.
+
+\begin{obs}
+\(\varphi\) no varía con \(r\) por el cierre, no porque la malla sea 1D.
+Antes de fragmentar, \(\varphi_{\mathrm{Henry}}(P,\xi)\) solo puede variar
+en \(r\) a través de \(\xi\), y \(\xi\) se queda en \(\xi_0\).
+Después, \(\dd\varphi/\dd z\) es un escalar de sección y se suma igual en
+cada nodo. Las cantidades que sí dependen de \(r\) en la marcha son
+\(u_m\), \(u_g\), \(\mathrm{Ca}\), \(\varphi_1\) y \(\varphi_{\mathrm{crit}}\).
 \end{obs}
 
 \end{document}
