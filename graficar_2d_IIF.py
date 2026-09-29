@@ -40,11 +40,9 @@ def columnas(sal, path, titulo):
     _log_eje(ejes[1], [1, 10, 100])
     ejes[1].legend(frameon=False, fontsize=8)
 
-    phi = np.ma.masked_less_equal(sal["phi"][:, 0], 0.0)
-    ejes[2].plot(phi, z, color="C2")
+    ejes[2].plot(sal["phi"][:, 0], z, color="C2")
     ejes[2].set_xlabel("φ en el eje")
-    ejes[2].set_xlim(1e-2, 1)
-    _log_eje(ejes[2], [0.01, 0.1, 1])
+    ejes[2].set_xlim(0.0, 1.0)
 
     ejes[3].plot(sal["xi"][:, 0], z, color="C4")
     ejes[3].set_xlabel("ξ en el eje")
