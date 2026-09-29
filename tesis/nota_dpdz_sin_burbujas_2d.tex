@@ -657,31 +657,140 @@ la masa fija \(u_m\) y \(u_g\); \(N\) y \(\xi\) se congelan
 La cantidad \(\mathrm{d}v/\mathrm{d}z\cdot\mu/(0.01\times 10^{10})\) se
 guarda como diagnóstico. No es ninguno de los tres cortes.
 
-\section{El mismo capilar, evaluado sobre la parábola}
+\section{Base del capilar en cada radio}
 
-En el 2D el estado de referencia sigue siendo uno solo: la presión en que
-Henry da \(\varphi=0.2\), con su \(n\), \(\mathrm{d}n/\mathrm{d}P\),
-\(\mathrm{d}\varphi/\mathrm{d}P\) y la pendiente de Poiseuille de ese
-estado. La velocidad media ahí es
+El 1D comprime la deformación en un escalar: promedia
+\(\mathrm{d}u/\mathrm{d}z\) con \(v_{\mathrm{in}}/R\). En el 2D esa misma
+construcción se hace nodo a nodo sobre la parábola. Esta sección fija el
+estado de referencia, deriva la media, reparte esa media en \(r\) y define
+\(\mathrm{Ca}(r)\) y los tres cortes.
+
+\begin{hipotesis}
+\label{hip:ref}
+El estado de referencia de un tiro es el siguiente.
+\begin{enumerate}
+\item \(P_\ast\in[P_{\mathrm{atm}},P_{\sat}]\) es la presión en que la
+      fracción de Henry queda a menos de \(0.002\) de \(\varphi_\ast=0.2\).
+      En ese estado \(n=n(P_\ast,\xi_0)\), \(\rho_g=P_\ast/(\Rv T)\) y
+      \(\rho_m\) es la densidad de la base.
+\item \(P=P(z)\) y \(\xi=\xi_0\). Por tanto \(n\) y \(\varphi\) del estado
+      de referencia no dependen de \(r\).
+\item La velocidad media obedece la masa del fundido con caudal de entrada
+      \(v_{\mathrm{in}}\rho_m\):
+      \begin{equation}
+      \bar u
+      =
+      v_{\mathrm{in}}\frac{1-n}{1-\varphi}.
+      \label{eq:umed}
+      \end{equation}
+\item El perfil compatible con \(u(R)=0\) y con simetría en el eje es la
+      parábola de esa media,
+      \begin{equation}
+      u(r)
+      =
+      2\bar u\left(1-\frac{r^2}{R^2}\right).
+      \label{eq:upar}
+      \end{equation}
+\item \(N_0\) es el de la base, el de la sección anterior a los cortes.
+      El radio de burbuja del estado de referencia es
+      \eqref{eq:rbref} con \(\varphi=\varphi_\ast\) y \(N=N_0\).
+\end{enumerate}
+\end{hipotesis}
+
+\begin{proposicion}
+\label{prop:dudz}
+En el estado de referencia,
 \begin{equation}
-\bar u
+\frac{\mathrm{d}\bar u}{\mathrm{d}z}
 =
-v_{\mathrm{in}}\frac{1-n}{1-\varphi},
+v_{\mathrm{in}}
+\frac{
+-\dfrac{\mathrm{d}n}{\mathrm{d}P}(1-\varphi)
++(1-n)\dfrac{\mathrm{d}\varphi}{\mathrm{d}P}
+}{(1-\varphi)^2}
+\,
+\frac{\mathrm{d}P}{\mathrm{d}z}.
+\label{eq:dudz}
 \end{equation}
-y \(\mathrm{d}\bar u/\mathrm{d}z\) es la derivada del 1D. El perfil es la
-parábola \(u=2\bar u\,(1-(r/R)^2)\), así que en cada radio
+\(\mathrm{d}n/\mathrm{d}P\) es la derivada de Henry en \(P_\ast\).
+\(\mathrm{d}\varphi/\mathrm{d}P\) es la derivada del volumen
+\eqref{eq:phi} respecto de \(P\), con \(\rho_g=P/(\Rv T)\).
+\(\mathrm{d}P/\mathrm{d}z\) es la pendiente de Poiseuille de ese mismo
+estado.
+\end{proposicion}
+
+\begin{proof}
+De~\eqref{eq:umed}, \(\bar u\) depende de \(z\) solo a través de
+\(n(P(z))\) y \(\varphi(P(z))\), con \(v_{\mathrm{in}}\) constante.
+La regla de la cadena da
 \begin{equation}
-\left|\frac{\partial u}{\partial z}\right|
+\frac{\mathrm{d}\bar u}{\mathrm{d}z}
 =
-2\left|\frac{\mathrm{d}\bar u}{\mathrm{d}z}\right|
+v_{\mathrm{in}}
+\frac{\mathrm{d}}{\mathrm{d}P}
+\left(\frac{1-n}{1-\varphi}\right)
+\frac{\mathrm{d}P}{\mathrm{d}z}.
+\end{equation}
+El cociente tiene derivada
+\begin{align}
+\frac{\mathrm{d}}{\mathrm{d}P}
+\left(\frac{1-n}{1-\varphi}\right)
+&=
+\frac{
+\left(-\dfrac{\mathrm{d}n}{\mathrm{d}P}\right)(1-\varphi)
+-
+(1-n)\left(-\dfrac{\mathrm{d}\varphi}{\mathrm{d}P}\right)
+}{(1-\varphi)^2}
+\nonumber\\
+&=
+\frac{
+-\dfrac{\mathrm{d}n}{\mathrm{d}P}(1-\varphi)
++(1-n)\dfrac{\mathrm{d}\varphi}{\mathrm{d}P}
+}{(1-\varphi)^2}.
+\end{align}
+Sustituir esta expresión produce~\eqref{eq:dudz}.
+\end{proof}
+
+\begin{proposicion}
+\label{prop:tasas}
+Bajo~\eqref{eq:upar}, las dos tasas de deformación en \(r\in[0,R]\) son
+\begin{equation}
+\frac{\partial u}{\partial z}
+=
+2\frac{\mathrm{d}\bar u}{\mathrm{d}z}
 \left(1-\frac{r^2}{R^2}\right),
 \qquad
-\left|\frac{\partial u}{\partial r}\right|
+\frac{\partial u}{\partial r}
 =
-\frac{4\bar u\, r}{R^2}.
+-\frac{4\bar u\, r}{R^2}.
 \label{eq:tasas-r}
 \end{equation}
-La tasa que entra al capilar es el mismo promedio del 1D, ahora local:
+En el eje, \(\partial u/\partial r=0\) y
+\(\partial u/\partial z=2\,\mathrm{d}\bar u/\mathrm{d}z\).
+En la pared, \(\partial u/\partial z=0\) y
+\(\partial u/\partial r=-4\bar u/R\).
+\end{proposicion}
+
+\begin{proof}
+La forma \(1-(r/R)^2\) no depende de \(z\). Al derivar~\eqref{eq:upar}
+respecto de \(z\) sale el primer miembro de~\eqref{eq:tasas-r}.
+Derivando respecto de \(r\),
+\begin{equation}
+\frac{\partial u}{\partial r}
+=
+2\bar u\left(-\frac{2r}{R^2}\right)
+=
+-\frac{4\bar u\, r}{R^2}.
+\end{equation}
+En \(r=0\) el corte se anula y el factor axial vale \(1\), así que la
+extensión es el doble de la media. En \(r=R\) el factor axial se anula,
+porque \(u(R)\) permanece en cero, y el corte vale \(-4\bar u/R\).
+\end{proof}
+
+\begin{hipotesis}
+\label{hip:tasa}
+La tasa que entra al capilar en el radio \(r\) es el análogo puntual del
+promedio del 1D:
 \begin{equation}
 \dot\varepsilon(r)
 =
@@ -690,22 +799,84 @@ La tasa que entra al capilar es el mismo promedio del 1D, ahora local:
 \left|\frac{\partial u}{\partial z}\right|
 +
 \left|\frac{\partial u}{\partial r}\right|
-\right),
+\right).
+\label{eq:edot}
+\end{equation}
+\(\mu(r)\) es la viscosidad del líquido evaluada en \(P_\ast\), con el agua
+disuelta \(C_1 P_\ast^{\beta}\), al corte \(|\partial u/\partial r|\).
+\end{hipotesis}
+
+\begin{proposicion}
+\label{prop:extremos}
+Con~\eqref{eq:tasas-r} y~\eqref{eq:edot},
+\begin{equation}
+\dot\varepsilon(0)
+=
+\left|\frac{\mathrm{d}\bar u}{\mathrm{d}z}\right|,
 \qquad
+\dot\varepsilon(R)
+=
+\frac{2\bar u}{R}.
+\label{eq:extremos}
+\end{equation}
+\end{proposicion}
+
+\begin{proof}
+En el eje, \(|\partial u/\partial r|=0\) y
+\(|\partial u/\partial z|=2|\mathrm{d}\bar u/\mathrm{d}z|\).
+El promedio~\eqref{eq:edot} queda
+\(\tfrac12\cdot 2|\mathrm{d}\bar u/\mathrm{d}z|\).
+En la pared, \(|\partial u/\partial z|=0\) y
+\(|\partial u/\partial r|=4\bar u/R\).
+El promedio queda \(\tfrac12\cdot 4\bar u/R\).
+\end{proof}
+
+El número capilar del radio \(r\) es
+\begin{equation}
 \mathrm{Ca}(r)
 =
-\frac{\dot\varepsilon(r)\,\mu(r)\,r_b}{0.3}.
+\frac{\dot\varepsilon(r)\,\mu(r)\,r_b}{0.3},
 \label{eq:Ca-r}
 \end{equation}
-\(r_b\) usa el \(\varphi=0.2\) y la \(N_0\) de la base, así que no depende de
-\(r\). \(\mu(r)\) es la viscosidad del líquido al corte local. Las fórmulas
-\eqref{eq:phicrit}--\eqref{eq:lim2} se evalúan con \(\mathrm{Ca}(r)\), y
-salen \(\varphi_{\mathrm{crit}}(r)\), \(\varphi_1(r)\) y
-\(\varphi_2(r)=\varphi_1(r)+0.01\).
+con \(r_b\) el de~\eqref{eq:rbref}. Como \(\varphi_\ast\) y \(N_0\) no
+dependen de \(r\), tampoco depende de \(r\) el radio de burbuja. Toda la
+variación radial de \(\mathrm{Ca}\) entra por \(\dot\varepsilon(r)\) y, si
+el modelo reológico depende del corte, por \(\mu(r)\).
 
-En el eje el corte es cero y la extensión vale
-\(2|\mathrm{d}\bar u/\mathrm{d}z|\). En la pared la extensión es cero y el
-corte vale \(4\bar u/R\). Por eso los tres cortes cambian con el radio. Se
-calculan una vez por tiro y se comparan con el \(\varphi\) de cada nodo.
+Los cortes se obtienen evaluando~\eqref{eq:phicrit}--\eqref{eq:lim2} en
+\(\mathrm{Ca}(r)\):
+\begin{align}
+\varphi_{\mathrm{crit}}(r)
+&=
+\frac{\varphi_{\sup}-\varphi_{\inf}}{2}
+\,\mathrm{erf}\bigl(\log_{10}\mathrm{Ca}(r)\bigr)
++
+\frac{\varphi_{\sup}+\varphi_{\inf}}{2},
+\label{eq:phicrit-r}\\
+\varphi_1(r)
+&=
+\frac{\varphi_{\mathrm{per,bajo}}-\varphi_{\mathrm{per,alto}}}{2}
+\,\mathrm{erf}\bigl(\log_{10}\mathrm{Ca}(r)\bigr)
++
+\frac{\varphi_{\mathrm{per,bajo}}+\varphi_{\mathrm{per,alto}}}{2},
+\label{eq:lim1-r}\\
+\varphi_2(r)
+&=
+\varphi_1(r)+0.01.
+\label{eq:lim2-r}
+\end{align}
+Las cuatro regiones de la tabla anterior se leen en cada nodo con estas
+tres funciones. Se calculan una vez por tiro, junto con \(N_0\), y no se
+vuelven a integrar en \(z\).
+
+\begin{obs}
+En el eje \(\mathrm{Ca}\) siente solo la extensión de la media. En la
+pared siente solo el corte \(4\bar u/R\). Si \(|\mathrm{d}\bar u/\mathrm{d}z|\)
+es chico frente a \(\bar u/R\), el eje cae del lado
+\(\mathrm{Ca}\to 0\), donde \(\varphi_1=0.40\) y
+\(\varphi_{\mathrm{crit}}=0.525\), y la pared se corre hacia
+\(\mathrm{Ca}\) mayor, con \(\varphi_1\) más bajo y
+\(\varphi_{\mathrm{crit}}\) más alto.
+\end{obs}
 
 \end{document}
