@@ -102,6 +102,75 @@ def tramo_final(sal, path, metros=20.0):
     plt.close(fig)
 
 
+def altura_fragmentacion(sal):
+    """Primera altura en que φ del nodo alcanza el φ_crit de su radio."""
+    z = sal["z"]
+    out = np.full(len(sal["r"]), np.nan)
+    for i in range(len(sal["r"])):
+        arriba = np.where(sal["phi"][:, i] >= sal["phicrit_ca"][i])[0]
+        if len(arriba):
+            out[i] = z[int(arriba[0])]
+    return out
+
+
+def fragmentacion(sal, path):
+    """φ(z) contra los dos φ_crit, y la altura de cruce en cada radio."""
+    r = sal["r"]
+    zf = altura_fragmentacion(sal)
+    m = (sal["z"] > zf[0] - 250.0) & (sal["z"] < zf[-1] + 80.0)
+    fig, ejes = plt.subplots(1, 2, figsize=(9.8, 4.8))
+    ejes[0].plot(sal["phi"][m, 0], sal["z"][m] / 1000.0, color="C2", label="φ, eje y borde")
+    ejes[0].plot(sal["phi"][m, -1], sal["z"][m] / 1000.0, color="C5", ls=":")
+    ejes[0].axvline(
+        sal["phicrit_ca"][0], color="C2", lw=0.9, ls="--",
+        label=f"φ_crit eje = {sal['phicrit_ca'][0]:.2f}",
+    )
+    ejes[0].axvline(
+        sal["phicrit_ca"][-1], color="C5", lw=0.9, ls="--",
+        label=f"φ_crit borde = {sal['phicrit_ca'][-1]:.2f}",
+    )
+    ejes[0].set_xlim(0.45, 0.80)
+    ejes[0].set_xlabel("φ")
+    ejes[0].set_ylabel("z [km]")
+    ejes[0].legend(frameon=False, fontsize=8)
+
+    ejes[1].plot(r, zf, color="C0", marker="o")
+    ejes[1].axhline(sal["z_frag"], color="0.35", ls="--", label="la sección cambia de cierre")
+    ejes[1].set_xlim(0.0, r[-1])
+    ejes[1].set_xlabel("r [m]")
+    ejes[1].set_ylabel("z en que φ alcanza φ_crit(r) [m]")
+    ejes[1].legend(frameon=False, fontsize=8)
+    for ax in ejes:
+        ax.grid(True, alpha=0.3)
+    fig.suptitle(
+        f"Fragmentación por radio, v_in = {sal['vinicial']:.0f} m/s"
+    )
+    fig.tight_layout()
+    fig.savefig(path, dpi=140)
+    plt.close(fig)
+
+
+def nucleacion(sal, path):
+    """N(z). El eje horizontal va en décadas."""
+    z = sal["z"] / 1000.0
+    fig, ax = plt.subplots(figsize=(5.4, 6.2))
+    ax.plot(np.maximum(sal["N"][:, 0], 1.0), z, color="C0", label="eje")
+    ax.plot(np.maximum(sal["N"][:, -1], 1.0), z, color="C5", ls=":", label="borde")
+    ax.set_xscale("log")
+    ax.set_xlim(1e13, 1e14)
+    ax.set_xticks([1e13, 1e14])
+    ax.xaxis.set_major_formatter(LogFormatterMathtext())
+    ax.axhline(sal["z_frag"] / 1000.0, color="0.45", lw=0.7, ls="--")
+    ax.set_xlabel("N [m$^{-3}$]")
+    ax.set_ylabel("z [km]")
+    ax.grid(True, which="both", alpha=0.3)
+    ax.legend(frameon=False, fontsize=8)
+    ax.set_title(f"N, v_in = {sal['vinicial']:.0f} m/s, {sal['mensaje']}")
+    fig.tight_layout()
+    fig.savefig(path, dpi=140)
+    plt.close(fig)
+
+
 def perfiles(sal, path):
     r = sal["r"]
     z = sal["z"]
@@ -172,6 +241,10 @@ def main(destino="figuras"):
     )
     tramo_final(alto, os.path.join(destino, "cola-v23.png"))
     tramo_final(bajo, os.path.join(destino, "cola-v10.png"))
+    fragmentacion(alto, os.path.join(destino, "fragmentacion-v23.png"))
+    fragmentacion(bajo, os.path.join(destino, "fragmentacion-v10.png"))
+    nucleacion(alto, os.path.join(destino, "nucleacion-v23.png"))
+    nucleacion(bajo, os.path.join(destino, "nucleacion-v10.png"))
     perfiles(alto, os.path.join(destino, "perfiles-v23.png"))
     perfiles(bajo, os.path.join(destino, "perfiles-v10.png"))
     cortes(os.path.join(destino, "limites-r.png"))
