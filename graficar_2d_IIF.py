@@ -180,9 +180,13 @@ def solucion_tiro_1d(tiro, path):
         ax.set_ylabel("z [km]")
         ax.grid(True, which="both", alpha=0.3)
     ejes[3].grid(True, alpha=0.3)
+    dr = float(sal["r"][1] - sal["r"][0])
+    dz = np.diff(sal["z"])
     fig.suptitle(
         f"Tiro con el cierre del 1D, paso {tiro['n_pasos']}, "
-        f"v_in = {sal['vinicial']:.3f} m/s, {tiro['criterio']}"
+        f"v_in = {sal['vinicial']:.3f} m/s, {tiro['criterio']}\n"
+        f"Δr = {dr:.3f} m, Δz de {dz.min():.3f} a {dz.max():.1f} m "
+        f"(mediana {np.median(dz):.1f} m)"
     )
     fig.tight_layout()
     if path is not None:

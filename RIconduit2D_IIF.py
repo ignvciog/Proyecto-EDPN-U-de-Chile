@@ -498,7 +498,7 @@ def _estado(r, dr, z, p, dpdz, u, phi, nd, xi, q_obj, limites):
     }
 
 
-def _tramo_algebraico(r, dr, vinicial, radius, pi, rm0, co, xi, temperatura, limites):
+def _tramo_algebraico(r, dr, vinicial, radius, pi, rm0, co, xi, temperatura, limites, n_lin=40):
     """Recta sin burbujas y, un metro arriba de la saturación, el estado de Henry."""
     mu = _mu_liquido(pi, xi, float(vinicial) / float(radius), temperatura, co)
     dpdz = _dpdz_liquido(rm0, mu, vinicial, radius)
@@ -521,8 +521,7 @@ def _tramo_algebraico(r, dr, vinicial, radius, pi, rm0, co, xi, temperatura, lim
     p_sat = max(p_sat, float(Patm))
     z_sat = float(H) + (p_sat - float(pi)) / dpdz
     z_sat = min(z_sat, 0.0)
-    n_lin = 40
-    for z in np.linspace(float(H), z_sat, n_lin):
+    for z in np.linspace(float(H), z_sat, int(n_lin)):
         p = float(pi) + dpdz * (float(z) - float(H))
         niveles.append(_estado(
             r, dr, z, p, dpdz, u_base, np.zeros(len(r)), nd, xi, q_obj, limites
@@ -725,7 +724,7 @@ def _frag_controlado(estado, h, h_min, h_max, co, xi0, temperatura, cortar_en_el
 
 def marchar(vinicial=25.0, radius=radius1, pressure=overP1, wt=h2o1, temperature=T1,
             content_crystal=xi1, n_r=12, h0=40.0, h_min=1.0, h_max=80.0, z_tope=0.0,
-            corte="eje"):
+            corte="eje", n_lin=40):
     """Recta sin burbujas, metro de exsolución, y desde ahí la marcha en diferencias finitas."""
     r, dr = _malla(n_r, radius)
     co, pi = _configurar_fd(radius, pressure, wt, temperature, content_crystal)
@@ -734,7 +733,7 @@ def marchar(vinicial=25.0, radius=radius1, pressure=overP1, wt=h2o1, temperature
     mu_in = _mu_liquido(pi, xi, float(vinicial) / float(radius), temperature, co)
     limites = limites_regiones(r, vinicial, radius, pi, rm0, mu_in, co, xi, temperature)
     historia, dpdz_liq, z_sat, z_ad = _tramo_algebraico(
-        r, dr, vinicial, radius, pi, rm0, co, xi, temperature, limites
+        r, dr, vinicial, radius, pi, rm0, co, xi, temperature, limites, n_lin
     )
     q0 = float(historia[0]["Q_obj"])
     cs = math.sqrt(R * float(temperature))
