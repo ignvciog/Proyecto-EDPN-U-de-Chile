@@ -35,19 +35,24 @@ def columnas(sal, path, titulo):
 
     ejes[1].plot(np.maximum(sal["um_media"], 1e-3), z, color="C1", label="media")
     ejes[1].plot(np.maximum(sal["um"][:, 0], 1e-3), z, color="C3", ls="--", label="eje")
+    ejes[1].plot(np.maximum(sal["um"][:, -2], 1e-3), z, color="C5", ls=":", label="junto al borde")
     ejes[1].set_xlabel("u [m/s]")
     ejes[1].set_xlim(1, 400)
     _log_eje(ejes[1], [1, 10, 100])
-    ejes[1].legend(frameon=False, fontsize=8)
+    ejes[1].legend(frameon=False, fontsize=7)
 
-    ejes[2].plot(sal["phi"][:, 0], z, color="C2")
+    ejes[2].plot(sal["phi"][:, 0], z, color="C2", label="eje")
+    ejes[2].plot(sal["phi"][:, -1], z, color="C5", ls=":", label="borde")
     ejes[2].set_xscale("linear")
-    ejes[2].set_xlabel("φ en el eje")
+    ejes[2].set_xlabel("φ")
     ejes[2].set_xlim(0.0, 1.0)
     ejes[2].set_xticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0])
+    ejes[2].legend(frameon=False, fontsize=7)
 
-    ejes[3].plot(sal["xi"][:, 0], z, color="C4")
-    ejes[3].set_xlabel("ξ en el eje")
+    ejes[3].plot(sal["xi"][:, 0], z, color="C4", label="eje")
+    ejes[3].plot(sal["xi"][:, -1], z, color="C5", ls=":", label="borde")
+    ejes[3].set_xlabel("ξ")
+    ejes[3].legend(frameon=False, fontsize=7)
 
     for ax in ejes:
         ax.axhline(sal["z_sat"] / 1000.0, color="0.45", lw=0.7, label="saturación")
@@ -56,6 +61,40 @@ def columnas(sal, path, titulo):
     ejes[0].legend(frameon=False, fontsize=7)
     ejes[0].set_ylabel("z [km]")
     fig.suptitle(titulo)
+    fig.tight_layout()
+    fig.savefig(path, dpi=140)
+    plt.close(fig)
+
+
+def tramo_final(sal, path, metros=20.0):
+    """Últimos metros, con P lineal, para ver el empinamiento y el borde."""
+    z = sal["z"]
+    corte = z[-1] - metros
+    m = z >= corte
+    zz = z[m]
+    fig, ejes = plt.subplots(1, 3, figsize=(11.2, 4.6), sharey=True)
+    ejes[0].plot(sal["P"][m] / 1e6, zz, color="C0")
+    ejes[0].set_xlabel("P [MPa]")
+
+    ejes[1].plot(sal["um"][m, 0], zz, color="C3", ls="--", label="eje")
+    ejes[1].plot(sal["um"][m, -2], zz, color="C5", ls=":", label="junto al borde")
+    ejes[1].plot(sal["um"][m, -1], zz, color="0.3", label="borde, u = 0")
+    ejes[1].set_xlabel("u [m/s]")
+    ejes[1].set_xlim(left=0.0)
+    ejes[1].legend(frameon=False, fontsize=7)
+
+    ejes[2].plot(sal["phi"][m, 0], zz, color="C2", label="eje")
+    ejes[2].plot(sal["phi"][m, -1], zz, color="C5", ls=":", label="borde")
+    ejes[2].set_xlabel("φ")
+    ejes[2].set_xlim(0.0, 1.0)
+    ejes[2].legend(frameon=False, fontsize=7)
+
+    for ax in ejes:
+        ax.grid(True, alpha=0.3)
+    ejes[0].set_ylabel("z [m]")
+    fig.suptitle(
+        f"Últimos {metros:.0f} m, v_in = {sal['vinicial']:.0f} m/s, {sal['mensaje']}"
+    )
     fig.tight_layout()
     fig.savefig(path, dpi=140)
     plt.close(fig)
@@ -129,6 +168,8 @@ def main(destino="figuras"):
         os.path.join(destino, "columnas-v10.png"),
         f"v_in = 10 m/s, {bajo['mensaje']}, P = {bajo['P'][-1] / 1e6:.2f} MPa",
     )
+    tramo_final(alto, os.path.join(destino, "cola-v23.png"))
+    tramo_final(bajo, os.path.join(destino, "cola-v10.png"))
     perfiles(alto, os.path.join(destino, "perfiles-v23.png"))
     perfiles(bajo, os.path.join(destino, "perfiles-v10.png"))
     cortes(os.path.join(destino, "limites-r.png"))
