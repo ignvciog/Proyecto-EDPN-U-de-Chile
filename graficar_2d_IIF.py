@@ -151,19 +151,17 @@ def fragmentacion(sal, path):
 
 
 def nucleacion(sal, path):
-    """N(z). El eje horizontal va en décadas."""
+    """N(z) con el eje horizontal lineal."""
     z = sal["z"] / 1000.0
-    fig, ax = plt.subplots(figsize=(5.4, 6.2))
-    ax.plot(np.maximum(sal["N"][:, 0], 1.0), z, color="C0", label="eje")
-    ax.plot(np.maximum(sal["N"][:, -1], 1.0), z, color="C5", ls=":", label="borde")
-    ax.set_xscale("log")
-    ax.set_xlim(1e13, 1e14)
-    ax.set_xticks([1e13, 1e14])
-    ax.xaxis.set_major_formatter(LogFormatterMathtext())
+    fig, ax = plt.subplots(figsize=(5.6, 6.2))
+    ax.plot(sal["N"][:, 0], z, color="C0", label="eje")
+    ax.plot(sal["N"][:, -1], z, color="C5", ls=":", label="borde")
+    ax.set_xscale("linear")
+    ax.ticklabel_format(axis="x", style="sci", scilimits=(0, 0))
     ax.axhline(sal["z_frag"] / 1000.0, color="0.45", lw=0.7, ls="--")
     ax.set_xlabel("N [m$^{-3}$]")
     ax.set_ylabel("z [km]")
-    ax.grid(True, which="both", alpha=0.3)
+    ax.grid(True, alpha=0.3)
     ax.legend(frameon=False, fontsize=8)
     ax.set_title(f"N, v_in = {sal['vinicial']:.0f} m/s, {sal['mensaje']}")
     fig.tight_layout()
