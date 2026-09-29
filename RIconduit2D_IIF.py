@@ -12,13 +12,13 @@ altura, con Picard:
    como fuerza del Picard (con u* congelada); si va implícito,
    μ/h² le gana a la viscosidad radial y la matriz cambia de signo.
 3. Un solo dP/dz, el de la mezcla, para que el caudal integrado sea Q.
-4. φ_i = φ_Henry(P, ξ_i). Con arrastre de Stokes las dos masas
-   puntuales dan exactamente esa fracción si u_g = u_m. La otra
-   forma, φ = 1 - J/(ρ u), manda φ → 1 donde la parábola se frena.
-5. u_g = u_m. El Stokes no deja deslizamiento, y con eso las dos
-   masas dan la fracción de Henry. La viscosidad del fundido sigue
-   hasta la boca: apagarla al fragmentar pide más caída de presión
-   que la que queda y el paso se va a P negativa.
+4. Mientras φ está bajo φ_crit(r), φ_i = φ_Henry(P, ξ_i) y u_g = u_m.
+   Las dos masas se cumplen con esa única velocidad.
+5. Cuando φ pasa φ_crit en toda la sección, el régimen es el 4 del 1D.
+   u_m(r) sale de la masa del fundido y u_g(r) de la del gas, con el
+   caudal q(r) de cada radio. φ deja de reponerse con Henry. dP/dz
+   sale del momento promediado, con el roce del fundido apagado.
+   Q vuelve a ser la comprobación.
 6. N y ξ con diferencia hacia atrás. En la pared se copian.
 7. Q se comprueba al cerrar el paso.
 
@@ -304,6 +304,7 @@ def _paso(estado, h, co, xi0, temperatura):
         "sigmag": np.zeros(len(r)),
         "Q": q_hecho,
         "Q_obj": q_obj,
+        "q_r": None if estado.get("q_r") is None else np.array(estado["q_r"], copy=True),
         "z": float(estado["z"] + h),
         "frag": frag,
         "limphi1": estado["limphi1"],
@@ -513,6 +514,7 @@ def _tramo_algebraico(r, dr, vinicial, radius, pi, rm0, co, xi, temperatura, lim
         u[-1] = 0.0
         niveles.append(_estado(r, dr, H, pi, dpdz, u, phi, nd, xi, q_obj, limites))
         niveles[0]["Q"] = q_obj
+        niveles[0]["q_r"] = np.array(q_nodo, copy=True)
         return niveles, dpdz, float(H), float(H)
 
     p_sat = (float(co) / C1) ** (1.0 / beta)
@@ -532,6 +534,7 @@ def _tramo_algebraico(r, dr, vinicial, radius, pi, rm0, co, xi, temperatura, lim
     if z_ad >= 0.0 or eps <= 0.0:
         for nivel in niveles:
             nivel["Q"] = q_obj
+            nivel["q_r"] = np.array(q_nodo, copy=True)
         return niveles, dpdz, z_sat, z_sat
     p_ad = p_sat + dpdz * eps
     n_ad = (1.0 - xi) * (co - C1 * p_ad ** beta) / (1.0 - C1 * p_ad ** beta)
@@ -545,7 +548,179 @@ def _tramo_algebraico(r, dr, vinicial, radius, pi, rm0, co, xi, temperatura, lim
     ))
     for nivel in niveles:
         nivel["Q"] = q_obj
+        nivel["q_r"] = np.array(q_nodo, copy=True)
     return niveles, dpdz, z_sat, z_ad
+
+
+def _promedio_area(r, campo):
+    radio = float(r[-1])
+    area = math.pi * radio ** 2
+    return float(np.trapezoid(np.asarray(campo, dtype=float) * 2.0 * math.pi * r, r) / area)
+
+
+def _dfgdp_frag(p, x_cr, co, xi0):
+    """∂n/∂P del régimen fragmentado: ξ está congelado, como en el 1D."""
+    p = max(float(p), 1e4)
+    fg = _fg(p, float(x_cr))
+    if fg <= 0.0:
+        return 0.0, 0.0
+    den0 = co * (1.0 - xi0) - (1.0 - xmax) * C1 * Patm ** beta
+    f2 = max(0.0, (co * (1.0 - xi0) - (1.0 - x_cr) * C1 * p ** beta) / den0)
+    xteo = xi0 + (xmax - xi0) * f2
+    f3 = max(0.0, 1.0 - float(x_cr) / max(xteo, 1e-9))
+    dxdp = max(0.0, (xmax - xi0) * f2 * f3 / tcar)
+    dfgdp = (
+        -(-dxdp * C1 * p ** beta + (1.0 - x_cr) * C1 * beta * p ** (beta - 1.0))
+        + (co * (1.0 - xi0) - (1.0 - x_cr) * C1 * p ** beta) * C1 * beta * p ** (beta - 1.0)
+    ) / (1.0 - C1 * p ** beta) ** 2
+    return fg, float(dfgdp)
+
+
+def _seccion_fragmentada(estado):
+    """φ ya pasó el φ_crit de su radio en toda la sección."""
+    return bool(np.all(estado["phi"] >= estado["phicrit_ca"]))
+
+
+def _cierre_fragmentado(p, phi, q, co, xi0, x_cr, radius, temperatura, nd, phicrit):
+    """Momento del 1D en régimen 4, sobre el promedio de la sección.
+
+    Las masas ya fijaron u_m y u_g. Este sistema despeja dP/dz y dφ/dz.
+    El roce del fundido con la pared no entra.
+    """
+    fg, dfgdp = _dfgdp_frag(p, x_cr, co, xi0)
+    if fg <= 0.0 or not (0.02 < float(phi) < 0.995):
+        return {"singular": True}
+    rho_m = _rho_m(p)
+    rho_g = max(float(p), 1e4) / (R * float(temperatura))
+    um = (1.0 - fg) * q / (rho_m * (1.0 - phi))
+    ug = fg * q / (rho_g * phi)
+    rb = (phi / ((4.0 / 3.0) * math.pi * max(float(nd), 1.0) * (1.0 - phi))) ** (1.0 / 3.0)
+    ra, cd = 1e-3, 0.8
+    slip = ug - um
+    if phi < float(phicrit) + 0.05:
+        tt = min(max((phi - float(phicrit)) / 0.05, 0.0), 1.0)
+        fmg = (
+            ((0.33 / (4.0 * rb)) ** (1.0 - tt))
+            * ((3.0 * cd / (8.0 * ra)) ** tt)
+            * rho_g * abs(slip) * slip * phi * (1.0 - phi)
+        )
+    else:
+        fmg = 3.0 * cd * rho_g * abs(slip) * slip * phi * (1.0 - phi) / (8.0 * ra)
+    fgw = 0.01 * rho_g * abs(ug) * ug / (4.0 * float(radius))
+    aco = rho_g * ug ** 2
+    bco = phi - (ug ** 2) * phi / (R * float(temperatura)) + dfgdp * q * ug
+    cco = rho_m * um ** 2
+    dco = dfgdp * q * um - (1.0 - phi)
+    eco = -rho_m * (1.0 - phi) * g + fmg
+    fco = rho_g * phi * g + fmg + fgw
+    den = aco * dco - bco * cco
+    escala = abs(aco * dco) + abs(bco * cco)
+    if (not np.isfinite(den)) or escala < 1e-30 or abs(den) < 1e-4 * escala:
+        return {"singular": True, "um": um, "ug": ug}
+    return {
+        "singular": False,
+        "dpdz": float((-eco * aco + fco * cco) / den),
+        "dphidz": float((-eco * bco + dco * fco) / den),
+        "um": float(um),
+        "ug": float(ug),
+    }
+
+
+def _velocidades_masa(q_r, phi, p, xi, temperatura):
+    """u_m y u_g desde las dos masas, con el caudal q(r) de cada radio."""
+    rho_m = _rho_m(p)
+    rho_g = max(float(p), 1e4) / (R * float(temperatura))
+    um = np.zeros_like(q_r, dtype=float)
+    ug = np.zeros_like(q_r, dtype=float)
+    for i in range(len(q_r) - 1):
+        n = _fg(p, float(xi[i]))
+        ph = float(phi[i])
+        if n <= 0.0 or ph <= 1e-6 or ph >= 0.999:
+            um[i] = float(q_r[i]) / rho_m
+            ug[i] = um[i]
+            continue
+        um[i] = float(q_r[i]) * (1.0 - n) / ((1.0 - ph) * rho_m)
+        ug[i] = float(q_r[i]) * n / (ph * rho_g)
+    return um, ug
+
+
+def _paso_frag(estado, h, h_min, co, xi0, temperatura):
+    """Un paso ya fragmentado: las masas fijan las velocidades y el momento da dP/dz."""
+    r = estado["r"]
+    radio = float(r[-1])
+    area = math.pi * radio ** 2
+    phi_bar = _promedio_area(r, estado["phi"])
+    cierre = _cierre_fragmentado(
+        estado["P"], phi_bar, float(estado["Q_obj"]) / area, co, xi0,
+        _promedio_area(r, estado["xi"]), radio, temperatura,
+        _promedio_area(r, estado["N"]), _promedio_area(r, estado["phicrit_ca"]),
+    )
+    if cierre.get("singular", True):
+        return _fallo(estado, "singular")
+    dpdz = cierre["dpdz"]
+    dphidz = cierre["dphidz"]
+    if abs(dpdz) * h > 0.2 * max(float(estado["P"]), Patm) and h > float(h_min) * 1.01:
+        return _fallo(estado, "paso frag rechazado")
+    p = float(estado["P"]) + dpdz * h
+    phi = np.asarray(estado["phi"], dtype=float) + dphidz * h
+    if (not np.isfinite(p)) or (not np.isfinite(phi).all()) or p < 0.5 * Patm:
+        return _fallo(estado, "paso frag rechazado")
+    if np.any(phi[:-1] <= 0.02) or np.any(phi[:-1] >= 0.995):
+        return _fallo(estado, "paso frag rechazado")
+    phi[-1] = phi[-2]
+    um, ug = _velocidades_masa(estado["q_r"], phi, p, estado["xi"], temperatura)
+    if (not np.isfinite(um).all()) or (not np.isfinite(ug).all()):
+        return _fallo(estado, "paso no finito")
+    flujo = _rho_m(p) * (1.0 - phi) * um + (max(p, 1e4) / (R * float(temperatura))) * phi * ug
+    mensaje = ""
+    cs = math.sqrt(R * float(temperatura))
+    if float(np.max(ug)) >= 0.98 * cs:
+        mensaje = "sonico"
+    elif p <= float(pfinal) * 1.05:
+        mensaje = "presion atmosferica"
+    return {
+        "r": r,
+        "dr": estado["dr"],
+        "P": float(p),
+        "dpdz": float(dpdz),
+        "u": um,
+        "ug": ug,
+        "phi": phi,
+        "N": np.array(estado["N"], copy=True),
+        "xi": np.array(estado["xi"], copy=True),
+        "sigma": np.zeros(len(r)),
+        "sigmag": np.zeros(len(r)),
+        "Q": _media_caudal(r, flujo),
+        "Q_obj": float(estado["Q_obj"]),
+        "q_r": np.array(estado["q_r"], copy=True),
+        "z": float(estado["z"] + h),
+        "frag": True,
+        "limphi1": estado["limphi1"],
+        "limphi2": estado["limphi2"],
+        "phicrit_ca": estado["phicrit_ca"],
+        "ok": True,
+        "mensaje": mensaje,
+    }
+
+
+def _frag_controlado(estado, h, h_min, h_max, co, xi0, temperatura):
+    """Un paso fragmentado contra dos de h/2. El sónico y la atmósfera se aceptan."""
+    grande = _paso_frag(estado, h, h_min, co, xi0, temperatura)
+    if not grande["ok"]:
+        return None, h, grande["mensaje"]
+    if grande["mensaje"] in ("sonico", "presion atmosferica") or h <= float(h_min) * 1.5:
+        return grande, float(np.clip(h, h_min, h_max)), ""
+    medio = _paso_frag(estado, 0.5 * h, h_min, co, xi0, temperatura)
+    if not medio["ok"]:
+        return None, h, medio["mensaje"]
+    medio2 = _paso_frag(medio, 0.5 * h, h_min, co, xi0, temperatura)
+    if not medio2["ok"]:
+        return None, h, medio2["mensaje"]
+    err = abs(float(grande["P"]) - float(medio2["P"])) / (1.0 + abs(float(medio2["P"])))
+    if err > TAU_H:
+        return None, h, ""
+    h_nuevo = float(np.clip(h * math.sqrt(TAU_H / max(err, 1e-8)), h_min, h_max))
+    return medio2, h_nuevo, ""
 
 
 def marchar(vinicial=25.0, radius=radius1, pressure=overP1, wt=h2o1, temperature=T1,
@@ -565,7 +740,9 @@ def marchar(vinicial=25.0, radius=radius1, pressure=overP1, wt=h2o1, temperature
     estado = historia[-1]
     h = min(float(h0), float(h_max))
     mensaje = "boca"
-    for _ in range(8000):
+    z_frag = None
+    h_min_frag = min(float(h_min), 0.05)
+    for _ in range(20000):
         if estado["z"] >= z_tope - 0.5:
             mensaje = "boca"
             break
@@ -576,6 +753,29 @@ def marchar(vinicial=25.0, radius=radius1, pressure=overP1, wt=h2o1, temperature
         if ug_med > 0.92 * cs and float(np.mean(estado["phi"])) > 0.5:
             mensaje = "sonico"
             break
+        if estado.get("frag") or _seccion_fragmentada(estado):
+            if z_frag is None:
+                z_frag = float(estado["z"])
+            h_uso = min(h, z_tope - estado["z"])
+            nuevo, h_siguiente, corte = _frag_controlado(
+                estado, h_uso, h_min_frag, float(h_max), co, float(content_crystal), float(temperature)
+            )
+            if corte == "singular":
+                mensaje = "sonico" if max(ug_med, float(np.max(estado["ug"]))) > 0.5 * cs else "ahogado"
+                break
+            if nuevo is None:
+                if h_uso <= h_min_frag * 1.01:
+                    mensaje = "ahogado"
+                    break
+                h = max(h_uso * 0.5, h_min_frag)
+                continue
+            estado = nuevo
+            historia.append(estado)
+            if estado["mensaje"] in ("sonico", "presion atmosferica"):
+                mensaje = estado["mensaje"]
+                break
+            h = h_siguiente
+            continue
         h_uso = min(h, z_tope - estado["z"])
         nuevo, error_h, h_siguiente = _paso_controlado(
             estado, h_uso, float(h_min), float(h_max), co, float(content_crystal), float(temperature)
@@ -636,6 +836,7 @@ def marchar(vinicial=25.0, radius=radius1, pressure=overP1, wt=h2o1, temperature
         "dpdz_liquido": float(dpdz_liq),
         "z_sat": float(z_sat),
         "z_ad": float(z_ad),
+        "z_frag": float("nan") if z_frag is None else float(z_frag),
         "Ca": limites["Ca"],
         "fragcrit": limites["fragcrit"],
         "phicrit_ca": limites["phicrit_ca"],
