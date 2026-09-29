@@ -41,8 +41,10 @@ def columnas(sal, path, titulo):
     ejes[1].legend(frameon=False, fontsize=8)
 
     ejes[2].plot(sal["phi"][:, 0], z, color="C2")
+    ejes[2].set_xscale("linear")
     ejes[2].set_xlabel("φ en el eje")
     ejes[2].set_xlim(0.0, 1.0)
+    ejes[2].set_xticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0])
 
     ejes[3].plot(sal["xi"][:, 0], z, color="C4")
     ejes[3].set_xlabel("ξ en el eje")
