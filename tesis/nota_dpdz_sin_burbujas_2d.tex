@@ -657,4 +657,55 @@ la masa fija \(u_m\) y \(u_g\); \(N\) y \(\xi\) se congelan
 La cantidad \(\mathrm{d}v/\mathrm{d}z\cdot\mu/(0.01\times 10^{10})\) se
 guarda como diagnóstico. No es ninguno de los tres cortes.
 
+\section{El mismo capilar, evaluado sobre la parábola}
+
+En el 2D el estado de referencia sigue siendo uno solo: la presión en que
+Henry da \(\varphi=0.2\), con su \(n\), \(\mathrm{d}n/\mathrm{d}P\),
+\(\mathrm{d}\varphi/\mathrm{d}P\) y la pendiente de Poiseuille de ese
+estado. La velocidad media ahí es
+\begin{equation}
+\bar u
+=
+v_{\mathrm{in}}\frac{1-n}{1-\varphi},
+\end{equation}
+y \(\mathrm{d}\bar u/\mathrm{d}z\) es la derivada del 1D. El perfil es la
+parábola \(u=2\bar u\,(1-(r/R)^2)\), así que en cada radio
+\begin{equation}
+\left|\frac{\partial u}{\partial z}\right|
+=
+2\left|\frac{\mathrm{d}\bar u}{\mathrm{d}z}\right|
+\left(1-\frac{r^2}{R^2}\right),
+\qquad
+\left|\frac{\partial u}{\partial r}\right|
+=
+\frac{4\bar u\, r}{R^2}.
+\label{eq:tasas-r}
+\end{equation}
+La tasa que entra al capilar es el mismo promedio del 1D, ahora local:
+\begin{equation}
+\dot\varepsilon(r)
+=
+\frac12
+\left(
+\left|\frac{\partial u}{\partial z}\right|
++
+\left|\frac{\partial u}{\partial r}\right|
+\right),
+\qquad
+\mathrm{Ca}(r)
+=
+\frac{\dot\varepsilon(r)\,\mu(r)\,r_b}{0.3}.
+\label{eq:Ca-r}
+\end{equation}
+\(r_b\) usa el \(\varphi=0.2\) y la \(N_0\) de la base, así que no depende de
+\(r\). \(\mu(r)\) es la viscosidad del líquido al corte local. Las fórmulas
+\eqref{eq:phicrit}--\eqref{eq:lim2} se evalúan con \(\mathrm{Ca}(r)\), y
+salen \(\varphi_{\mathrm{crit}}(r)\), \(\varphi_1(r)\) y
+\(\varphi_2(r)=\varphi_1(r)+0.01\).
+
+En el eje el corte es cero y la extensión vale
+\(2|\mathrm{d}\bar u/\mathrm{d}z|\). En la pared la extensión es cero y el
+corte vale \(4\bar u/R\). Por eso los tres cortes cambian con el radio. Se
+calculan una vez por tiro y se comparan con el \(\varphi\) de cada nodo.
+
 \end{document}

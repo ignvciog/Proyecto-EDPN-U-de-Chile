@@ -150,16 +150,17 @@ def _gamma_n(p, phi, nd, mu, w4, radius, phicrit_reg):
     out = np.zeros(len(phi))
     rm = _rho_m(p)
     rg = _rho_g(p)
-    tope = float(phicrit_reg) - 1e-3
+    pc = np.asarray(phicrit_reg, dtype=float)
     for i in range(len(phi) - 1):
+        tope = float(pc[i]) - 1e-3
         if w4[i] > 0.5 or phi[i] < 1e-5 or phi[i] > tope:
             continue
-        phi_c = float(np.clip(phi[i], 1e-6, tope))
+        phi_c = float(np.clip(phi[i], 1e-6, max(tope, 1e-6)))
         nd_s = max(float(nd[i]), 1.0)
         rb = (phi_c / ((4.0 / 3.0) * math.pi * nd_s * max(1.0 - phi_c, 1e-6))) ** (1.0 / 3.0)
         if rb >= 0.5 * radius:
             continue
-        den = 1.0 - (F1 + F2) * ((3.0 * phi_c * (math.pi / (6.0 * phicrit_reg)) / (4.0 * math.pi)) ** (1.0 / 3.0))
+        den = 1.0 - (F1 + F2) * ((3.0 * phi_c * (math.pi / (6.0 * pc[i])) / (4.0 * math.pi)) ** (1.0 / 3.0))
         if abs(den) < 1e-8:
             continue
         out[i] = (
@@ -170,7 +171,7 @@ def _gamma_n(p, phi, nd, mu, w4, radius, phicrit_reg):
             * (F1 ** 2 - F2 ** 2)
             / den
             * Fc
-            * (1.0 - phi_c / phicrit_reg)
+            * (1.0 - phi_c / pc[i])
             * (radius - rb)
             / radius
             * (1.0 - float(w4[i]))
@@ -395,16 +396,13 @@ def _nd_entrada(dpdz, u_media, p, co):
     return 10.0 ** (1.5 * math.log10(max(dpdt, 1e-30)) + 5.0)
 
 
-def limites_regiones(vinicial, radius, p_in, rho, mu_in, co, xi, temperatura):
-    """Los cuatro cortes del 1D, evaluados una vez por tiro en un φ de referencia.
+def limites_regiones(r, vinicial, radius, p_in, rho, mu_in, co, xi, temperatura):
+    """Cortes del tiro, uno por radio, en el estado de referencia φ=0.2.
 
-    Se busca la presión en que Henry da φ=0.2. Con esa presión se arma el
-    número capilar Ca = |du/dz| μ r_b / 0.3 y
-        φ_crit = ((φ_sup-φ_inf)/2) erf(log10 Ca) + (φ_sup+φ_inf)/2,
-        φ_1    = ((φ_per,bajo-φ_per,alto)/2) erf(log10 Ca) + (φ_per,bajo+φ_per,alto)/2,
-        φ_2    = φ_1 + 0.01.
-    Ca chico deja la fragmentación en 0.525 y la permeabilidad en 0.40.
-    Ca grande las deja en 0.785 y 0.15. fragcrit es un diagnóstico, no un corte.
+    La media ū = v_in (1-n)/(1-φ) se reparte en la parábola. En cada radio
+    la extensión es ∂u/∂z y el corte es |∂u/∂r|. Ca usa el promedio de las
+    dos, como el 1D promedia du/dz con v_in/R. φ_crit(r), φ_1(r) y φ_2(r)
+    salen del mismo erf(log10 Ca).
     """
     pmax = (float(co) / C1) ** (1.0 / beta)
     pmin = float(pfinal)
@@ -433,28 +431,43 @@ def limites_regiones(vinicial, radius, p_in, rho, mu_in, co, xi, temperatura):
     dpdz2 = (-rho_t * (g + cg * mu_ref * float(vinicial) / (float(radius) ** 2 * rho_t))) / (
         1.0 - float(vinicial) ** 2 / c2
     )
-    dvdz = float(vinicial) * (
+    dudz = float(vinicial) * (
         -dfgdp * dpdz2 * (1.0 - phicalc) + (1.0 - ncalc) * dphidp * dpdz2
     ) / (1.0 - phicalc) ** 2
-    dvdz = 0.5 * (dvdz + float(vinicial) / float(radius))
     nd = _nd_entrada(
         _dpdz_liquido(rho, mu_in, vinicial, radius), vinicial, p_in, co
     )
     rb = (phicalc / ((4.0 / 3.0) * math.pi * nd * (1.0 - phicalc))) ** (1.0 / 3.0)
-    ca = abs(dvdz * mu_ref * rb / 0.3)
-    ca = max(ca, 1e-30)
-    erf = math.erf(math.log10(ca))
+    u_ref = float(vinicial) * (1.0 - ncalc) / (1.0 - phicalc)
+    radio = float(radius)
+    eta = np.asarray(r, dtype=float) / radio
+    extension = np.abs(2.0 * dudz * (1.0 - eta ** 2))
+    cizalle = 4.0 * u_ref * eta / radio
+    edot = 0.5 * (extension + cizalle)
+    mu_r = np.array([
+        _mu_liquido(
+            pcalc, xi, max(float(cizalle[i]), float(extension[i]), 1e-8), temperatura, co
+        )
+        for i in range(len(eta))
+    ])
+    ca = np.maximum(edot * mu_r * rb / 0.3, 1e-30)
+    erf = np.array([math.erf(math.log10(float(c))) for c in ca])
     phicrit_ca = ((lsup - linf) / 2.0) * erf + (lsup + linf) / 2.0
     limphi1 = ((limperl - limperh) / 2.0) * erf + (limperl + limperh) / 2.0
     return {
-        "Ca": float(ca),
-        "fragcrit": float(dvdz * mu_in / (0.01 * 1e10)),
-        "phicrit_ca": float(phicrit_ca),
-        "limphi1": float(limphi1),
-        "limphi2": float(limphi1 + 0.01),
+        "Ca": ca,
+        "edot": edot,
+        "extension": extension,
+        "cizalle": cizalle,
+        "fragcrit": float(0.5 * (dudz + float(vinicial) / radio) * mu_in / (0.01 * 1e10)),
+        "phicrit_ca": phicrit_ca,
+        "limphi1": limphi1,
+        "limphi2": limphi1 + 0.01,
         "Nd": float(nd),
         "P_ref": float(pcalc),
         "phi_ref": float(phicalc),
+        "u_ref": float(u_ref),
+        "rb": float(rb),
     }
 
 
@@ -543,7 +556,7 @@ def marchar(vinicial=25.0, radius=radius1, pressure=overP1, wt=h2o1, temperature
     rm0 = _rho_m(pi)
     xi = float(content_crystal)
     mu_in = _mu_liquido(pi, xi, float(vinicial) / float(radius), temperature, co)
-    limites = limites_regiones(vinicial, radius, pi, rm0, mu_in, co, xi, temperature)
+    limites = limites_regiones(r, vinicial, radius, pi, rm0, mu_in, co, xi, temperature)
     historia, dpdz_liq, z_sat, z_ad = _tramo_algebraico(
         r, dr, vinicial, radius, pi, rm0, co, xi, temperature, limites
     )

@@ -52,14 +52,18 @@ def test_la_recta_sin_burbujas_llega_hasta_el_metro_de_exsolucion():
 
 
 def test_los_limites_salen_del_numero_capilar():
+    r, _ = IIF._malla(8, 16.0)
     co, pi = IIF._configurar_fd(16.0, 5.0e6, 4.0, 1243.15, 0.25)
     rho = IIF._rho_m(pi)
     mu = IIF._mu_liquido(pi, 0.25, 18.0 / 16.0, 1243.15, co)
-    lim = IIF.limites_regiones(18.0, 16.0, pi, rho, mu, co, 0.25, 1243.15)
-    assert 0.525 < lim["phicrit_ca"] < 0.785
-    assert 0.15 < lim["limphi1"] < 0.40
-    assert abs(lim["limphi2"] - (lim["limphi1"] + 0.01)) < 1e-12
-    assert lim["Ca"] > 0.0
+    lim = IIF.limites_regiones(r, 18.0, 16.0, pi, rho, mu, co, 0.25, 1243.15)
+    assert np.all((0.525 < lim["phicrit_ca"]) & (lim["phicrit_ca"] < 0.785))
+    assert np.all((0.15 < lim["limphi1"]) & (lim["limphi1"] < 0.40))
+    assert np.allclose(lim["limphi2"], lim["limphi1"] + 0.01)
+    assert np.all(lim["Ca"] > 0.0)
+    assert lim["extension"][0] > lim["extension"][-1]
+    assert lim["cizalle"][-1] > lim["cizalle"][0]
+    assert not np.isclose(lim["Ca"][0], lim["Ca"][-1])
     assert lim["Nd"] > 0.0
     assert abs(lim["phi_ref"] - 0.2) < 0.002
 
