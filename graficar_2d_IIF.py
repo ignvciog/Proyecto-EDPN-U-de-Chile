@@ -58,6 +58,8 @@ def columnas(sal, path, titulo):
     for ax in ejes:
         ax.axhline(sal["z_sat"] / 1000.0, color="0.45", lw=0.7, label="saturación")
         ax.axhline(sal["z_ad"] / 1000.0, color="0.45", lw=0.7, ls="--", label="metro de exsolución")
+        if np.isfinite(sal["z_frag"]):
+            ax.axhline(sal["z_frag"] / 1000.0, color="0.15", lw=0.8, ls=":", label="fragmentación")
         ax.grid(True, which="both", alpha=0.3)
     ejes[0].legend(frameon=False, fontsize=7)
     ejes[0].set_ylabel("z [km]")
@@ -96,6 +98,37 @@ def tramo_final(sal, path, metros=20.0):
     ejes[0].set_ylabel("z [m]")
     fig.suptitle(
         f"Últimos {metros:.0f} m, v_in = {sal['vinicial']:.0f} m/s, {sal['mensaje']}"
+    )
+    fig.tight_layout()
+    fig.savefig(path, dpi=140)
+    plt.close(fig)
+
+
+def velocidades(sal, path):
+    """u_m y u_g en escala logarítmica: la columna y el tramo ya fragmentado."""
+    z = sal["z"] / 1000.0
+    zf = float(sal["z_frag"])
+    fig, ejes = plt.subplots(1, 2, figsize=(9.4, 6.0))
+    mascara = (
+        np.ones(len(z), dtype=bool),
+        sal["z"] >= zf - 40.0,
+    )
+    titulos = ("columna completa", "desde la fragmentación")
+    for ax, m, titulo in zip(ejes, mascara, titulos):
+        ax.plot(np.maximum(sal["um"][m, 0], 1e-3), z[m], color="C3", ls="--", label="u_m eje")
+        ax.plot(np.maximum(sal["ug"][m, 0], 1e-3), z[m], color="C6", ls="-.", label="u_g eje")
+        if np.isfinite(zf):
+            ax.axhline(zf / 1000.0, color="0.15", lw=0.8, ls=":", label="fragmentación")
+        _log_eje(ax, [10, 100, 1000])
+        ax.set_xlim(10, 2000)
+        ax.set_xlabel("u [m/s]")
+        ax.set_ylabel("z [km]")
+        ax.set_title(titulo)
+        ax.grid(True, which="both", alpha=0.3)
+        ax.legend(frameon=False, fontsize=8)
+    fig.suptitle(
+        f"v_in = {sal['vinicial']:.0f} m/s, {sal['mensaje']}, "
+        f"fragmenta en z = {zf:.0f} m"
     )
     fig.tight_layout()
     fig.savefig(path, dpi=140)
@@ -226,6 +259,7 @@ def main(destino="figuras"):
     # Ocho radios: es la malla de las pruebas. Con doce, φ llega al tope 0.97
     # y la presión del último paso se va a unas décimas de MPa.
     alto = IIF.marchar(23.0, n_r=8)
+    medio = IIF.marchar(18.0, n_r=8)
     bajo = IIF.marchar(10.0, n_r=8)
     columnas(
         alto,
@@ -237,6 +271,8 @@ def main(destino="figuras"):
         os.path.join(destino, "columnas-v10.png"),
         f"v_in = 10 m/s, {bajo['mensaje']}, P = {bajo['P'][-1] / 1e6:.2f} MPa",
     )
+    velocidades(medio, os.path.join(destino, "velocidad-v18-log.png"))
+    velocidades(bajo, os.path.join(destino, "velocidad-v10-log.png"))
     tramo_final(alto, os.path.join(destino, "cola-v23.png"))
     tramo_final(bajo, os.path.join(destino, "cola-v10.png"))
     fragmentacion(alto, os.path.join(destino, "fragmentacion-v23.png"))
