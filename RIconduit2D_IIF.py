@@ -644,7 +644,7 @@ def _velocidades_masa(q_r, phi, p, xi, temperatura):
     return um, ug
 
 
-def _paso_frag(estado, h, h_min, co, xi0, temperatura):
+def _paso_frag(estado, h, h_min, co, xi0, temperatura, cortar_en_el_eje=True):
     """Un paso ya fragmentado: las masas fijan las velocidades y el momento da dP/dz."""
     r = estado["r"]
     radio = float(r[-1])
@@ -674,7 +674,7 @@ def _paso_frag(estado, h, h_min, co, xi0, temperatura):
     flujo = _rho_m(p) * (1.0 - phi) * um + (max(p, 1e4) / (R * float(temperatura))) * phi * ug
     mensaje = ""
     cs = math.sqrt(R * float(temperatura))
-    if float(np.max(ug)) >= 0.98 * cs:
+    if cortar_en_el_eje and float(np.max(ug)) >= 0.98 * cs:
         mensaje = "sonico"
     elif p <= float(pfinal) * 1.05:
         mensaje = "presion atmosferica"
@@ -703,17 +703,17 @@ def _paso_frag(estado, h, h_min, co, xi0, temperatura):
     }
 
 
-def _frag_controlado(estado, h, h_min, h_max, co, xi0, temperatura):
+def _frag_controlado(estado, h, h_min, h_max, co, xi0, temperatura, cortar_en_el_eje=True):
     """Un paso fragmentado contra dos de h/2. El sónico y la atmósfera se aceptan."""
-    grande = _paso_frag(estado, h, h_min, co, xi0, temperatura)
+    grande = _paso_frag(estado, h, h_min, co, xi0, temperatura, cortar_en_el_eje)
     if not grande["ok"]:
         return None, h, grande["mensaje"]
     if grande["mensaje"] in ("sonico", "presion atmosferica") or h <= float(h_min) * 1.5:
         return grande, float(np.clip(h, h_min, h_max)), ""
-    medio = _paso_frag(estado, 0.5 * h, h_min, co, xi0, temperatura)
+    medio = _paso_frag(estado, 0.5 * h, h_min, co, xi0, temperatura, cortar_en_el_eje)
     if not medio["ok"]:
         return None, h, medio["mensaje"]
-    medio2 = _paso_frag(medio, 0.5 * h, h_min, co, xi0, temperatura)
+    medio2 = _paso_frag(medio, 0.5 * h, h_min, co, xi0, temperatura, cortar_en_el_eje)
     if not medio2["ok"]:
         return None, h, medio2["mensaje"]
     err = abs(float(grande["P"]) - float(medio2["P"])) / (1.0 + abs(float(medio2["P"])))
@@ -724,7 +724,8 @@ def _frag_controlado(estado, h, h_min, h_max, co, xi0, temperatura):
 
 
 def marchar(vinicial=25.0, radius=radius1, pressure=overP1, wt=h2o1, temperature=T1,
-            content_crystal=xi1, n_r=12, h0=40.0, h_min=1.0, h_max=80.0, z_tope=0.0):
+            content_crystal=xi1, n_r=12, h0=40.0, h_min=1.0, h_max=80.0, z_tope=0.0,
+            corte="eje"):
     """Recta sin burbujas, metro de exsolución, y desde ahí la marcha en diferencias finitas."""
     r, dr = _malla(n_r, radius)
     co, pi = _configurar_fd(radius, pressure, wt, temperature, content_crystal)
@@ -737,6 +738,9 @@ def marchar(vinicial=25.0, radius=radius1, pressure=overP1, wt=h2o1, temperature
     )
     q0 = float(historia[0]["Q_obj"])
     cs = math.sqrt(R * float(temperature))
+    vsound = 0.99 * cs
+    cortar_en_el_eje = corte != "media"
+    umbral_sonico = 0.92 * cs if cortar_en_el_eje else 0.95 * vsound
     estado = historia[-1]
     h = min(float(h0), float(h_max))
     mensaje = "boca"
@@ -746,21 +750,22 @@ def marchar(vinicial=25.0, radius=radius1, pressure=overP1, wt=h2o1, temperature
         if estado["z"] >= z_tope - 0.5:
             mensaje = "boca"
             break
-        if estado["P"] <= pfinal * 1.3:
+        if estado["P"] <= pfinal * (1.3 if cortar_en_el_eje else 1.05):
             mensaje = "presion atmosferica"
             break
         ug_med = float(np.trapezoid(estado["ug"] * 2.0 * math.pi * r, r) / (math.pi * float(radius) ** 2))
-        if ug_med > 0.92 * cs and float(np.mean(estado["phi"])) > 0.5:
+        if ug_med > umbral_sonico and float(np.mean(estado["phi"])) > 0.5:
             mensaje = "sonico"
             break
         if estado.get("frag") or _seccion_fragmentada(estado):
             if z_frag is None:
                 z_frag = float(estado["z"])
             h_uso = min(h, z_tope - estado["z"])
-            nuevo, h_siguiente, corte = _frag_controlado(
-                estado, h_uso, h_min_frag, float(h_max), co, float(content_crystal), float(temperature)
+            nuevo, h_siguiente, corte_paso = _frag_controlado(
+                estado, h_uso, h_min_frag, float(h_max), co, float(content_crystal), float(temperature),
+                cortar_en_el_eje,
             )
-            if corte == "singular":
+            if corte_paso == "singular":
                 mensaje = "sonico" if max(ug_med, float(np.max(estado["ug"]))) > 0.5 * cs else "ahogado"
                 break
             if nuevo is None:
@@ -843,6 +848,105 @@ def marchar(vinicial=25.0, radius=radius1, pressure=overP1, wt=h2o1, temperature
         "limphi1": limites["limphi1"],
         "limphi2": limites["limphi2"],
         "Nd": limites["Nd"],
+    }
+
+
+def _cierre_tiro_1d(sal, vsound):
+    """Las dos bocas del tiro 1D, evaluadas con la velocidad media de la sección."""
+    ug = float(sal["ug_media"][-1])
+    pexit = float(sal["P"][-1])
+    zexit = float(sal["z"][-1])
+    phiexit = float(_promedio_area(sal["r"], sal["phi"][-1]))
+    phicrit_sec = float(_promedio_area(sal["r"], sal["phicrit_ca"]))
+    sonico = (
+        zexit >= -5.0
+        and pexit >= float(pfinal)
+        and ug > 0.95 * vsound
+        and ug <= 1.05 * vsound
+    )
+    atmosferica = (
+        zexit >= -5.0
+        and (float(pfinal) - 0.05e5) < pexit < (float(pfinal) + 0.05e5)
+        and phiexit >= phicrit_sec
+    )
+    relajada = zexit >= -15.0 and abs(pexit - float(pfinal)) < 1.5e5 and ug > 0.5
+    if sonico:
+        criterio = "sonico"
+    elif atmosferica:
+        criterio = "atmosfera"
+    elif relajada:
+        criterio = "relajada"
+    else:
+        criterio = ""
+    return ug, pexit, zexit, criterio
+
+
+def tirar_como_1d(n_r=8, temperature=T1, **kwargs):
+    """Tiro con la partida y el cierre del 1D.
+
+    Parte en 10 m/s, con el intervalo [0.1, 50]. Acepta la marcha cuya
+    velocidad media de gas cae en la ventana sónica del 1D cerca de la boca,
+    o cuya presión cae en la ventana atmosférica. El corte del eje no entra
+    en esa decisión: la velocidad que se compara es el promedio de la sección.
+    """
+    vsound = 0.99 * math.sqrt(R * float(temperature))
+    vinicial = 10.0
+    vmin, vmax = 0.1, 50.0
+    count = 1
+    pasos = []
+    previo_v = previo_p = None
+    sal = None
+    criterio = ""
+    while count < 60:
+        v_shot = float(vinicial)
+        sal = marchar(v_shot, n_r=n_r, temperature=temperature, corte="media", **kwargs)
+        ug, pexit, zexit, criterio = _cierre_tiro_1d(sal, vsound)
+        count += 1
+        pasos.append({
+            "paso": count - 1,
+            "v": v_shot,
+            "z": zexit,
+            "P": pexit,
+            "ug": ug,
+            "um": float(sal["um_media"][-1]),
+            "mensaje": sal["mensaje"],
+            "criterio": criterio,
+        })
+        if criterio:
+            break
+        if count > 20 and previo_v is not None and previo_p is not None:
+            f0 = previo_p - float(pfinal)
+            f1 = pexit - float(pfinal)
+            if abs(f1 - f0) > 1e2:
+                v_sec = v_shot - f1 * (v_shot - previo_v) / (f1 - f0)
+                if np.isfinite(v_sec):
+                    v_sec = float(np.clip(v_sec, vmin + 1e-4, vmax - 1e-4))
+                    if vmin < v_sec < vmax:
+                        vinicial = v_sec
+        if pexit < float(pfinal):
+            vmax = v_shot
+            if vinicial == v_shot:
+                vinicial = vmin + (vmax - vmin) / 2.0
+        elif zexit < -5.0 or ug > 1.02 * vsound:
+            vmax = v_shot
+            if vinicial == v_shot:
+                vinicial = vmin + (vmax - vmin) / 2.0
+        elif ug <= 0.98 * vsound:
+            vmin = v_shot
+            if vinicial == v_shot:
+                vinicial = vmin + (vmax - vmin) / 2.0
+        previo_v, previo_p = v_shot, pexit
+        if vmax - vmin < 1e-4:
+            break
+    return {
+        "solucion": sal,
+        "pasos": pasos,
+        "n_pasos": len(pasos),
+        "convergido": bool(criterio),
+        "criterio": criterio,
+        "vsound": float(vsound),
+        "vmin": float(vmin),
+        "vmax": float(vmax),
     }
 
 

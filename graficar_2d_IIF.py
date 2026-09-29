@@ -135,6 +135,61 @@ def velocidades(sal, path):
     plt.close(fig)
 
 
+def solucion_tiro_1d(tiro, path):
+    """Columna aceptada por el cierre del 1D, con u en escala logarítmica."""
+    sal = tiro["solucion"]
+    z = sal["z"] / 1000.0
+    fig, ejes = plt.subplots(1, 4, figsize=(13.6, 6.2))
+    ejes[0].plot(sal["P"] / 1e6, z, color="C0")
+    ejes[0].set_xlabel("P [MPa]")
+    ejes[0].set_xlim(0.5, 300)
+    _log_eje(ejes[0], [1, 10, 100])
+
+    series = (
+        (sal["um_media"], "C3", "--", "u_m media"),
+        (sal["ug_media"], "C6", "-.", "u_g media"),
+        (sal["um"][:, 0], "C3", "-", "u_m eje"),
+        (sal["ug"][:, 0], "C6", "-", "u_g eje"),
+        (sal["um"][:, -2], "C5", ":", "u_m junto al borde"),
+        (sal["ug"][:, -2], "C5", "--", "u_g junto al borde"),
+    )
+    for curva, color, estilo, nombre in series:
+        ejes[1].plot(np.maximum(curva, 1e-3), z, color=color, ls=estilo, label=nombre)
+    ejes[1].set_xlabel("u [m/s]")
+    ejes[1].set_xlim(10, 2000)
+    _log_eje(ejes[1], [10, 100, 1000])
+    ejes[1].legend(frameon=False, fontsize=7)
+
+    ejes[2].plot(sal["phi"][:, 0], z, color="C2")
+    ejes[2].set_xscale("linear")
+    ejes[2].set_xlim(0.0, 1.0)
+    ejes[2].set_xticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0])
+    ejes[2].set_xlabel("φ")
+
+    for paso in tiro["pasos"]:
+        ejes[3].plot(paso["v"], paso["paso"], "o", color="C0" if paso["criterio"] else "0.45")
+    aceptado = tiro["pasos"][-1]
+    ejes[3].plot(aceptado["v"], aceptado["paso"], "o", color="C3", ms=8)
+    ejes[3].set_xlabel("v_in [m/s]")
+    ejes[3].set_ylabel("paso del tiro")
+    ejes[3].invert_yaxis()
+
+    for ax in ejes[:3]:
+        if np.isfinite(sal["z_frag"]):
+            ax.axhline(sal["z_frag"] / 1000.0, color="0.15", lw=0.8, ls=":")
+        ax.set_ylabel("z [km]")
+        ax.grid(True, which="both", alpha=0.3)
+    ejes[3].grid(True, alpha=0.3)
+    fig.suptitle(
+        f"Tiro con el cierre del 1D, paso {tiro['n_pasos']}, "
+        f"v_in = {sal['vinicial']:.3f} m/s, {tiro['criterio']}"
+    )
+    fig.tight_layout()
+    if path is not None:
+        fig.savefig(path, dpi=140)
+        plt.close(fig)
+
+
 def altura_fragmentacion(sal):
     """Primera altura en que φ del nodo alcanza el φ_crit de su radio."""
     z = sal["z"]

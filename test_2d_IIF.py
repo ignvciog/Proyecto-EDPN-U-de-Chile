@@ -75,6 +75,26 @@ def test_dieciocho_sigue_despues_de_fragmentar_y_se_pone_sonico():
     assert rel < 1e-6
 
 
+def test_el_tiro_con_el_cierre_del_1d_cae_en_la_ventana_sonica():
+    import math
+    from calbuco2015d import R, T1, Patm
+
+    tiro = IIF.tirar_como_1d(n_r=8)
+    assert tiro["convergido"]
+    assert tiro["criterio"] == "sonico"
+    assert tiro["n_pasos"] < 60
+    sal = tiro["solucion"]
+    vsound = 0.99 * math.sqrt(R * T1)
+    ug = sal["ug_media"][-1]
+    assert sal["z"][-1] >= -5.0
+    assert sal["P"][-1] >= Patm
+    assert 0.95 * vsound < ug <= 1.05 * vsound
+    assert sal["ug_media"][-1] / sal["um_media"][-1] > 2.5
+    assert sal["ug"][-1, 0] / sal["um"][-1, 0] > 2.5
+    assert np.max(np.abs(sal["um"][:, -1])) == 0.0
+    assert np.max(np.abs(sal["ug"][:, -1])) == 0.0
+
+
 def test_un_caudal_menor_llega_a_la_boca():
     sal = IIF.marchar(10.0, n_r=8)
     assert sal["mensaje"] == "boca"
