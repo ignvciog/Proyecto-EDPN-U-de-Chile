@@ -135,6 +135,37 @@ def velocidades(sal, path):
     plt.close(fig)
 
 
+def velocidad_liquido_gas(sal, path):
+    """Las dos velocidades como en el gráfico 1D: columna y los últimos metros."""
+    z = sal["z"]
+    fig, ejes = plt.subplots(1, 2, figsize=(8.6, 6.4), sharex=True)
+    ventanas = (
+        (np.ones(len(z), dtype=bool), "columna completa"),
+        (z >= -8.0, "últimos 8 m"),
+    )
+    for ax, (m, titulo) in zip(ejes, ventanas):
+        ax.plot(np.maximum(sal["um_media"][m], 1e-3), z[m], color="C0", lw=1.8, label="líquido")
+        ax.plot(
+            np.maximum(sal["ug_media"][m], 1e-3), z[m],
+            color="C1", lw=1.8, ls="--", label="gas",
+        )
+        if np.isfinite(sal["z_frag"]):
+            ax.axhline(sal["z_frag"], color="0.35", lw=0.8, ls=":", label="fragmentación")
+        _log_eje(ax, [10, 100, 1000])
+        ax.set_xlim(10, 2000)
+        ax.set_xlabel("velocidad [m/s]")
+        ax.set_ylabel("profundidad [m]")
+        ax.set_title(titulo)
+        ax.grid(True, which="both", alpha=0.3)
+        ax.legend(frameon=False, fontsize=8)
+    fig.suptitle(
+        f"Media de la sección, v_in = {sal['vinicial']:.3f} m/s, {sal['mensaje']}"
+    )
+    fig.tight_layout()
+    fig.savefig(path, dpi=140)
+    plt.close(fig)
+
+
 def solucion_tiro_1d(tiro, path):
     """Columna aceptada por el cierre del 1D, con u en escala logarítmica."""
     sal = tiro["solucion"]
