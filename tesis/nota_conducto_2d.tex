@@ -674,6 +674,90 @@ promediar en $r$, imponer $\varphi=\varphi(z)$, $N=N(z)$,
 $\xi=\xi(z)$ y reemplazar el laplaciano radial por
 $F_{mw}=c_g\mu u_m/R^2$.
 
+\section{Diferencias finitas con las dos componentes radiales}
+\label{sec:ur}
+
+Se discretizan las seis ecuaciones de la sección anterior sin
+anular $u_{m,r}$ ni $u_{g,r}$ y sin promediar la sección. En cada
+paso de altura $h$ las derivadas en $z$ van hacia atrás. $P$,
+$\varphi$, $u_m$ y $u_g$ viven en los nodos $r_i=i\Delta r$. Las dos
+velocidades radiales viven en las caras $r_{i+1/2}$, con
+$u_{m,r}=u_{g,r}=0$ en el eje y en la pared. Así el momento radial
+ve la presión como $(P_{i+1}-P_i)/\Delta r$ y la masa ve el flujo
+radial sin promediarlo.
+
+En una cara, el momento radial del fundido es
+\begin{equation}
+\label{eq:mom-r-fd}
+\begin{aligned}
+\rho_m(1-\varphi_f)
+\Biggl(
+u_{m,f}\frac{u_{m,r}-u_{m,r}^{-}}{h}
++u_{m,r}\frac{\p u_{m,r}}{\p r}
+\Biggr)
+&=
+-(1-\varphi_f)\frac{P_{i+1}-P_i}{\Delta r}
++F_{mg,r}
+\\
+&\quad
++\frac{1}{r}\frac{\p}{\p r}\Biggl[
+r\,\mu(1-\varphi_f)\frac{\p u_{m,r}}{\p r}
+\Biggr]
+-\mu(1-\varphi_f)\frac{u_{m,r}}{r^2},
+\end{aligned}
+\end{equation}
+y el del gas es la misma forma con $\rho_g$, $\varphi_f$, $\mu_g$ y
+$-F_{mg,r}$. El subíndice $f$ es el promedio de los dos nodos de la
+cara, y $u^{-}$ es el valor en el paso anterior. $F_{mg,r}$ usa el
+mismo coeficiente que $F_{mg}$ en $z$, con el resbalamiento radial.
+La viscosidad y ese coeficiente se actualizan en un lazo exterior;
+dentro del lazo el sistema de diferencias se resuelve con
+mínimos cuadrados.
+
+Mientras Henry no suelta agua, $\varphi=0$ y solo entra el fundido.
+La parábola de entrada $u_m=2\bar u(1-r^2/R^2)$, con
+$\bar u=16{,}133\,\mathrm{m/s}$ y la viscosidad de Giordano
+$\mu=4{,}55\times 10^3\,\mathrm{Pa\,s}$, es solución de esas
+diferencias: en $r_i=0,\,2{,}67,\ldots,16\,\mathrm{m}$,
+\begin{equation}
+\frac{\p P}{\p z}
+=
+-\rho_m g-\frac{8\mu\bar u}{R^2}
+=
+-2{,}646\times 10^4\,\mathrm{Pa/m},
+\end{equation}
+$u_{m,r}$ queda por debajo de $10^{-15}\,\mathrm{m/s}$ y el caudal
+de masa no se mueve en los primeros $3{,}3\,\mathrm{km}$. La
+saturación llega cerca de $z=-3640\,\mathrm{m}$, con
+$P\approx 94{,}7\,\mathrm{MPa}$.
+
+A partir de ahí entran las dos fases. El arrastre de Stokes deja el
+resbalamiento en unos $10^{-9}\,\mathrm{m/s}$: $u_g$ y $u_m$ siguen
+juntos, y $u_{g,r}$ sigue a $u_{m,r}$. Hasta $z=-3586\,\mathrm{m}$
+el máximo de $|u_r|$ se queda bajo $2\times 10^{-4}\,\mathrm{m/s}$,
+$\varphi$ en el eje es $3{,}6\times 10^{-3}$ y el caudal de masa
+baja cerca de un tres por mil. La componente radial está resuelta;
+en este tramo no hace falta, porque $\varphi$ todavía es casi plano
+y el fundido no tiene de dónde sacar un $\partial P/\partial r$.
+
+El paso deja de aceptarse cerca de $z=-3571\,\mathrm{m}$. Ahí
+$\varphi\sim 5\times 10^{-3}$ y un modo radial alternado entre caras
+vecinas crece hasta unos $4\,\mathrm{cm/s}$. El residuo del paso
+supera la tolerancia y la marcha se detiene. No es el corte sónico
+del modelo con $q(r)$ congelado: $u_g$ sigue en $32\,\mathrm{m/s}$,
+lejos de $c_s=757\,\mathrm{m/s}$. Es el modo de malla del momento
+radial, con $\mu$ de pocos miles de pascales y $\Delta r=2{,}7\,\mathrm{m}$.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=\textwidth]{figuras_variantes/ur_fd.png}
+\caption{Marcha en diferencias finitas con las dos componentes
+radiales. Hasta la saturación $u_r=0$ y $P$ es la de Poiseuille.
+Después las dos fases siguen trabadas y $|u_r|$ permanece
+despreciable mientras $\varphi$ es casi uniforme.}
+\label{fig:ur-fd}
+\end{figure}
+
 \section{Conducto tridimensional}
 \label{sec:3d}
 
