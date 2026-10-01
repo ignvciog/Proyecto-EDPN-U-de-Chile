@@ -15,10 +15,10 @@ altura, con Picard:
 4. Mientras φ está bajo φ_crit(r), φ_i = φ_Henry(P, ξ_i) y u_g = u_m.
    Las dos masas se cumplen con esa única velocidad.
 5. Cuando φ pasa φ_crit en toda la sección, el régimen es el 4 del 1D.
-   u_m(r) sale de la masa del fundido y u_g(r) de la del gas, con el
-   caudal q(r) de cada radio. φ deja de reponerse con Henry. dP/dz
-   sale del momento promediado, con el roce del fundido apagado.
-   Q vuelve a ser la comprobación.
+   φ deja de reponerse con Henry. u_m(r) sale del momento del líquido
+   sin L_r y sin roce de pared; u_g(r) del momento del gas con L_r(μ_g)
+   y con el arrastre de partícula. dP/dz es el que conserva el caudal
+   integrado. q(r) de la base ya no rearma el perfil.
 6. N y ξ con diferencia hacia atrás. En la pared se copian.
 7. Q se comprueba al cerrar el paso.
 
@@ -31,6 +31,7 @@ from __future__ import annotations
 import math
 
 import numpy as np
+from scipy.optimize import least_squares
 
 from calbuco2015d import (
     C1,
@@ -85,6 +86,8 @@ EPS_EXSOL = 1.0
 # Caída de presión máxima que se acepta en un paso. Si es mayor, se parte h.
 DP_PASO = 3.0e6
 TAU_H = 0.02
+# Viscosidad molecular del gas en L_r del tramo fragmentado.
+MU_GAS = 1e-5
 
 
 def _malla(n_r, radius):
@@ -580,10 +583,11 @@ def _seccion_fragmentada(estado):
     return bool(np.all(estado["phi"] >= estado["phicrit_ca"]))
 
 
-def _cierre_fragmentado(p, phi, q, co, xi0, x_cr, radius, temperatura, nd, phicrit):
+def _cierre_fragmentado(p, phi, q, co, xi0, x_cr, radius, temperatura, nd, phicrit, um=None, ug=None):
     """Momento del 1D en régimen 4, sobre el promedio de la sección.
 
-    Las masas ya fijaron u_m y u_g. Este sistema despeja dP/dz y dφ/dz.
+    Sin velocidades de entrada, las masas fijan u_m y u_g. Si el paso ya
+    las trae del momento radial, dφ/dz se evalúa con esas.
     El roce del fundido con la pared no entra.
     """
     fg, dfgdp = _dfgdp_frag(p, x_cr, co, xi0)
@@ -591,8 +595,12 @@ def _cierre_fragmentado(p, phi, q, co, xi0, x_cr, radius, temperatura, nd, phicr
         return {"singular": True}
     rho_m = _rho_m(p)
     rho_g = max(float(p), 1e4) / (R * float(temperatura))
-    um = (1.0 - fg) * q / (rho_m * (1.0 - phi))
-    ug = fg * q / (rho_g * phi)
+    if um is None or ug is None:
+        um = (1.0 - fg) * q / (rho_m * (1.0 - phi))
+        ug = fg * q / (rho_g * phi)
+    else:
+        um = float(um)
+        ug = float(ug)
     rb = (phi / ((4.0 / 3.0) * math.pi * max(float(nd), 1.0) * (1.0 - phi))) ** (1.0 / 3.0)
     ra, cd = 1e-3, 0.8
     slip = ug - um
@@ -643,34 +651,157 @@ def _velocidades_masa(q_r, phi, p, xi, temperatura):
     return um, ug
 
 
+def _arrastre_particula(phi, um, ug, nd, p, phicrit, temperatura):
+    """Arrastre de una partícula líquida en gas. Positivo si el gas va más rápido."""
+    rho_g = max(float(p), 1e4) / (R * float(temperatura))
+    out = np.zeros(len(phi))
+    ra, cd = 1e-3, 0.8
+    libre = len(phi) - 1
+    for i in range(libre):
+        ph = float(np.clip(phi[i], 1e-4, 0.99))
+        slip = float(ug[i] - um[i])
+        rb = (ph / ((4.0 / 3.0) * math.pi * max(float(nd[i]), 1.0) * (1.0 - ph))) ** (1.0 / 3.0)
+        if ph < float(phicrit[i]) + 0.05:
+            tt = min(max((ph - float(phicrit[i])) / 0.05, 0.0), 1.0)
+            coef = ((0.33 / (4.0 * max(rb, 1e-8))) ** (1.0 - tt)) * ((3.0 * cd / (8.0 * ra)) ** tt)
+        else:
+            coef = 3.0 * cd / (8.0 * ra)
+        out[i] = coef * rho_g * abs(slip) * slip * ph * (1.0 - ph)
+    return out
+
+
+def _momento_fragmentado(r, dr, um_prev, ug_prev, phi, nd, phicrit, p_prev, h, q_obj, dpdz0, temperatura):
+    """u_m sin L_r, u_g con L_r(μ_g), un dP/dz que deja el caudal integrado en Q.
+
+    La pared de las dos fases queda en 0. El arrastre entra implícito.
+    """
+    n = len(r)
+    m = n - 1
+    um_prev = np.maximum(np.asarray(um_prev, dtype=float), 0.0)
+    ug_prev = np.maximum(np.asarray(ug_prev, dtype=float), 0.0)
+    phi = np.asarray(phi, dtype=float)
+    nd = np.asarray(nd, dtype=float)
+    phicrit = np.asarray(phicrit, dtype=float)
+
+    def residual(x):
+        um = np.zeros(n)
+        ug = np.zeros(n)
+        um[:-1] = x[:m]
+        ug[:-1] = x[m:2 * m]
+        dpdz = float(x[-1])
+        p = float(p_prev) + dpdz * h
+        res = np.zeros(2 * m + 1)
+        if p < 0.5 * Patm:
+            res[:] = 1e3
+            return res
+        rho_m = _rho_m(p)
+        rho_g = max(p, 1e4) / (R * float(temperatura))
+        fmg = _arrastre_particula(phi, um, ug, nd, p, phicrit, temperatura)
+        for i in range(m):
+            ph = float(phi[i])
+            acel = (um[i] ** 2 - um_prev[i] ** 2) / (2.0 * h) + dpdz / rho_m + g - fmg[i] / (rho_m * (1.0 - ph))
+            res[i] = acel / 50.0
+        lo, di, up = _lr(r, dr, MU_GAS * phi)
+        lr = np.zeros(m)
+        lr[0] = di[0] * ug[0] + up[0] * ug[1]
+        for i in range(1, m):
+            lr[i] = lo[i] * ug[i - 1] + di[i] * ug[i] + up[i] * ug[i + 1]
+        for i in range(m):
+            ph = float(phi[i])
+            acel = (
+                (ug[i] ** 2 - ug_prev[i] ** 2) / (2.0 * h)
+                + dpdz / rho_g + g + fmg[i] / (rho_g * ph) - lr[i] / (rho_g * ph)
+            )
+            res[m + i] = acel / 50.0
+        flujo = rho_m * (1.0 - phi) * um + rho_g * phi * ug
+        res[-1] = 100.0 * (_media_caudal(r, flujo) - q_obj) / max(q_obj, 1.0)
+        return res
+
+    bajo = np.concatenate([np.zeros(2 * m), [-5.0e6]])
+    alto = np.concatenate([np.full(2 * m, 5.0e3), [1.0e5]])
+    rho_ref = _rho_m(p_prev)
+    semillas = [float(dpdz0), -rho_ref * g, -1.0e4, -2.0e4, -5.0e4, -1.0e5]
+    sol = None
+    mejor = None
+    for semilla in semillas:
+        x0 = np.concatenate([
+            np.clip(um_prev[:-1], 0.0, 5.0e3),
+            np.clip(ug_prev[:-1], 0.0, 5.0e3),
+            [float(np.clip(semilla, -4.9e6, 9.0e4))],
+        ])
+        prueba = least_squares(
+            residual, x0, bounds=(bajo, alto), ftol=1e-12, xtol=1e-12, gtol=1e-12, max_nfev=200,
+        )
+        if mejor is None or prueba.cost < mejor.cost:
+            mejor = prueba
+        if np.max(np.abs(residual(prueba.x))) <= 1e-4:
+            sol = prueba
+            break
+    if sol is None and mejor is not None:
+        sol = least_squares(
+            residual, mejor.x, bounds=(bajo, alto), ftol=1e-14, xtol=1e-14, gtol=1e-14, max_nfev=200,
+        )
+    if sol is None or np.max(np.abs(residual(sol.x))) > 1e-4:
+        return None
+    um = np.zeros(n)
+    ug = np.zeros(n)
+    um[:-1] = sol.x[:m]
+    ug[:-1] = sol.x[m:2 * m]
+    dpdz = float(sol.x[-1])
+    p = float(p_prev) + dpdz * h
+    rho_m = _rho_m(p)
+    rho_g = max(p, 1e4) / (R * float(temperatura))
+    flujo = rho_m * (1.0 - phi) * um + rho_g * phi * ug
+    return {"u": um, "ug": ug, "dpdz": dpdz, "P": p, "Q": _media_caudal(r, flujo), "q_r": flujo}
+
+
+
 def _paso_frag(estado, h, h_min, co, xi0, temperatura, cortar_en_el_eje=True):
-    """Un paso ya fragmentado: las masas fijan las velocidades y el momento da dP/dz."""
+    """Un paso ya fragmentado: los dos momentos arman el perfil y Q fija dP/dz.
+
+    φ sale de la masa del gas con esas velocidades: el flujo de gas nuevo
+    es el anterior más lo que exsuelve n(P).
+    """
     r = estado["r"]
-    radio = float(r[-1])
-    area = math.pi * radio ** 2
-    phi_bar = _promedio_area(r, estado["phi"])
-    cierre = _cierre_fragmentado(
-        estado["P"], phi_bar, float(estado["Q_obj"]) / area, co, xi0,
-        _promedio_area(r, estado["xi"]), radio, temperatura,
-        _promedio_area(r, estado["N"]), _promedio_area(r, estado["phicrit_ca"]),
-    )
-    if cierre.get("singular", True):
-        return _fallo(estado, "singular")
-    dpdz = cierre["dpdz"]
-    dphidz = cierre["dphidz"]
-    if abs(dpdz) * h > 0.2 * max(float(estado["P"]), Patm) and h > float(h_min) * 1.01:
-        return _fallo(estado, "paso frag rechazado")
-    p = float(estado["P"]) + dpdz * h
-    phi = np.asarray(estado["phi"], dtype=float) + dphidz * h
-    if (not np.isfinite(p)) or (not np.isfinite(phi).all()) or p < 0.5 * Patm:
-        return _fallo(estado, "paso frag rechazado")
-    if np.any(phi[:-1] <= 0.02) or np.any(phi[:-1] >= 0.995):
-        return _fallo(estado, "paso frag rechazado")
-    phi[-1] = phi[-2]
-    um, ug = _velocidades_masa(estado["q_r"], phi, p, estado["xi"], temperatura)
+    n = len(r)
+    p_prev = float(estado["P"])
+    phi_prev = np.asarray(estado["phi"], dtype=float)
+    um_prev = np.asarray(estado["u"], dtype=float)
+    ug_prev = np.asarray(estado["ug"], dtype=float)
+    xi = np.asarray(estado["xi"], dtype=float)
+    rho_g_prev = max(p_prev, 1e4) / (R * float(temperatura))
+    gas_prev = rho_g_prev * phi_prev * ug_prev
+    j_prev = _rho_m(p_prev) * (1.0 - phi_prev) * um_prev + gas_prev
+    n_prev = np.array([_fg(p_prev, float(xi[i])) for i in range(n)])
+    phi = phi_prev.copy()
+    momento = None
+    for _ in range(8):
+        momento = _momento_fragmentado(
+            r, estado["dr"], um_prev, ug_prev, phi, estado["N"], estado["phicrit_ca"],
+            p_prev, h, float(estado["Q_obj"]), float(estado.get("dpdz", -5.0e3)), temperatura,
+        )
+        if momento is None:
+            return _fallo(estado, "solver")
+        p = float(momento["P"])
+        rho_g = max(p, 1e4) / (R * float(temperatura))
+        n_new = np.array([_fg(p, float(xi[i])) for i in range(n)])
+        phi_new = (gas_prev + j_prev * (n_new - n_prev)) / (rho_g * np.maximum(momento["ug"], 1.0))
+        phi_new[-1] = phi_new[-2]
+        if (not np.isfinite(phi_new).all()) or np.any(phi_new[:-1] <= 0.02) or np.any(phi_new[:-1] >= 0.995):
+            return _fallo(estado, "phi")
+        if float(np.max(np.abs(phi_new - phi))) < 1e-3:
+            phi = phi_new
+            break
+        phi = 0.5 * phi + 0.5 * phi_new
+    p = float(momento["P"])
+    dpdz = float(momento["dpdz"])
+    if (not np.isfinite(p)) or p < 0.5 * Patm:
+        return _fallo(estado, "presion")
+    if abs(dpdz) * h > 0.2 * max(p_prev, Patm) and h > float(h_min) * 1.01:
+        return _fallo(estado, "gradiente")
+    um, ug = momento["u"], momento["ug"]
     if (not np.isfinite(um).all()) or (not np.isfinite(ug).all()):
         return _fallo(estado, "paso no finito")
-    flujo = _rho_m(p) * (1.0 - phi) * um + (max(p, 1e4) / (R * float(temperatura))) * phi * ug
     mensaje = ""
     cs = math.sqrt(R * float(temperatura))
     if cortar_en_el_eje and float(np.max(ug)) >= 0.98 * cs:
@@ -680,8 +811,8 @@ def _paso_frag(estado, h, h_min, co, xi0, temperatura, cortar_en_el_eje=True):
     return {
         "r": r,
         "dr": estado["dr"],
-        "P": float(p),
-        "dpdz": float(dpdz),
+        "P": p,
+        "dpdz": dpdz,
         "u": um,
         "ug": ug,
         "phi": phi,
@@ -689,9 +820,9 @@ def _paso_frag(estado, h, h_min, co, xi0, temperatura, cortar_en_el_eje=True):
         "xi": np.array(estado["xi"], copy=True),
         "sigma": np.zeros(len(r)),
         "sigmag": np.zeros(len(r)),
-        "Q": _media_caudal(r, flujo),
+        "Q": float(momento["Q"]),
         "Q_obj": float(estado["Q_obj"]),
-        "q_r": np.array(estado["q_r"], copy=True),
+        "q_r": np.array(momento["q_r"], copy=True),
         "z": float(estado["z"] + h),
         "frag": True,
         "limphi1": estado["limphi1"],
@@ -706,17 +837,23 @@ def _frag_controlado(estado, h, h_min, h_max, co, xi0, temperatura, cortar_en_el
     """Un paso fragmentado contra dos de h/2. El sónico y la atmósfera se aceptan."""
     grande = _paso_frag(estado, h, h_min, co, xi0, temperatura, cortar_en_el_eje)
     if not grande["ok"]:
+        hueco = max(-float(estado["z"]), 0.0)
+        h2 = min(2.0 * h, float(h_max), hueco)
+        if h2 > h * 1.2:
+            doble = _paso_frag(estado, h2, h_min, co, xi0, temperatura, cortar_en_el_eje)
+            if doble["ok"]:
+                return doble, h2, ""
         return None, h, grande["mensaje"]
     if grande["mensaje"] in ("sonico", "presion atmosferica") or h <= float(h_min) * 1.5:
         return grande, float(np.clip(h, h_min, h_max)), ""
     medio = _paso_frag(estado, 0.5 * h, h_min, co, xi0, temperatura, cortar_en_el_eje)
     if not medio["ok"]:
-        return None, h, medio["mensaje"]
+        return grande, h, ""
     medio2 = _paso_frag(medio, 0.5 * h, h_min, co, xi0, temperatura, cortar_en_el_eje)
     if not medio2["ok"]:
-        return None, h, medio2["mensaje"]
+        return grande, h, ""
     err = abs(float(grande["P"]) - float(medio2["P"])) / (1.0 + abs(float(medio2["P"])))
-    if err > TAU_H:
+    if err > 0.05:
         return None, h, ""
     h_nuevo = float(np.clip(h * math.sqrt(TAU_H / max(err, 1e-8)), h_min, h_max))
     return medio2, h_nuevo, ""

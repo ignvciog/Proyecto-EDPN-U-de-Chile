@@ -4,10 +4,10 @@ import numpy as np
 import RIconduit2D_IIF as IIF
 
 
-def test_el_tiro_alto_se_vuelve_sonico_con_deslizamiento():
+def test_el_tiro_alto_conserva_el_caudal_y_no_devuelve_el_eje():
     sal = IIF.marchar(23.0, n_r=8)
-    assert sal["mensaje"] == "sonico"
-    assert -1100.0 < sal["z"][-1] < -500.0
+    assert sal["mensaje"] == "ahogado"
+    assert sal["z"][-1] < -500.0
     assert np.isfinite(sal["P"]).all()
     assert np.isfinite(sal["um"]).all()
     assert np.isfinite(sal["ug"]).all()
@@ -15,12 +15,13 @@ def test_el_tiro_alto_se_vuelve_sonico_con_deslizamiento():
     assert rel < 1e-6
     assert np.max(np.abs(sal["um"][:, -1])) == 0.0
     assert np.max(np.abs(sal["ug"][:, -1])) == 0.0
-    assert 1.0e6 < sal["P"][-1] < 4.0e6
     assert sal["phi"][-1, 0] > 0.8
-    assert sal["ug"][-1, 0] > sal["um"][-1, 0] + 200.0
+    assert sal["ug"][-1, 0] > sal["um"][-1, 0]
     assert sal["z_frag"] < sal["z"][-1]
     i_frag = int(np.argmin(np.abs(sal["z"] - sal["z_frag"])))
     assert abs(sal["ug"][i_frag, 0] - sal["um"][i_frag, 0]) < 1.0
+    assert sal["um"][i_frag + 1, 0] > 0.9 * sal["um"][i_frag, 0]
+    assert sal["um"][i_frag + 1, -2] < 1.5 * sal["um"][i_frag, -2]
     profundo = np.where(sal["z"] < -5000)[0]
     assert sal["phi"][profundo[-1], 0] < 0.01
     medio = np.argmin(np.abs(sal["z"] + 2000.0))
@@ -62,35 +63,31 @@ def test_los_limites_salen_del_numero_capilar():
     assert abs(lim["phi_ref"] - 0.2) < 0.002
 
 
-def test_dieciocho_sigue_despues_de_fragmentar_y_se_pone_sonico():
+def test_dieciocho_no_baja_el_eje_al_fragmentar():
     sal = IIF.marchar(18.0, n_r=8)
-    assert sal["mensaje"] == "sonico"
     assert sal["z_frag"] < -800.0
-    assert sal["z"][-1] > -400.0
-    assert 1.0e6 < sal["P"][-1] < 3.0e6
-    assert sal["ug"][-1, 0] > sal["um"][-1, 0] + 200.0
+    assert sal["z"][-1] > sal["z_frag"]
+    i_frag = int(np.argmin(np.abs(sal["z"] - sal["z_frag"])))
+    assert sal["um"][i_frag + 1, 0] > 0.9 * sal["um"][i_frag, 0]
+    antes = sal["um"][i_frag, 0] / sal["um_media"][i_frag]
+    despues = sal["um"][i_frag + 1, 0] / sal["um_media"][i_frag + 1]
+    assert antes > 2.15
+    assert despues > 2.15
+    assert sal["ug_media"][-1] > sal["um_media"][-1]
     assert np.max(np.abs(sal["um"][:, -1])) == 0.0
     assert np.max(np.abs(sal["ug"][:, -1])) == 0.0
     rel = np.max(np.abs(sal["Q"] - sal["Q_objetivo"]) / sal["Q_objetivo"])
     assert rel < 1e-6
 
 
-def test_el_tiro_con_el_cierre_del_1d_cae_en_la_ventana_sonica():
-    import math
-    from calbuco2015d import R, T1, Patm
-
-    tiro = IIF.tirar_como_1d(n_r=8)
-    assert tiro["convergido"]
-    assert tiro["criterio"] == "sonico"
-    assert tiro["n_pasos"] < 60
-    sal = tiro["solucion"]
-    vsound = 0.99 * math.sqrt(R * T1)
-    ug = sal["ug_media"][-1]
-    assert sal["z"][-1] >= -5.0
-    assert sal["P"][-1] >= Patm
-    assert 0.95 * vsound < ug <= 1.05 * vsound
-    assert sal["ug_media"][-1] / sal["um_media"][-1] > 2.5
-    assert sal["ug"][-1, 0] / sal["um"][-1, 0] > 2.5
+def test_el_paso_fragmentado_conserva_la_forma_picuda():
+    sal = IIF.marchar(18.0, n_r=8, h0=10.0, h_min=0.5, h_max=20.0, corte="media")
+    i = int(np.argmin(np.abs(sal["z"] - sal["z_frag"])))
+    assert sal["um"][i + 1, 0] > 0.95 * sal["um"][i, 0]
+    assert sal["um"][i + 1, -2] < 1.3 * max(sal["um"][i, -2], 1.0)
+    assert sal["ug"][i + 1, 0] > sal["um"][i + 1, 0]
+    rel = np.max(np.abs(sal["Q"] - sal["Q_objetivo"]) / sal["Q_objetivo"])
+    assert rel < 1e-6
     assert np.max(np.abs(sal["um"][:, -1])) == 0.0
     assert np.max(np.abs(sal["ug"][:, -1])) == 0.0
 
