@@ -31,6 +31,7 @@ build/
 !tesis/matematica_modelo_bifasico.pdf
 !tesis/propuesta_tesis_doble.pdf
 !tesis/propuestas_inverso_control.pdf
+!tesis/variantes_cierre_fragmentacion.pdf
 !umbrales_reg_figuras/*.png
 
 # Cache regenerable del prototipo
