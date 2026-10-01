@@ -1,0 +1,1008 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish,es-noshorthands]{babel}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{microtype}
+\usepackage[colorlinks=true,linkcolor=black,citecolor=black,urlcolor=blue]{hyperref}
+
+\newcommand{\dd}{\,\mathrm{d}}
+\newcommand{\p}{\partial}
+\newcommand{\sat}{\mathrm{sat}}
+\newcommand{\lit}{\mathrm{lit}}
+\newcommand{\ad}{\mathrm{ad}}
+\newcommand{\Rv}{\mathcal{R}}
+
+\theoremstyle{plain}
+\newtheorem{proposicion}{Proposición}
+\theoremstyle{definition}
+\newtheorem{hipotesis}{Hipótesis}
+\theoremstyle{remark}
+\newtheorem*{obs}{Observación}
+
+\title{\vspace{-1.4cm}
+\textbf{Pendiente de presión en el tramo sin burbujas}\\[0.35em]
+\large Promedio en la sección del momento 2D, con el divisor de compresibilidad}
+\author{Ignacio Gómez Gómez}
+\date{\today}
+
+\begin{document}
+\maketitle
+\vspace{-0.7cm}
+
+\begin{abstract}\noindent
+En el tramo en que el agua sigue disuelta, el momento vertical del fundido,
+promediado en la sección y evaluado sobre la parábola de Poiseuille, da
+\[
+\frac{\dd P}{\dd z}
+=
+-\,
+\frac{\rho_m g+8\mu\bar u/R^2}
+{1-\dfrac{4}{3}\,\bar u^2/c^2},
+\qquad
+c^2=\frac{K}{\rho_m}.
+\]
+El numerador es el peso más el roce de pared. El denominador es la inercia
+que aparece al comprimir el fundido manteniendo el caudal de cada radio.
+El factor \(4/3\) es \(\langle u^2\rangle/\bar u^2\) de esa parábola.
+Un metro por encima de la saturación, el estado inicial de la marcha
+diferencial queda determinado: \(\varphi\) es el volumen de Henry y
+\(u_m(r)=u_g(r)\) conserva la parábola del caudal.
+Esta nota escribe la cadena desde las ecuaciones reducidas hasta esas
+expresiones, y cierra con el método con que se marcha la columna:
+diferencias finitas en \(z\) y en \(r\), la iteración de Picard del
+sistema no lineal, y el cierre algebraico del régimen fragmentado.
+\end{abstract}
+
+\section{Ecuaciones de partida}
+
+El conducto es el cilindro \(0\le r\le R\), \(H\le z\le 0\), con \(z\) hacia
+arriba. En la reducción las velocidades radiales son nulas. Mientras el agua
+sigue disuelta,
+\begin{equation}
+\varphi\equiv 0,
+\qquad
+\Gamma\equiv 0,
+\qquad
+F_{mg}\equiv 0,
+\qquad
+H\le z\le z_{\sat}.
+\label{eq:phi0}
+\end{equation}
+La masa del fundido en cada radio es
+\begin{equation}
+\frac{\p}{\p z}\bigl(\rho_m u\bigr)=0.
+\label{eq:masa}
+\end{equation}
+El momento vertical del fundido es
+\begin{equation}
+\rho_m u\frac{\p u}{\p z}
+=
+-\frac{\p P}{\p z}
+-\rho_m g
++\frac{1}{r}\frac{\p}{\p r}\!\left(r\mu\frac{\p u}{\p r}\right)
++\frac{\p}{\p z}\!\left(\mu\frac{\p u}{\p z}\right).
+\label{eq:mom}
+\end{equation}
+La componente radial del momento, con velocidad radial nula, da
+\(\p P/\p r=0\). Por tanto
+\begin{equation}
+P=P(z).
+\label{eq:Pdez}
+\end{equation}
+Cada término de la masa y del momento del gas lleva un factor \(\varphi\) o
+\(F_{mg}\). Con~\eqref{eq:phi0} esas dos ecuaciones quedan en la identidad
+\(0=0\), y \(u_g\) no entra en este tramo.
+
+Las condiciones de borde del tramo son
+\begin{equation}
+\frac{\p u}{\p r}(0,z)=0,
+\qquad
+u(R,z)=0,
+\qquad
+P(H)=P_{\lit}+\Delta P.
+\label{eq:bc}
+\end{equation}
+
+\begin{hipotesis}
+\label{hip:cierre}
+Se toman tres cierres, los mismos que producen la recta algebraica del modelo
+1D.
+\begin{enumerate}
+\item \(\mu\) es constante en \(r\) y en \(z\).
+\item El módulo de compresibilidad \(K\) es constante:
+      \(\dd P=K\,\dd\rho_m/\rho_m\).
+\item El perfil ya está desarrollado: tiene la forma parabólica que se
+      construye en la sección~\ref{sec:parabola}, en todo
+      \(H\le z\le z_{\sat}\).
+\end{enumerate}
+\end{hipotesis}
+
+\section{Lo que fija la masa}
+
+Como \(P=P(z)\) y \(\rho_m=\rho_m(P)\), la densidad depende solo de \(z\).
+Integrar~\eqref{eq:masa} en \(z\) deja un caudal másico por unidad de área,
+distinto en cada radio y constante a lo largo del conducto:
+\begin{equation}
+\rho_m(z)\,u(r,z)=q(r).
+\label{eq:q}
+\end{equation}
+Derivando~\eqref{eq:q},
+\begin{equation}
+\frac{\p u}{\p z}
+=
+-\frac{u}{\rho_m}\frac{\dd\rho_m}{\dd z}.
+\label{eq:du}
+\end{equation}
+
+\section{Compresibilidad}
+
+Con la hipótesis~\ref{hip:cierre}.2,
+\begin{equation}
+\frac{\dd\rho_m}{\dd z}
+=
+\frac{\rho_m}{K}\frac{\dd P}{\dd z}.
+\label{eq:eos}
+\end{equation}
+Se define \(c^2=K/\rho_m\), de modo que \(K=\rho_m c^2\).
+Sustituyendo~\eqref{eq:eos} en~\eqref{eq:du},
+\begin{equation}
+\frac{\p u}{\p z}
+=
+-\frac{u}{K}\frac{\dd P}{\dd z}
+=
+-\frac{u}{\rho_m c^2}\frac{\dd P}{\dd z}.
+\label{eq:duP}
+\end{equation}
+La inercia de~\eqref{eq:mom} queda
+\begin{equation}
+\rho_m u\frac{\p u}{\p z}
+=
+-\frac{u(r,z)^2}{c^2}\frac{\dd P}{\dd z}.
+\label{eq:inercia}
+\end{equation}
+El divisor de la fórmula final sale de este término, al pasarlo al lado de
+\(\dd P/\dd z\).
+
+\section{Ecuación puntual}
+
+Se lleva~\eqref{eq:inercia} a~\eqref{eq:mom}:
+\begin{equation}
+-\frac{u^2}{c^2}\frac{\dd P}{\dd z}
+=
+-\frac{\dd P}{\dd z}
+-\rho_m g
++\frac{1}{r}\frac{\p}{\p r}\!\left(r\mu\frac{\p u}{\p r}\right)
++\frac{\p}{\p z}\!\left(\mu\frac{\p u}{\p z}\right).
+\end{equation}
+Al agrupar \(\dd P/\dd z\),
+\begin{equation}
+\frac{\dd P}{\dd z}
+\left(1-\frac{u(r,z)^2}{c^2}\right)
+=
+-\rho_m g
++\frac{1}{r}\frac{\p}{\p r}\!\left(r\mu\frac{\p u}{\p r}\right)
++\frac{\p}{\p z}\!\left(\mu\frac{\p u}{\p z}\right).
+\label{eq:puntual}
+\end{equation}
+El factor \(1-u^2/c^2\) depende de \(r\): en el eje \(u\) es máximo y en la
+pared \(u=0\), así que ahí el factor vale \(1\). Una sola función \(P(z)\)
+se obtiene cumpliendo~\eqref{eq:puntual} en promedio sobre la sección.
+
+\section{Promedio en la sección}
+
+Para una función \(f(r)\),
+\begin{equation}
+\langle f\rangle
+=
+\frac{2}{R^2}\int_0^R f(r)\,r\,\dd r.
+\label{eq:media}
+\end{equation}
+El promedio de una cantidad que depende solo de \(z\) es ella misma.
+Aplicando~\eqref{eq:media} a~\eqref{eq:puntual},
+\begin{equation}
+\begin{aligned}
+\frac{\dd P}{\dd z}
+\left(1-\frac{\langle u^2\rangle}{c^2}\right)
+&=
+-\rho_m g
++\left\langle
+\frac{1}{r}\frac{\p}{\p r}\!\left(r\mu\frac{\p u}{\p r}\right)
+\right\rangle
+\\
+&\qquad
++\left\langle
+\frac{\p}{\p z}\!\left(\mu\frac{\p u}{\p z}\right)
+\right\rangle.
+\end{aligned}
+\label{eq:prom}
+\end{equation}
+
+\section{El viscoseo radial, integrado}
+
+Con \(\mu\) constante,
+\begin{align}
+\left\langle
+\frac{1}{r}\frac{\p}{\p r}\!\left(r\mu\frac{\p u}{\p r}\right)
+\right\rangle
+&=
+\frac{2}{R^2}\int_0^R
+\frac{\p}{\p r}\!\left(r\mu\frac{\p u}{\p r}\right)\dd r
+=
+\frac{2}{R^2}
+\left[
+r\mu\frac{\p u}{\p r}
+\right]_0^R.
+\label{eq:Lr-int}
+\end{align}
+En el eje, \(r\,\p u/\p r\to 0\) por~\eqref{eq:bc}. En la pared queda
+\begin{equation}
+\left\langle L_r u\right\rangle
+=
+\frac{2\mu}{R}
+\left.\frac{\p u}{\p r}\right|_{r=R}.
+\label{eq:Lr-pared}
+\end{equation}
+La identidad~\eqref{eq:Lr-pared} vale para cualquier perfil que cumpla
+\(u(R)=0\) y la simetría en el eje. El factor \(8\) aparece al evaluar la
+derivada de la parábola.
+
+\section{La parábola}
+\label{sec:parabola}
+
+Se busca un perfil \(u=A(z)+B(z)\,r^2\) que cumpla~\eqref{eq:bc}.
+La simetría en \(r=0\) elimina un término lineal en \(r\).
+La pared \(u(R,z)=0\) fija
+\begin{equation}
+u(r,z)=u_c(z)\left(1-\frac{r^2}{R^2}\right).
+\label{eq:uc}
+\end{equation}
+La velocidad media es, con \(\eta=r/R\),
+\begin{align}
+\bar u(z)
+&=
+\langle u\rangle
+=
+\frac{2}{R^2}\int_0^R
+u_c\left(1-\frac{r^2}{R^2}\right)r\,\dd r
+=
+2u_c\int_0^1(1-\eta^2)\eta\,\dd\eta
+\nonumber\\
+&=
+2u_c\left[\frac{\eta^2}{2}-\frac{\eta^4}{4}\right]_0^1
+=
+2u_c\left(\frac12-\frac14\right)
+=
+\frac{u_c}{2}.
+\label{eq:media-u}
+\end{align}
+Luego \(u_c=2\bar u\) y
+\begin{equation}
+u(r,z)=2\bar u(z)\left(1-\frac{r^2}{R^2}\right).
+\label{eq:parabola}
+\end{equation}
+La derivada radial es
+\begin{equation}
+\frac{\p u}{\p r}
+=
+-\frac{4\bar u\, r}{R^2},
+\qquad
+\left.\frac{\p u}{\p r}\right|_{r=R}
+=
+-\frac{4\bar u}{R}.
+\label{eq:dur}
+\end{equation}
+El esfuerzo en la pared es \(\tau_w=\mu\cdot 4\bar u/R\).
+Sustituyendo~\eqref{eq:dur} en~\eqref{eq:Lr-pared},
+\begin{equation}
+\left\langle L_r u\right\rangle
+=
+\frac{2\mu}{R}\left(-\frac{4\bar u}{R}\right)
+=
+-\frac{8\mu\bar u}{R^2}.
+\label{eq:F}
+\end{equation}
+El término \(8\mu\bar u/R^2\) es el roce \(\tau_w\cdot 2\pi R\) repartido en el
+área \(\pi R^2\). En el balance 2D entra por~\eqref{eq:F}; no se suma un
+\(F\) adicional.
+
+Con~\eqref{eq:q} y~\eqref{eq:parabola}, el caudal medio
+\(\bar q=\langle q\rangle\) cumple
+\begin{equation}
+\bar u(z)=\frac{\bar q}{\rho_m(z)}.
+\label{eq:ubar}
+\end{equation}
+La forma parabólica se conserva en todo el tramo. La amplitud cambia solo
+cuando cambia \(\rho_m\).
+
+\section{El promedio de \texorpdfstring{\(u^2\)}{u al cuadrado}}
+
+En el divisor de~\eqref{eq:prom} entra \(\langle u^2\rangle\).
+Con~\eqref{eq:parabola},
+\begin{align}
+\langle u^2\rangle
+&=
+\frac{2}{R^2}\int_0^R
+4\bar u^2\left(1-\frac{r^2}{R^2}\right)^2 r\,\dd r
+=
+8\bar u^2\int_0^1(1-\eta^2)^2\eta\,\dd\eta
+\nonumber\\
+&=
+8\bar u^2\int_0^1\bigl(1-2\eta^2+\eta^4\bigr)\eta\,\dd\eta
+=
+8\bar u^2\int_0^1\bigl(\eta-2\eta^3+\eta^5\bigr)\,\dd\eta
+\nonumber\\
+&=
+8\bar u^2\left[\frac{\eta^2}{2}-\frac{2\eta^4}{4}+\frac{\eta^6}{6}\right]_0^1
+=
+8\bar u^2\left(\frac12-\frac12+\frac16\right)
+=
+\frac{4}{3}\bar u^2.
+\label{eq:u2}
+\end{align}
+El factor \(4/3\) es el exceso de \(\langle u^2\rangle\) sobre \(\bar u^2\):
+en la parábola el centro va al doble de la media, y el promedio del cuadrado
+pesa ese centro.
+
+\section{Esfuerzo axial de esta compresión}
+
+Con \(K\) constante,~\eqref{eq:duP} da
+\(\p u/\p z=-(u/K)\,\dd P/\dd z\).
+Para el perfil~\eqref{eq:parabola} y \(\mu\) constante,
+\begin{equation}
+\frac{\p}{\p z}\!\left(\mu\frac{\p u}{\p z}\right)
+=
+\frac{\mu u}{K^2}\left(\frac{\dd P}{\dd z}\right)^2
+-
+\frac{\mu u}{K}\frac{\dd^2 P}{\dd z^2}.
+\label{eq:axial}
+\end{equation}
+Frente al viscoseo radial~\eqref{eq:F}, el primer término de~\eqref{eq:axial}
+está en la razón
+\begin{equation}
+\frac{\mu\bar u\,|\dd P/\dd z|^2/K^2}{8\mu\bar u/R^2}
+=
+\frac{R^2}{8}\,\frac{|\dd P/\dd z|^2}{K^2}.
+\label{eq:razon}
+\end{equation}
+Con \(|\dd P/\dd z|\sim 3\times 10^4\,\mathrm{Pa\,m^{-1}}\),
+\(K=1.5\times 10^{10}\,\mathrm{Pa}\) y \(R=16\,\mathrm{m}\),
+\eqref{eq:razon} es del orden de \(10^{-10}\).
+El término con \(\dd^2P/\dd z^2\) queda en ese orden mientras la pendiente
+varíe en la escala de la columna. Se retira~\eqref{eq:axial} de~\eqref{eq:prom}.
+
+\section{La pendiente}
+
+\begin{proposicion}
+Bajo~\eqref{eq:phi0},~\eqref{eq:bc} y la hipótesis~\ref{hip:cierre},
+la pendiente de presión del tramo sin burbujas es
+\begin{equation}
+\frac{\dd P}{\dd z}
+=
+-\,
+\frac{\rho_m g+8\mu\bar u/R^2}
+{1-\dfrac{4}{3}\,\bar u^2/c^2},
+\qquad
+c^2=\frac{K}{\rho_m},
+\qquad
+\bar u=\frac{\bar q}{\rho_m}.
+\label{eq:dpdz}
+\end{equation}
+\end{proposicion}
+
+\begin{proof}
+Se sustituyen~\eqref{eq:F} y~\eqref{eq:u2} en~\eqref{eq:prom},
+retirado el esfuerzo axial~\eqref{eq:axial}:
+\begin{equation}
+\frac{\dd P}{\dd z}
+\left(1-\frac{4}{3}\frac{\bar u^2}{c^2}\right)
+=
+-\rho_m g-\frac{8\mu\bar u}{R^2}.
+\end{equation}
+Despejar \(\dd P/\dd z\) da~\eqref{eq:dpdz}.
+La relación \(\bar u=\bar q/\rho_m\) es~\eqref{eq:ubar}.
+\end{proof}
+
+El numerador es el peso más el roce de pared de la parábola.
+El denominador es la inercia de la compresión, después de promediar
+\(u(r)^2\). Si en~\eqref{eq:u2} se reemplaza el perfil por una velocidad
+plana, \(\langle u^2\rangle=\bar u^2\) y el denominador queda
+\(1-\bar u^2/c^2\), que es el factor escrito en la recta algebraica del 1D.
+
+\section{La recta de coeficientes congelados}
+
+En el tramo algebraico del 1D se congelan \(\rho_m\), \(\mu\) y
+\(\bar u=v_{\mathrm{in}}\), con \(K=15\,\mathrm{GPa}\).
+Entonces~\eqref{eq:dpdz} es constante y
+\begin{equation}
+P(z)=P(H)+\frac{\dd P}{\dd z}\,(z-H),
+\label{eq:recta}
+\end{equation}
+hasta la altura definida por
+\begin{equation}
+P(z_{\sat})
+=
+P_{\sat}
+=
+\left(\frac{c_0}{C_1}\right)^{1/\beta}.
+\label{eq:Psat}
+\end{equation}
+Esa constante es la línea \texttt{dpdzcalc} del código 1D.
+El denominador del código es \(1-v_{\mathrm{in}}^2/c^2\).
+El de~\eqref{eq:dpdz} es \(1-(4/3)\bar u^2/c^2\), porque el promedio se hace
+sobre la parábola.
+
+\begin{obs}
+En la base de Calbuco, con \(\bar u=18.3\,\mathrm{m\,s^{-1}}\),
+\(c=2468\,\mathrm{m\,s^{-1}}\) y \(\rho_m=2463\,\mathrm{kg\,m^{-3}}\),
+se tiene \(\bar u^2/c^2=5.5\times 10^{-5}\).
+El denominador de~\eqref{eq:dpdz} vale \(1-7.3\times 10^{-5}\).
+Sobre una pendiente de \(2.677\times 10^4\,\mathrm{Pa\,m^{-1}}\),
+el divisor corrige unos \(2\,\mathrm{Pa\,m^{-1}}\).
+\end{obs}
+
+\begin{obs}[Dónde vale la parábola]
+El dato de la base puede ser un tapón, \(u=v_{\mathrm{in}}\) para \(r<R\)
+y \(u(R)=0\). Ese tapón cumple~\eqref{eq:bc} y tiene laplaciano nulo en el
+interior, así que~\eqref{eq:parabola} lo describe una vez que el viscoseo
+radial ya acomodó el perfil. La longitud de ese acomodo es el balance entre
+inercia y viscoseo radial, \(L\sim\rho_m v_{\mathrm{in}} R^2/\mu\).
+Con los números de la base queda del orden de \(2.5\,\mathrm{km}\).
+La fórmula~\eqref{eq:dpdz} describe el tramo sin burbujas ya desarrollado,
+desde ahí hasta \(z_{\sat}\). En Calbuco \(z_{\sat}\) cae cerca de
+\(-3.7\,\mathrm{km}\).
+\end{obs}
+
+\section{El metro donde empieza la exsolución}
+\label{sec:eps}
+
+En \(z_{\sat}\) se tiene \(n=0\) y \(\varphi=0\). La velocidad del gas,
+escrita como caudal de gas sobre \(\varphi\rho_g\), queda indeterminada.
+El estado inicial de la marcha diferencial se arma un metro más arriba.
+Se toma \(\varepsilon=1\,\mathrm{m}\). Si la saturación cae a menos de un
+metro de la boca, \(\varepsilon=-z_{\sat}/10\). El punto adicional es
+\begin{equation}
+z_{\ad}=z_{\sat}+\varepsilon,
+\qquad
+P_{\ad}
+=
+P_{\sat}+\frac{\dd P}{\dd z}\,\varepsilon.
+\label{eq:Pad}
+\end{equation}
+Como \(\dd P/\dd z<0\), se tiene \(P_{\ad}<P_{\sat}\) y Henry ya suelta agua.
+La fracción másica exsuelta, con \(\xi\) todavía igual a \(\xi_0\), es
+\begin{equation}
+n_{\ad}
+=
+(1-\xi_0)\,
+\frac{c_0-C_1 P_{\ad}^{\beta}}{1-C_1 P_{\ad}^{\beta}}.
+\label{eq:n}
+\end{equation}
+\(P_{\ad}\) y \(\xi_0\) no dependen de \(r\), así que \(n_{\ad}\) es
+constante en la sección. La densidad del gas es la del gas ideal,
+\(\rho_{g,\ad}=P_{\ad}/(\Rv T)\).
+
+\begin{proposicion}
+\label{prop:ad}
+En \(z_{\ad}\), con el caudal \(q(r)\) heredado del tramo sin burbujas,
+\begin{align}
+\varphi_{\ad}
+&=
+\left(
+1+\frac{P_{\ad}}{n_{\ad}\Rv T}\,\frac{1-n_{\ad}}{\rho_m}
+\right)^{-1},
+\label{eq:phi}\\[0.4em]
+u_m(r)
+&=
+u_g(r)
+=
+\frac{q(r)\,(1-n_{\ad})}{(1-\varphi_{\ad})\,\rho_m}
+=
+2\bar u_{\ad}\left(1-\frac{r^2}{R^2}\right),
+\label{eq:velocidades}
+\end{align}
+donde
+\begin{equation}
+\bar u_{\ad}
+=
+\frac{\bar q\,(1-n_{\ad})}{(1-\varphi_{\ad})\,\rho_m}
+=
+\frac{\bar q\, n_{\ad}}{\varphi_{\ad}\,\rho_{g,\ad}},
+\qquad
+q(r)=2\bar q\left(1-\frac{r^2}{R^2}\right).
+\label{eq:uad}
+\end{equation}
+En la pared, \(q(R)=0\), así que \(u_m(R)=u_g(R)=0\).
+\(N\) y \(\xi\) siguen en los valores de la base, \(N_0\) y \(\xi_0\).
+\end{proposicion}
+
+\begin{proof}
+La suma de las dos masas, con \(u_r=0\), conserva el caudal de cada radio.
+El valor que trae el tramo sin burbujas es \(q(r)\) de~\eqref{eq:q}:
+\begin{equation}
+\rho_m(1-\varphi)\,u_m+\rho_g\,\varphi\,u_g=q(r).
+\label{eq:qtotal}
+\end{equation}
+En este punto se parte el caudal con la fracción de Henry~\eqref{eq:n},
+\begin{equation}
+\rho_g\,\varphi\,u_g=n_{\ad}\,q(r),
+\qquad
+\rho_m(1-\varphi)\,u_m=(1-n_{\ad})\,q(r).
+\label{eq:reparto}
+\end{equation}
+El volumen de gas por unidad de masa es \(n_{\ad}/\rho_{g,\ad}\) y el del
+fundido es \((1-n_{\ad})/\rho_m\). Su cociente es \(\varphi_{\ad}\), que es
+\eqref{eq:phi} al escribir \(\rho_{g,\ad}=P_{\ad}/(\Rv T)\).
+De esa definición,
+\begin{equation}
+\frac{1-\varphi_{\ad}}{\varphi_{\ad}}
+=
+\frac{\rho_{g,\ad}\,(1-n_{\ad})}{n_{\ad}\,\rho_m},
+\end{equation}
+y por tanto
+\begin{equation}
+\frac{1-n_{\ad}}{(1-\varphi_{\ad})\,\rho_m}
+=
+\frac{n_{\ad}}{\varphi_{\ad}\,\rho_{g,\ad}}.
+\label{eq:igualdad}
+\end{equation}
+Las dos velocidades de~\eqref{eq:reparto} coinciden:
+\begin{equation}
+u_m(r)
+=
+\frac{q(r)\,(1-n_{\ad})}{(1-\varphi_{\ad})\,\rho_m}
+=
+\frac{q(r)\,n_{\ad}}{\varphi_{\ad}\,\rho_{g,\ad}}
+=
+u_g(r).
+\end{equation}
+Con la parábola \(q(r)=2\bar q\,(1-r^2/R^2)\) se obtiene~\eqref{eq:velocidades}
+y~\eqref{eq:uad}. El nodo \(r=R\) hereda \(q(R)=0\).
+\end{proof}
+
+\begin{obs}
+\(\varphi_{\ad}\) no depende de \(r\). Las dos velocidades sí: conservan la
+forma del caudal y se anulan en la pared. El deslizamiento \(u_g-u_m\)
+empieza recién al integrar el momento desde \(z_{\ad}\); en este punto la
+igualdad~\eqref{eq:igualdad} lo deja en cero.
+\end{obs}
+
+\section{Límites de las cuatro regiones}
+
+Los cortes no se evalúan a lo largo de la columna. Se calculan una vez por
+tiro, en un estado de referencia con \(\varphi=0.2\), y después quedan fijos.
+La presión de ese estado es la que, por bisección en
+\([P_{\mathrm{atm}},P_{\sat}]\), deja la fracción de Henry a menos de
+\(0.002\) de \(0.2\). Ahí se leen \(n\), \(\rho_g\), \(\mathrm{d}n/\mathrm{d}P\),
+\(\mathrm{d}\varphi/\mathrm{d}P\) y la viscosidad del líquido con el agua
+todavía disuelta \(C_1 P^{\beta}\).
+
+La tasa de deformación de referencia mezcla la derivada que sale de
+\(u=v_{\mathrm{in}}(1-n)/(1-\varphi)\) con el corte \(v_{\mathrm{in}}/R\):
+\begin{equation}
+\frac{\mathrm{d}v}{\mathrm{d}z}
+=
+\frac12
+\left(
+v_{\mathrm{in}}
+\frac{-\dfrac{\mathrm{d}n}{\mathrm{d}P}\dfrac{\mathrm{d}P}{\mathrm{d}z}(1-\varphi)
++(1-n)\dfrac{\mathrm{d}\varphi}{\mathrm{d}P}\dfrac{\mathrm{d}P}{\mathrm{d}z}}
+{(1-\varphi)^2}
++
+\frac{v_{\mathrm{in}}}{R}
+\right).
+\label{eq:dvdz}
+\end{equation}
+El radio de burbuja usa la densidad de nucleación \(N\) de la base y ese
+\(\varphi=0.2\):
+\begin{equation}
+r_b
+=
+\left(
+\frac{\varphi}{\tfrac43\pi N(1-\varphi)}
+\right)^{1/3}.
+\label{eq:rbref}
+\end{equation}
+El número capilar es
+\begin{equation}
+\mathrm{Ca}
+=
+\frac{1}{0.3}
+\left|\frac{\mathrm{d}v}{\mathrm{d}z}\right|
+\mu\, r_b.
+\label{eq:Ca}
+\end{equation}
+Con \(\varphi_{\sup}=0.785\), \(\varphi_{\inf}=0.525\),
+\(\varphi_{\mathrm{per,alto}}=0.40\) y \(\varphi_{\mathrm{per,bajo}}=0.15\),
+\begin{align}
+\varphi_{\mathrm{crit}}
+&=
+\frac{\varphi_{\sup}-\varphi_{\inf}}{2}\,\mathrm{erf}(\log_{10}\mathrm{Ca})
++
+\frac{\varphi_{\sup}+\varphi_{\inf}}{2},
+\label{eq:phicrit}\\
+\varphi_1
+&=
+\frac{\varphi_{\mathrm{per,bajo}}-\varphi_{\mathrm{per,alto}}}{2}
+\,\mathrm{erf}(\log_{10}\mathrm{Ca})
++
+\frac{\varphi_{\mathrm{per,bajo}}+\varphi_{\mathrm{per,alto}}}{2},
+\label{eq:lim1}\\
+\varphi_2
+&=
+\varphi_1+0.01.
+\label{eq:lim2}
+\end{align}
+\(\mathrm{Ca}\to 0\) deja \(\varphi_{\mathrm{crit}}=0.525\) y \(\varphi_1=0.40\).
+\(\mathrm{Ca}\to\infty\) deja \(\varphi_{\mathrm{crit}}=0.785\) y
+\(\varphi_1=0.15\).
+
+Esas tres cotas parten la columna en cuatro regiones, todas leídas en
+\(\varphi\):
+
+\begin{center}
+\begin{tabular}{lll}
+\(\varphi<\varphi_1\) & Stokes &
+\(F_{mg}=3\mu(u_g-u_m)\varphi(1-\varphi)/r_b^2\) \\
+\(\varphi_1\le\varphi<\varphi_2\) & transición &
+mezcla entre Stokes y el arrastre permeable \\
+\(\varphi_2\le\varphi<\varphi_{\mathrm{crit}}\) & permeable &
+el gas ya no va trabado al fundido \\
+\(\varphi\ge\varphi_{\mathrm{crit}}\) & fragmentada &
+la masa fija \(u_m\) y \(u_g\); \(N\) y \(\xi\) se congelan
+\end{tabular}
+\end{center}
+
+La cantidad \(\mathrm{d}v/\mathrm{d}z\cdot\mu/(0.01\times 10^{10})\) se
+guarda como diagnóstico. No es ninguno de los tres cortes.
+
+\section{Base del capilar en cada radio}
+
+El 1D comprime la deformación en un escalar: promedia
+\(\mathrm{d}u/\mathrm{d}z\) con \(v_{\mathrm{in}}/R\). En el 2D esa misma
+construcción se hace nodo a nodo sobre la parábola. Esta sección fija el
+estado de referencia, deriva la media, reparte esa media en \(r\) y define
+\(\mathrm{Ca}(r)\) y los tres cortes.
+
+\begin{hipotesis}
+\label{hip:ref}
+El estado de referencia de un tiro es el siguiente.
+\begin{enumerate}
+\item \(P_\ast\in[P_{\mathrm{atm}},P_{\sat}]\) es la presión en que la
+      fracción de Henry queda a menos de \(0.002\) de \(\varphi_\ast=0.2\).
+      En ese estado \(n=n(P_\ast,\xi_0)\), \(\rho_g=P_\ast/(\Rv T)\) y
+      \(\rho_m\) es la densidad de la base.
+\item \(P=P(z)\) y \(\xi=\xi_0\). Por tanto \(n\) y \(\varphi\) del estado
+      de referencia no dependen de \(r\).
+\item La velocidad media obedece la masa del fundido con caudal de entrada
+      \(v_{\mathrm{in}}\rho_m\):
+      \begin{equation}
+      \bar u
+      =
+      v_{\mathrm{in}}\frac{1-n}{1-\varphi}.
+      \label{eq:umed}
+      \end{equation}
+\item El perfil compatible con \(u(R)=0\) y con simetría en el eje es la
+      parábola de esa media,
+      \begin{equation}
+      u(r)
+      =
+      2\bar u\left(1-\frac{r^2}{R^2}\right).
+      \label{eq:upar}
+      \end{equation}
+\item \(N_0\) es el de la base, el de la sección anterior a los cortes.
+      El radio de burbuja del estado de referencia es
+      \eqref{eq:rbref} con \(\varphi=\varphi_\ast\) y \(N=N_0\).
+\end{enumerate}
+\end{hipotesis}
+
+\begin{proposicion}
+\label{prop:dudz}
+En el estado de referencia,
+\begin{equation}
+\frac{\mathrm{d}\bar u}{\mathrm{d}z}
+=
+v_{\mathrm{in}}
+\frac{
+-\dfrac{\mathrm{d}n}{\mathrm{d}P}(1-\varphi)
++(1-n)\dfrac{\mathrm{d}\varphi}{\mathrm{d}P}
+}{(1-\varphi)^2}
+\,
+\frac{\mathrm{d}P}{\mathrm{d}z}.
+\label{eq:dudz}
+\end{equation}
+\(\mathrm{d}n/\mathrm{d}P\) es la derivada de Henry en \(P_\ast\).
+\(\mathrm{d}\varphi/\mathrm{d}P\) es la derivada del volumen
+\eqref{eq:phi} respecto de \(P\), con \(\rho_g=P/(\Rv T)\).
+\(\mathrm{d}P/\mathrm{d}z\) es la pendiente de Poiseuille de ese mismo
+estado.
+\end{proposicion}
+
+\begin{proof}
+De~\eqref{eq:umed}, \(\bar u\) depende de \(z\) solo a través de
+\(n(P(z))\) y \(\varphi(P(z))\), con \(v_{\mathrm{in}}\) constante.
+La regla de la cadena da
+\begin{equation}
+\frac{\mathrm{d}\bar u}{\mathrm{d}z}
+=
+v_{\mathrm{in}}
+\frac{\mathrm{d}}{\mathrm{d}P}
+\left(\frac{1-n}{1-\varphi}\right)
+\frac{\mathrm{d}P}{\mathrm{d}z}.
+\end{equation}
+El cociente tiene derivada
+\begin{align}
+\frac{\mathrm{d}}{\mathrm{d}P}
+\left(\frac{1-n}{1-\varphi}\right)
+&=
+\frac{
+\left(-\dfrac{\mathrm{d}n}{\mathrm{d}P}\right)(1-\varphi)
+-
+(1-n)\left(-\dfrac{\mathrm{d}\varphi}{\mathrm{d}P}\right)
+}{(1-\varphi)^2}
+\nonumber\\
+&=
+\frac{
+-\dfrac{\mathrm{d}n}{\mathrm{d}P}(1-\varphi)
++(1-n)\dfrac{\mathrm{d}\varphi}{\mathrm{d}P}
+}{(1-\varphi)^2}.
+\end{align}
+Sustituir esta expresión produce~\eqref{eq:dudz}.
+\end{proof}
+
+\begin{proposicion}
+\label{prop:tasas}
+Bajo~\eqref{eq:upar}, las dos tasas de deformación en \(r\in[0,R]\) son
+\begin{equation}
+\frac{\partial u}{\partial z}
+=
+2\frac{\mathrm{d}\bar u}{\mathrm{d}z}
+\left(1-\frac{r^2}{R^2}\right),
+\qquad
+\frac{\partial u}{\partial r}
+=
+-\frac{4\bar u\, r}{R^2}.
+\label{eq:tasas-r}
+\end{equation}
+En el eje, \(\partial u/\partial r=0\) y
+\(\partial u/\partial z=2\,\mathrm{d}\bar u/\mathrm{d}z\).
+En la pared, \(\partial u/\partial z=0\) y
+\(\partial u/\partial r=-4\bar u/R\).
+\end{proposicion}
+
+\begin{proof}
+La forma \(1-(r/R)^2\) no depende de \(z\). Al derivar~\eqref{eq:upar}
+respecto de \(z\) sale el primer miembro de~\eqref{eq:tasas-r}.
+Derivando respecto de \(r\),
+\begin{equation}
+\frac{\partial u}{\partial r}
+=
+2\bar u\left(-\frac{2r}{R^2}\right)
+=
+-\frac{4\bar u\, r}{R^2}.
+\end{equation}
+En \(r=0\) el corte se anula y el factor axial vale \(1\), así que la
+extensión es el doble de la media. En \(r=R\) el factor axial se anula,
+porque \(u(R)\) permanece en cero, y el corte vale \(-4\bar u/R\).
+\end{proof}
+
+\begin{hipotesis}
+\label{hip:tasa}
+La tasa que entra al capilar en el radio \(r\) es el análogo puntual del
+promedio del 1D:
+\begin{equation}
+\dot\varepsilon(r)
+=
+\frac12
+\left(
+\left|\frac{\partial u}{\partial z}\right|
++
+\left|\frac{\partial u}{\partial r}\right|
+\right).
+\label{eq:edot}
+\end{equation}
+\(\mu(r)\) es la viscosidad del líquido evaluada en \(P_\ast\), con el agua
+disuelta \(C_1 P_\ast^{\beta}\), al corte \(|\partial u/\partial r|\).
+\end{hipotesis}
+
+\begin{proposicion}
+\label{prop:extremos}
+Con~\eqref{eq:tasas-r} y~\eqref{eq:edot},
+\begin{equation}
+\dot\varepsilon(0)
+=
+\left|\frac{\mathrm{d}\bar u}{\mathrm{d}z}\right|,
+\qquad
+\dot\varepsilon(R)
+=
+\frac{2\bar u}{R}.
+\label{eq:extremos}
+\end{equation}
+\end{proposicion}
+
+\begin{proof}
+En el eje, \(|\partial u/\partial r|=0\) y
+\(|\partial u/\partial z|=2|\mathrm{d}\bar u/\mathrm{d}z|\).
+El promedio~\eqref{eq:edot} queda
+\(\tfrac12\cdot 2|\mathrm{d}\bar u/\mathrm{d}z|\).
+En la pared, \(|\partial u/\partial z|=0\) y
+\(|\partial u/\partial r|=4\bar u/R\).
+El promedio queda \(\tfrac12\cdot 4\bar u/R\).
+\end{proof}
+
+El número capilar del radio \(r\) es
+\begin{equation}
+\mathrm{Ca}(r)
+=
+\frac{\dot\varepsilon(r)\,\mu(r)\,r_b}{0.3},
+\label{eq:Ca-r}
+\end{equation}
+con \(r_b\) el de~\eqref{eq:rbref}. Como \(\varphi_\ast\) y \(N_0\) no
+dependen de \(r\), tampoco depende de \(r\) el radio de burbuja. Toda la
+variación radial de \(\mathrm{Ca}\) entra por \(\dot\varepsilon(r)\) y, si
+el modelo reológico depende del corte, por \(\mu(r)\).
+
+Los cortes se obtienen evaluando~\eqref{eq:phicrit}--\eqref{eq:lim2} en
+\(\mathrm{Ca}(r)\):
+\begin{align}
+\varphi_{\mathrm{crit}}(r)
+&=
+\frac{\varphi_{\sup}-\varphi_{\inf}}{2}
+\,\mathrm{erf}\bigl(\log_{10}\mathrm{Ca}(r)\bigr)
++
+\frac{\varphi_{\sup}+\varphi_{\inf}}{2},
+\label{eq:phicrit-r}\\
+\varphi_1(r)
+&=
+\frac{\varphi_{\mathrm{per,bajo}}-\varphi_{\mathrm{per,alto}}}{2}
+\,\mathrm{erf}\bigl(\log_{10}\mathrm{Ca}(r)\bigr)
++
+\frac{\varphi_{\mathrm{per,bajo}}+\varphi_{\mathrm{per,alto}}}{2},
+\label{eq:lim1-r}\\
+\varphi_2(r)
+&=
+\varphi_1(r)+0.01.
+\label{eq:lim2-r}
+\end{align}
+Las cuatro regiones de la tabla anterior se leen en cada nodo con estas
+tres funciones. Se calculan una vez por tiro, junto con \(N_0\), y no se
+vuelven a integrar en \(z\).
+
+\begin{obs}
+En el eje \(\mathrm{Ca}\) siente solo la extensión de la media. En la
+pared siente solo el corte \(4\bar u/R\). Si \(|\mathrm{d}\bar u/\mathrm{d}z|\)
+es chico frente a \(\bar u/R\), el eje cae del lado
+\(\mathrm{Ca}\to 0\), donde \(\varphi_1=0.40\) y
+\(\varphi_{\mathrm{crit}}=0.525\), y la pared se corre hacia
+\(\mathrm{Ca}\) mayor, con \(\varphi_1\) más bajo y
+\(\varphi_{\mathrm{crit}}\) más alto.
+\end{obs}
+
+\section{La marcha numérica}
+\label{sec:marcha}
+
+Una llamada con una velocidad de entrada fija integra una columna.
+Esa velocidad no se ajusta durante la marcha. El método del tiro es el
+lazo exterior: se repite la integración cambiando \(v_{\mathrm{in}}\) hasta
+que la boca cumple
+\begin{equation}
+P(0)=P_{\mathrm{atm}}
+\qquad\text{o}\qquad
+\max_r u_g(r,0)\approx c_s,
+\qquad
+c_s=\sqrt{\Rv T}.
+\label{eq:boca}
+\end{equation}
+La función que busca el mayor \(v_{\mathrm{in}}\) que todavía llega a
+\(z=0\) hace ese lazo. Una columna sónica bajo la superficie es un tiro
+con su \(v_{\mathrm{in}}\) dado: el lazo que solo acepta la llegada a
+\(z=0\) no la elige.
+
+\subsection{Diferencias finitas antes de fragmentar}
+
+La malla es \(r_i=i\Delta r\), \(i=0,\ldots,I\), con \(r_I=R\), y una
+sucesión de alturas \(z_j\) de paso \(h_j\) variable. En \(z\) las
+derivadas van hacia atrás,
+\begin{equation}
+(D_z^- f)_{i,j}=\frac{f_{i,j}-f_{i,j-1}}{h_j}.
+\label{eq:Dz}
+\end{equation}
+En \(r\), el término viscoso de la mezcla es la diferencia conservativa
+\(L_r[\mu,\varphi]\,u\). En el eje se reemplaza por su límite
+\(4\mu(1-\varphi)(u_1-u_0)/\Delta r^2\). En la pared, \(u_I=u^g_I=0\).
+
+En un paso en que \(\varphi\) todavía no ha pasado \(\varphi_{\mathrm{crit}}\)
+en toda la sección, el momento que se discretiza es el de la mezcla, con
+una sola velocidad. La viscosidad depende de esa velocidad y el coeficiente
+de inercia también. El sistema algebraico del paso es no lineal. Se resuelve
+por la iteración de Picard: en el iterado \(k\) se congelan
+\begin{equation}
+\mu^{(k)}=\mu\bigl(u^{(k)}\bigr),
+\qquad
+u^{\star}=u^{(k)},
+\label{eq:picard-coef}
+\end{equation}
+y se resuelve el sistema lineal
+\begin{equation}
+\begin{aligned}
+&L_r\bigl[\mu^{(k)},\varphi\bigr]\,u^{(k+1)}
++\frac{\rho_c\,u^{\star}}{h}\,u^{(k+1)}
+\\
+&\qquad=
+-\rho_c g
++\frac{\sigma^{\star}-\sigma_{j-1}}{h}
++\frac{\rho_c\,u^{\star}}{h}\,u_{j-1}
+-(1-\varphi)\frac{\dd P}{\dd z}.
+\end{aligned}
+\label{eq:picard}
+\end{equation}
+\(L_r\) con el término de inercia en la diagonal es tridiagonal. Cada
+iterado lo resuelve el algoritmo de Thomas, que es la eliminación de un
+sistema tridiagonal: no es otro modelo. El gradiente \(\dd P/\dd z\) es el
+único número que hace que el flujo de \(\rho_c u^{(k+1)}\) integre el
+caudal \(Q\). Se reemplaza \(u^{(k)}\) por \(u^{(k+1)}\) y se repite. La
+presión del paso nuevo no vuelve a entrar en esa iteración: si \(\varphi\)
+se actualizara con \(P\) dentro del mismo Picard, la densidad bajaría y
+\(\dd P/\dd z\) se dispararía.
+
+Picard no reemplaza a las diferencias finitas. Es el método con que se
+resuelve, en cada altura, el sistema no lineal que esas diferencias
+producen. El esfuerzo axial entra congelado, como fuerza del lado derecho.
+Puesto implícito, \(\mu/h^2\) le gana a la viscosidad radial y la matriz
+cambia de signo.
+
+Cerrado el iterado, se acepta el paso si un paso de tamaño \(h\) y dos de
+tamaño \(h/2\) difieren poco en \(P\) y en \(\varphi\). Si no, se rechaza
+y se parte \(h\). Eso elige el paso. No es otra discretización.
+
+En este tramo
+\begin{equation}
+\varphi_i=\varphi_{\mathrm{Henry}}\bigl(P,\xi_i\bigr),
+\qquad
+u^g_i=u_i.
+\label{eq:henry-nodo}
+\end{equation}
+\(P=P(z)\) no tiene índice radial. \(\xi\) parte de \(\xi_0\) en todos los
+radios y casi no se mueve, así que \(\varphi_i\) sale igual en todos los
+nodos. La malla sí tiene un valor de \(\varphi\) en cada \(r_i\). El cierre
+\eqref{eq:henry-nodo} no le entrega una fuente que dependa de \(r\).
+
+\subsection{El régimen fragmentado no rearma el Thomas}
+
+Cuando \(\varphi_i\ge\varphi_{\mathrm{crit}}(r_i)\) en toda la sección, se
+deja el momento de la mezcla. El caudal \(q(r)\) de cada radio sigue siendo
+el de la base. Con \(n=n(P,\xi)\) congelado en \(\xi\),
+\begin{equation}
+u_m(r)=\frac{q(r)\,(1-n)}{(1-\varphi)\,\rho_m},
+\qquad
+u_g(r)=\frac{q(r)\,n}{\varphi\,\rho_g}.
+\label{eq:masas-paso}
+\end{equation}
+En la pared \(q(R)=0\), luego las dos velocidades siguen en cero.
+\(\dd P/\dd z\) y \(\dd\varphi/\dd z\) salen del sistema algebraico del
+régimen fragmentado del conducto 1D, evaluado en los promedios de sección
+\(\bar\varphi\), \(\bar q=Q/(\pi R^2)\) y \(\bar\xi\). El roce del fundido
+con la pared no entra. Ese sistema no se discretiza en \(r\): es el mismo
+par \((\dd P/\dd z,\dd\varphi/\dd z)\) del 1D. Después,
+\begin{equation}
+\varphi_i\;\longleftarrow\;\varphi_i+h\,\frac{\dd\varphi}{\dd z}.
+\label{eq:phi-plano}
+\end{equation}
+El incremento es el mismo en todos los radios. Si \(\varphi\) era plano en
+\(r\), sigue plano. \(N\) y \(\xi\) quedan en el valor del cruce.
+\(Q\) se comprueba: la suma de las dos masas de \eqref{eq:masas-paso} es
+\(q(r)\), y su integral es el caudal de la base.
+
+\begin{obs}
+\(\varphi\) no varía con \(r\) por el cierre, no porque la malla sea 1D.
+Antes de fragmentar, \(\varphi_{\mathrm{Henry}}(P,\xi)\) solo puede variar
+en \(r\) a través de \(\xi\), y \(\xi\) se queda en \(\xi_0\).
+Después, \(\dd\varphi/\dd z\) es un escalar de sección y se suma igual en
+cada nodo. Las cantidades que sí dependen de \(r\) en la marcha son
+\(u_m\), \(u_g\), \(\mathrm{Ca}\), \(\varphi_1\) y \(\varphi_{\mathrm{crit}}\).
+\end{obs}
+
+\end{document}
