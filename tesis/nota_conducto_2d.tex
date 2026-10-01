@@ -18,6 +18,7 @@
 \newcommand{\p}{\partial}
 \newcommand{\Rv}{\mathcal{R}_v}
 \newcommand{\vin}{v_{\mathrm{in}}}
+\newcommand{\pc}{\ifmmode\text{\,\%}\else\,\%\fi}
 \newcommand{\MPa}{\ensuremath{\,\mathrm{MPa}}}
 \newcommand{\ms}{\ensuremath{\,\mathrm{m/s}}}
 \newcommand{\Pam}{\ensuremath{\,\mathrm{Pa/m}}}
@@ -41,7 +42,10 @@ promediado sobre la parábola da la pendiente de presión con el divisor
 de compresibilidad. Se fija el estado un metro sobre la saturación, se
 parten los regímenes con el número capilar y se describe la marcha en
 diferencias finitas. Al fragmentar se registran los cierres que ya se
-integraron, con la cifra y la figura de cada corrida.
+integraron, con la cifra y la figura de cada corrida. Al final se
+escribe el mismo conducto unidimensional con dependencia en el
+tiempo, las condiciones que lo cierran y las escalas en las que
+ese término pesa.
 \end{abstract}
 
 \tableofcontents
@@ -1291,6 +1295,219 @@ $\p P/\p r=0$. Entran $u_{m,r}$ y $u_{g,r}$, y la masa vuelve a ser
 constante en $z$ en cuanto hay flujo de una corona a otra. Las
 marchas de esta sección usan $u_{m,r}=u_{g,r}=0$.
 
+\section{Unidimensional en el tiempo}
+\label{sec:tiempo}
+
+El dominio sigue siendo $z\in[H,0]$, ahora con $t\ge 0$. La sección
+es constante y el flujo es isotermo, como en la
+sección~\ref{sec:1d}. El estado es
+$(P,\varphi,N,\xi,u_m,u_g)(z,t)$. La densidad del gas sigue siendo
+\eqref{eq:eos}. La suma de las dos masas ya no deja un caudal
+constante: $q=q(z,t)$.
+
+\subsection{Masa}
+
+\paragraph{Variables.}
+$\varphi$, $u_m$, $u_g$ y el caudal
+$q(z,t)=\rho_m(1-\varphi)\,u_m+\rho_g\,\varphi\,u_g$.
+Entran $\rho_g(P)$ y la tasa de exsolución $\Gamma$.
+
+\begin{align}
+\label{eq:masa-t}
+\frac{\p}{\p t}\bigl[\rho_m(1-\varphi)\bigr]
++\frac{\p}{\p z}\bigl[\rho_m(1-\varphi)\,u_m\bigr]
+&=-\Gamma,
+\\
+\frac{\p}{\p t}\bigl[\rho_g\,\varphi\bigr]
++\frac{\p}{\p z}\bigl[\rho_g\,\varphi\,u_g\bigr]
+&=\Gamma.
+\end{align}
+$\rho_m$ se toma constante, como en el conducto unidimensional
+estacionario. Al sumar \eqref{eq:masa-t} la exsolución se cancela
+y queda la masa total,
+\begin{equation}
+\label{eq:q-t}
+\frac{\p\rho_{\mathrm{mix}}}{\p t}+\frac{\p q}{\p z}=0,
+\qquad
+\rho_{\mathrm{mix}}=\rho_m(1-\varphi)+\rho_g\,\varphi.
+\end{equation}
+Con $\p/\p t=0$, \eqref{eq:q-t} devuelve $q=\mathrm{const}$, que es
+\eqref{eq:q}.
+
+\subsection{Momento}
+
+\paragraph{Variables.}
+$P$, $u_m$, $u_g$. Entran $\varphi$, $F_{mg}$, $F_{mw}$ y $F_{gw}$,
+con la misma viscosidad \eqref{eq:mu} y el mismo arrastre por
+régimen de la sección~\ref{sec:1d}.
+
+\begin{align}
+\label{eq:mom-t}
+\rho_m(1-\varphi)\Biggl(
+\frac{\p u_m}{\p t}+u_m\frac{\p u_m}{\p z}
+\Biggr)
+&=
+-(1-\varphi)\frac{\p P}{\p z}
+-\rho_m(1-\varphi)\,g
++F_{mg}-F_{mw},
+\\
+\rho_g\,\varphi\Biggl(
+\frac{\p u_g}{\p t}+u_g\frac{\p u_g}{\p z}
+\Biggr)
+&=
+-\varphi\frac{\p P}{\p z}
+-\rho_g\,\varphi\,g
+-F_{mg}-F_{gw}.
+\end{align}
+Con $\p/\p t=0$, \eqref{eq:mom-t} es \eqref{eq:mom-1d}. $F_{mw}$ se
+apaga en el tramo fragmentado y ahí aparece $F_{gw}$, igual que en
+el estacionario.
+
+\subsection{Número de burbujas y cristales}
+
+\paragraph{Variables.}
+$N$ y $\xi$. Entran $u_m$, $\Gamma_N$ y $\Gamma_\xi$, las mismas
+tasas \eqref{eq:GammaN} y \eqref{eq:Gammaxi}.
+
+\begin{align}
+\label{eq:Nxi-t}
+\frac{\p N}{\p t}+u_m\frac{\p N}{\p z}
+&=\Gamma_N(P,\varphi,N,\xi),
+\\
+\frac{\p \xi}{\p t}+u_m\frac{\p \xi}{\p z}
+&=\Gamma_\xi(P,\xi).
+\end{align}
+Después de fragmentar las dos tasas se anulan, así que $N$ y $\xi$
+solo se advectan. En el estacionario, \eqref{eq:Nxi-t} dividido por
+$u_m$ es \eqref{eq:N-1d}--\eqref{eq:xi-1d}.
+
+\subsection{Exsolución}
+
+\paragraph{Variables.}
+$\Gamma$, o bien $\varphi$ cuando se reemplaza la masa por una
+relajación. Entran $P$, $\xi$ y $\tau_{\mathrm{relax}}$.
+
+En equilibrio, $n=n(P,\xi)$ es Henry \eqref{eq:henry} en cada
+$(z,t)$, y $\Gamma$ es la tasa que mantiene el agua disuelta sobre
+esa curva. El límite estacionario con $u_m=u_g$ devuelve el volumen
+\eqref{eq:phi-noslip}.
+
+El integrador que ya corre no evoluciona las dos masas. Evoluciona
+$\varphi$ hacia el volumen de equilibrio, con $u_m$ la velocidad de
+la mezcla en ese instante:
+\begin{equation}
+\label{eq:relax}
+\frac{\p\varphi}{\p t}+u_m\frac{\p\varphi}{\p z}
+=\frac{\varphi_{\mathrm{eq}}(P,\xi)-\varphi}{\tau_{\mathrm{relax}}}.
+\end{equation}
+$\varphi_{\mathrm{eq}}$ es \eqref{eq:phi-noslip}. El valor usado es
+$\tau_{\mathrm{relax}}=200\,\mathrm{s}$. Si
+$\tau_{\mathrm{relax}}\to 0$, $\varphi$ queda en
+$\varphi_{\mathrm{eq}}$ en cada paso.
+
+\subsection{Condiciones}
+
+Hace falta un dato en toda la columna y un par base--boca.
+
+\paragraph{Inicial, $t=0$.}
+$(P,\varphi,N,\xi,u_m,u_g)(z,0)$ en $[H,0]$. Dos datos ya usados:
+la columna estacionaria del mismo caso, explosiva o efusiva; y la
+columna sin burbujas, $\varphi=0$, $\xi=\xi_0$, $N=N_0$, con el
+caudal que lleva $P(0)$ a $P_{\mathrm{atm}}$. Sobre la segunda, las
+burbujas crecen en la escala $\tau_{\mathrm{relax}}$.
+
+\paragraph{Base, $z=H$, para todo $t$.}
+\begin{equation}
+\label{eq:base-t}
+P(H,t)=P_{\mathrm{lit}}+\Delta P(t),
+\qquad
+\xi(H,t)=\xi_0,
+\qquad
+N(H,t)=N_0.
+\end{equation}
+$\varphi(H,t)$ es el volumen de Henry si la cámara está saturada, y
+$0$ si el agua sigue disuelta. $\Delta P$ constante es el borde del
+estacionario. Si $\Delta P$ lo entrega una cámara de volumen
+$V_{\mathrm{cam}}$,
+\begin{equation}
+\label{eq:camara}
+C_{\mathrm{cam}}\frac{\dd P_{\mathrm{cam}}}{\dd t}
+=Q_{\mathrm{entrada}}-\mathrm{MER}(P_{\mathrm{cam}}),
+\qquad
+C_{\mathrm{cam}}
+=\rho_m V_{\mathrm{cam}}\Biggl(\frac{1}{K_m}+\frac{1}{K_{\mathrm{cam}}}\Biggr).
+\end{equation}
+$P(H,t)=P_{\mathrm{lit}}+P_{\mathrm{cam}}(t)$. En el recorte de
+lubricación, con $V_{\mathrm{cam}}=50\,\mathrm{km}^3$, el tiempo
+$C_{\mathrm{cam}}/G$ de esa cámara es $5{,}83\,\mathrm{h}$.
+
+\paragraph{Boca, $z=0$.}
+Se impone una sola condición, la del estacionario:
+\begin{equation}
+\label{eq:boca-t}
+P(0,t)=P_{\mathrm{atm}}
+\quad\text{o}\quad
+u_g(0,t)=c_s=\sqrt{\Rv T}.
+\end{equation}
+Mientras $u_g<c_s$, el dato es la presión atmosférica y el caudal
+$q(t)$ es el que la cumple. Cuando el gas llega a $c_s$, el dato
+pasa a ser la velocidad sónica y $P(0,t)$ sale de la integración.
+$u_m$, $N$ y $\xi$ no se imponen en la boca: el flujo sale del
+dominio. En la base tampoco se impone la velocidad de salida; el
+caudal de entrada queda atado a \eqref{eq:boca-t}.
+
+El integrador en \texttt{RIconduit1D\_transient.py} usa la primera
+opción de \eqref{eq:boca-t} en todo el cálculo: en cada $t$ recalcula
+un $q(t)$, uniforme en $z$, tal que $P(0,t)=P_{\mathrm{atm}}$. Con
+ese $q$ y con los perfiles $\varphi$, $N$ y $\xi$ del instante,
+$P$, $u_m$ y $u_g$ salen del balance de momento sin el término
+$\p/\p t$. Avanza en el tiempo \eqref{eq:relax} y \eqref{eq:Nxi-t},
+con diferencias hacia atrás en $z$ y RK4, paso
+$\Delta t\le 0{,}4\,\Delta z/\max(u_m,u_g)$. El umbral de
+fragmentación va fijo en $0{,}75$ salvo que se le pase el
+$\varphi_{\mathrm{crit}}$ del estacionario. Los nodos de la base
+quedan en el valor inicial de $\varphi$, $N$ y $\xi$.
+
+\subsection{Cuándo pesa el término en el tiempo}
+
+La comparación de escalas es el número de Deborah
+$\mathrm{De}=\tau_{\mathrm{conducto}}/\tau_{\mathrm{forzamiento}}$.
+En el recorte de lubricación de Calbuco se midió
+$\tau_{\mathrm{hidr}}=8\,\mathrm{s}$ para la respuesta del caudal
+tras un escalón de presión, $\tau_{\mathrm{resid}}=6\,\mathrm{min}$
+de residencia y $\tau_{\mathrm{cam}}=5{,}83\,\mathrm{h}$. El drenaje
+de esa cámara tiene $\mathrm{De}=5{,}7\times 10^{-4}$, y el caudal
+obtenido con la columna estacionaria del $\Delta P(t)$ instantáneo
+difiere $0{,}08\pc$ del integrado en el tiempo. El error llega a
+$1\pc$ cuando $\mathrm{De}\approx 0{,}09$, esto es, forzamientos de
+menos de unos $90\,\mathrm{s}$.
+
+Con esas escalas, el término $\p/\p t$ del conducto entra en cuatro
+situaciones.
+
+\begin{enumerate}[leftmargin=1.2em,itemsep=0.35em]
+\item Apertura. La columna parte en $\varphi=0$ y el gas exsuelve en
+$\tau_{\mathrm{relax}}$. El nivel $z_f(t)$ se mueve. Una columna
+estacionaria no trae ese frente.
+\item Un cambio de $\Delta P$ en menos de un minuto. Ahí
+$\mathrm{De}\gtrsim 0{,}1$ y el caudal se aparta del estacionario
+del $\Delta P$ de ese instante.
+\item Cristalización durante un drenaje de horas. $\tau_c=2\,\mathrm{h}$
+está en el rango $10^{4}$--$10^{6}\,\mathrm{s}$ de los microlitos.
+Con $\tau\sim 10^{4}\,\mathrm{s}$ y una fase de $6\,\mathrm{h}$,
+$\mathrm{De}\approx 0{,}5$: $\xi(z,t)$ no es el perfil estacionario
+del $\Delta P(t)$ instantáneo. La exsolución en desequilibrio, con
+$\tau_{\mathrm{relax}}$ entre $10^{1}$ y $10^{3}\,\mathrm{s}$, cae
+en la misma situación si el forzamiento es de ese orden.
+\item Un domo cíclico. El período lo fija la cinética de
+cristalización o de escape de gas ($10^{3}$--$10^{5}\,\mathrm{s}$),
+así que la evolución es la de \eqref{eq:Nxi-t} y \eqref{eq:relax}.
+\end{enumerate}
+
+En el drenaje de Calbuco mirado solo por la hidráulica, con
+$\tau_{\mathrm{cam}}$ de horas, la sucesión de columnas
+estacionarias de $\Delta P(t)$ ya da el $\mathrm{MER}(t)$.
+
 \section{Operador directo}
 
 Las marchas de arriba, con un $\vin$ aceptado por \eqref{eq:boca},
@@ -1305,6 +1522,9 @@ es un escalar de la base,
 \theta=c_0,
 \end{equation}
 uno por vez. $\Delta P$ entra en $P(H)$. $c_0$ entra en Henry,
-\eqref{eq:henry} y \eqref{eq:nad}.
+\eqref{eq:henry} y \eqref{eq:nad}. En el tiempo de la
+sección~\ref{sec:tiempo} el dato de la boca es la función
+$Q(t)$, con $\Delta P(t)$ dado por \eqref{eq:base-t} o por la
+cámara \eqref{eq:camara}.
 
 \end{document}
