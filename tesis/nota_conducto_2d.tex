@@ -45,7 +45,9 @@ diferencias finitas. Al fragmentar se registran los cierres que ya se
 integraron, con la cifra y la figura de cada corrida. Al final se
 escribe el mismo conducto unidimensional con dependencia en el
 tiempo, las condiciones que lo cierran y las escalas en las que
-ese término pesa.
+ese término pesa. El cilindro con dependencia angular es el
+modelo tridimensional del que sale el eje-simétrico al anular
+$\partial/\partial\theta$ y la velocidad angular.
 \end{abstract}
 
 \tableofcontents
@@ -671,6 +673,229 @@ El modelo unidimensional de la sección~\ref{sec:1d} sale de aquí al
 promediar en $r$, imponer $\varphi=\varphi(z)$, $N=N(z)$,
 $\xi=\xi(z)$ y reemplazar el laplaciano radial por
 $F_{mw}=c_g\mu u_m/R^2$.
+
+\section{Conducto tridimensional}
+\label{sec:3d}
+
+El conducto es el cilindro $0\le r\le R$, $0\le\theta<2\pi$,
+$H\le z\le 0$, con $t\ge 0$. Las incógnitas dependen de
+$(r,\theta,z,t)$. Cada fase tiene tres velocidades. La vertical
+de las secciones anteriores es aquí la componente $z$:
+$u_{m,z}$ y $u_{g,z}$. El eje-simétrico de la sección~\ref{sec:2d}
+es este sistema con
+\[
+\frac{\p}{\p\theta}=0,
+\qquad
+u_{m,\theta}=u_{g,\theta}=0,
+\qquad
+\frac{\p}{\p t}=0.
+\]
+
+\subsection{Masa}
+
+\paragraph{Variables.}
+$\varphi$ y las dos velocidades
+$\mathbf{u}_m=(u_{m,r},u_{m,\theta},u_{m,z})$,
+$\mathbf{u}_g=(u_{g,r},u_{g,\theta},u_{g,z})$.
+Entran $\rho_g(P)$ y $\Gamma$.
+
+\begin{align}
+\label{eq:masa-3d}
+\frac{\p}{\p t}\bigl[\rho_m(1-\varphi)\bigr]
++\nabla\cdot\bigl[\rho_m(1-\varphi)\,\mathbf{u}_m\bigr]
+&=-\Gamma,
+\\
+\frac{\p}{\p t}\bigl[\rho_g\,\varphi\bigr]
++\nabla\cdot\bigl[\rho_g\,\varphi\,\mathbf{u}_g\bigr]
+&=\Gamma.
+\end{align}
+En cilíndricas el divergente de un flujo $\mathbf{f}$ es
+\begin{equation}
+\label{eq:div-cil}
+\nabla\cdot\mathbf{f}
+=\frac{1}{r}\frac{\p}{\p r}(r f_r)
++\frac{1}{r}\frac{\p f_\theta}{\p\theta}
++\frac{\p f_z}{\p z}.
+\end{equation}
+El término nuevo respecto del eje-simétrico es
+$(1/r)\,\p f_\theta/\p\theta$. El caudal que cruza una sección es
+\begin{equation}
+\label{eq:Q-3d}
+Q(z,t)
+=\int_0^{2\pi}\!\int_0^R
+\bigl[
+\rho_m(1-\varphi)\,u_{m,z}
++\rho_g\,\varphi\,u_{g,z}
+\bigr]\,r\,\dd r\,\dd\theta.
+\end{equation}
+Integrar \eqref{eq:masa-3d} en el disco deja
+$\p_t$ de la masa contenida en la rebanada más $\p_z Q$. El flujo
+angular se cancela al cerrar $\theta$ en $2\pi$, y el flujo radial
+se anula en $r=R$ porque la pared es impermeable.
+
+\subsection{Momento}
+
+\paragraph{Variables.}
+$P(r,\theta,z,t)$ y las seis velocidades. Entran $\varphi$, $\mu$,
+$\mu_g$ y el arrastre $\mathbf{F}_{mg}$, paralelo al
+deslizamiento $\mathbf{u}_g-\mathbf{u}_m$.
+
+La derivada material de la fase fundida es
+\begin{equation}
+\label{eq:Dt}
+\frac{D_m}{Dt}
+=\frac{\p}{\p t}
++u_{m,r}\frac{\p}{\p r}
++\frac{u_{m,\theta}}{r}\frac{\p}{\p\theta}
++u_{m,z}\frac{\p}{\p z},
+\end{equation}
+y $D_g/Dt$ es la misma fórmula con las velocidades del gas. El
+viscoseo es el de \eqref{eq:mom-mz}, con la derivada angular
+agregada. Sobre una componente $u$,
+\begin{equation}
+\label{eq:L3}
+\begin{aligned}
+L[\mu,\varphi]\,u
+&=
+\frac{1}{r}\frac{\p}{\p r}\Biggl(
+r\,\mu(1-\varphi)\frac{\p u}{\p r}
+\Biggr)
++\frac{1}{r^2}\frac{\p}{\p\theta}\Biggl(
+\mu(1-\varphi)\frac{\p u}{\p\theta}
+\Biggr)
+\\
+&\quad
++\frac{\p}{\p z}\Biggl(
+\mu(1-\varphi)\frac{\p u}{\p z}
+\Biggr).
+\end{aligned}
+\end{equation}
+En el gas se cambia $\mu(1-\varphi)$ por $\mu_g\varphi$.
+
+En $z$, con $\mathbf{g}$ hacia abajo,
+\begin{equation}
+\label{eq:mom-3d-z}
+\begin{aligned}
+\rho_m(1-\varphi)\,\frac{D_m u_{m,z}}{Dt}
+&=
+-(1-\varphi)\frac{\p P}{\p z}
+-\rho_m(1-\varphi)\,g
++F_{mg,z}
++L[\mu,\varphi]\,u_{m,z},
+\\[0.4em]
+\rho_g\,\varphi\,\frac{D_g u_{g,z}}{Dt}
+&=
+-\varphi\frac{\p P}{\p z}
+-\rho_g\,\varphi\,g
+-F_{mg,z}
++L[\mu_g,\varphi]\,u_{g,z}.
+\end{aligned}
+\end{equation}
+En $r$ aparece la aceleración centrífuga $u_\theta^2/r$, y en
+$\theta$ el término $u_r u_\theta/r$. Para el fundido,
+\begin{align}
+\label{eq:mom-3d-r}
+\rho_m(1-\varphi)\Biggl(
+\frac{D_m u_{m,r}}{Dt}-\frac{u_{m,\theta}^2}{r}
+\Biggr)
+&=
+-(1-\varphi)\frac{\p P}{\p r}
++F_{mg,r}
++L[\mu,\varphi]\,u_{m,r},
+\\
+\label{eq:mom-3d-th}
+\rho_m(1-\varphi)\Biggl(
+\frac{D_m u_{m,\theta}}{Dt}+\frac{u_{m,r}\,u_{m,\theta}}{r}
+\Biggr)
+&=
+-(1-\varphi)\frac{1}{r}\frac{\p P}{\p\theta}
++F_{mg,\theta}
++L[\mu,\varphi]\,u_{m,\theta}.
+\end{align}
+El gas repite \eqref{eq:mom-3d-r}--\eqref{eq:mom-3d-th} con
+$\rho_g\varphi$, $D_g$, el signo opuesto de $\mathbf{F}_{mg}$ y
+$L[\mu_g,\varphi]$. La ecuación de $P$ es este sistema: las tres
+componentes de $\nabla P$ quedan despejadas al pasar el viscoseo
+al otro lado, igual que en \eqref{eq:P-2d}. Con
+$\p/\p\theta=0$ y $u_\theta=0$, \eqref{eq:mom-3d-z} y
+\eqref{eq:mom-3d-r} son el momento de la sección~\ref{sec:2d}, y
+\eqref{eq:mom-3d-th} se cumple en la identidad $0=0$.
+
+El arrastre de los regímenes $J_k$ tiene el mismo coeficiente que
+\eqref{eq:Fmg1}--\eqref{eq:Fmg4}. La dirección es la del
+deslizamiento:
+\begin{equation}
+\label{eq:Fmg-vec}
+\mathbf{F}_{mg}
+=\mathcal{C}_k\,(\mathbf{u}_g-\mathbf{u}_m),
+\end{equation}
+donde $\mathcal{C}_k$ es ese coeficiente dividido por
+$(u_g-u_m)$ cuando el deslizamiento es vertical. Sobre el gas
+actúa $-\mathbf{F}_{mg}$.
+
+\subsection{Transporte}
+
+\paragraph{Variables.}
+$N(r,\theta,z,t)$ y $\xi(r,\theta,z,t)$. Entran $\mathbf{u}_m$,
+$\Gamma_N$ y $\Gamma_\xi$, las tasas \eqref{eq:GammaN} y
+\eqref{eq:Gammaxi}.
+
+\begin{align}
+\label{eq:Nxi-3d}
+\frac{\p N}{\p t}+\mathbf{u}_m\cdot\nabla N
+&=\Gamma_N,
+\\
+\frac{\p\xi}{\p t}+\mathbf{u}_m\cdot\nabla\xi
+&=\Gamma_\xi.
+\end{align}
+El producto $\mathbf{u}_m\cdot\nabla$ es $D_m/Dt$ sin la
+derivada $\p/\p t$. La exsolución sigue siendo el flujo de masa
+por el gradiente de Henry,
+\begin{equation}
+\label{eq:Gamma-3d}
+\Gamma=\mathbf{j}\cdot\nabla n,
+\qquad
+\mathbf{j}
+=\rho_m(1-\varphi)\,\mathbf{u}_m
++\rho_g\,\varphi\,\mathbf{u}_g,
+\end{equation}
+con $\nabla n=(\p n/\p P)\,\nabla P+(\p n/\p\xi)\,\nabla\xi$.
+Ahora $\nabla P$ tiene componente en $\theta$, así que una
+variación angular de la presión exsuelve agua aunque $P$ no
+cambie con $z$.
+
+\subsection{Condiciones}
+
+En el eje la velocidad cartesiana es un solo vector, así que
+\begin{equation}
+\label{eq:eje-3d}
+u_{m,r}=u_{g,r}=u_{m,\theta}=u_{g,\theta}=0
+\quad\text{en }r=0,
+\end{equation}
+y $\p P/\p r=\p\varphi/\p r=\p N/\p r=\p\xi/\p r=0$. En la pared
+el fundido no desliza y ninguna fase la cruza,
+\begin{equation}
+\label{eq:pared-3d}
+\mathbf{u}_m=\mathbf{0},
+\qquad
+u_{g,r}=0
+\quad\text{en }r=R.
+\end{equation}
+Las componentes tangenciales del gas quedan libres: el roce con
+la pared es la versión angular de \eqref{eq:Fmw}. En $\theta$
+todo campo cumple $f(\theta+2\pi)=f(\theta)$.
+
+En la base,
+$P(r,\theta,H,t)=P_{\mathrm{lit}}+\Delta P(t)$,
+$\xi=\xi_0$ y $N=N_0$. En la boca vale una condición, la de
+\eqref{eq:boca-t}, ahora en cada $(r,\theta)$:
+$P=P_{\mathrm{atm}}$ o $u_{g,z}=c_s$. El dato inicial es una
+columna entera
+$(P,\varphi,N,\xi,\mathbf{u}_m,\mathbf{u}_g)$ en $t=0$. La
+columna eje-simétrica, repetida en $\theta$ con
+$u_\theta=0$, es un dato compatible con las marchas de esta
+nota. Estas ecuaciones no están integradas: las marchas que sí
+corren son las de las secciones anteriores.
 
 \section{Tramo sin burbujas}
 \label{sec:sinbub}
