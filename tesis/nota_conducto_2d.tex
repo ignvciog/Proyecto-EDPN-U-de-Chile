@@ -1105,7 +1105,7 @@ sección,
 \begin{equation}
 \label{eq:dpdz}
 \frac{\dd P}{\dd z}
-=\frac{-\rho_m g+8\mu\bar u/R^2}{1-\frac43\bar u^2/c^2},
+=\frac{-\rho_m g-8\mu\bar u/R^2}{1-\frac43\bar u^2/c^2},
 \qquad
 c^2=\frac{K}{\rho_m},
 \qquad
@@ -1140,6 +1140,47 @@ $L\sim\rho_m\vin R^2/\mu$, del orden de $2{,}5\,\mathrm{km}$ con los
 números de la base. En Calbuco, $z_{\mathrm{sat}}$ cae cerca de
 $-3{,}7\,\mathrm{km}$. La fórmula \eqref{eq:dpdz} cubre desde ese
 acomodo hasta la saturación.
+
+\subsection{Diferencias finitas hasta la saturación}
+
+El tramo se integró en diferencias finitas sin imponer
+$u_{m,r}=0$ dentro del conducto. En cada paso el residuo de la masa,
+del momento axial y del momento radial se lleva a cero.
+$\rho_m=\rho_m(H)\exp\bigl((P-P(H))/K\bigr)$ con $K=15\,\mathrm{GPa}$.
+Los datos de borde son $u_{m,r}=0$ en el eje, en la pared y en la
+base, $u_m(R)=0$, y en $z=H$ la parábola con
+$\bar u=16{,}133\,\mathrm{m/s}$ y $P=P_{\mathrm{lit}}+\Delta P$.
+Hay $17$ nodos en $r$ y pasos de $40\,\mathrm{m}$.
+
+La marcha corta en $z=-3635\,\mathrm{m}$, cuando
+$P=P_{\mathrm{sat}}=94{,}72\,\mathrm{MPa}$. El caudal de masa se
+conserva al nivel de $10^{-7}$ relativo. $\rho_m$ en el eje pasa de
+$2463{,}2$ a $2448{,}7\,\mathrm{kg\,m^{-3}}$ y $\bar u$ de $16{,}07$
+a $16{,}17\,\mathrm{m/s}$: el producto $\rho_m\bar u$ queda fijo.
+$|u_{m,r}|$ baja de $10^{-4}\,\mathrm{m/s}$ en el primer paso a
+menos de $10^{-8}\,\mathrm{m/s}$ en el resto del tramo, y $P$ no
+depende de $r$. $\partial P/\partial z$ en el eje va de
+$-2{,}645\times 10^{4}$ a $-2{,}633\times 10^{4}\,\mathrm{Pa/m}$.
+La fórmula \eqref{eq:dpdz}, evaluada con el $\rho_m$ y el $\bar u$
+de cada altura, cae a $10\,\mathrm{Pa/m}$ de ese valor.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=\textwidth]{figuras_variantes/sinbub_fd.png}
+\caption{Tramo sin exsolución integrado en diferencias finitas.
+$P$ llega a $P_{\mathrm{sat}}$, $\bar u$ sube como $1/\rho_m$ y el
+caudal de masa no cambia.}
+\label{fig:sinbub-fd}
+\end{figure}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=\textwidth]{figuras_variantes/sinbub_fd_perfiles.png}
+\caption{Perfiles en la base, a media altura y al llegar a
+$P_{\mathrm{sat}}$. $u_r$ queda en el ruido de la malla y $P$ es
+uniforme en $r$.}
+\label{fig:sinbub-perfiles}
+\end{figure}
 
 \subsection{El metro donde empieza la exsolución}
 
