@@ -205,9 +205,15 @@ def viscosidad(P, phi, xi, umz, Nd, dr, phicrit, u_prev=None, h=None):
     ])
 
 
-def coef_arrastre(phi, rb, mu, rho_g, speed, phi1, phi2, phicrit):
-    """C tal que F = C (u_g - u_m), con el régimen que pide el φ local."""
+def coef_arrastre(phi, rb, mu, rho_g, speed, phi1, phi2, phicrit, phi_regimen=None):
+    """C tal que F = C (u_g - u_m), con el régimen que pide el φ local.
+
+    phi_regimen, si viene, elige la rama (Stokes, empalme, permeabilidad,
+    fragmentos) sin cambiar el factor φ(1-φ). Sirve para cruzar el empalme
+    con continuación: el último peso usa el φ de verdad.
+    """
     phi = np.clip(np.asarray(phi, dtype=float), 0.0, 0.98)
+    reg = phi if phi_regimen is None else np.clip(np.asarray(phi_regimen, dtype=float), 0.0, 0.98)
     rb = np.maximum(np.asarray(rb, dtype=float), 1.0e-8)
     mu = np.maximum(np.asarray(mu, dtype=float), 1.0)
     rho_g = np.maximum(np.asarray(rho_g, dtype=float), 1.0e-6)
@@ -220,15 +226,15 @@ def coef_arrastre(phi, rb, mu, rho_g, speed, phi1, phi2, phicrit):
     darcy = MU_G / np.maximum(kper, 1.0e-30)
     inercial = 0.33 * rho_g * speed_f / (4.0 * rb)
     perm = np.where(Re > 2200.0, inercial, darcy)
-    tt = np.clip((phi - phi1) / max(phi2 - phi1, 1.0e-8), 0.0, 1.0)
-    base = np.where((phi >= phi1) & (phi < phi2), perm ** tt * stokes ** (1.0 - tt), stokes)
-    base = np.where((phi >= phi2) & (phi < phicrit), perm, base)
-    tt4 = np.clip((phi - phicrit) / 0.05, 0.0, 1.0)
+    tt = np.clip((reg - phi1) / max(phi2 - phi1, 1.0e-8), 0.0, 1.0)
+    base = np.where((reg >= phi1) & (reg < phi2), perm ** tt * stokes ** (1.0 - tt), stokes)
+    base = np.where((reg >= phi2) & (reg < phicrit), perm, base)
+    tt4 = np.clip((reg - phicrit) / 0.05, 0.0, 1.0)
     c_in = 0.33 / (4.0 * rb)
     capa = np.maximum(c_in, 1.0e-30) ** (1.0 - tt4) * (C_J4 ** tt4) * rho_g * speed_f
     puro = C_J4 * rho_g * speed_f
-    base = np.where((phi >= phicrit) & (phi < phicrit + 0.05), capa, base)
-    base = np.where(phi >= phicrit + 0.05, puro, base)
+    base = np.where((reg >= phicrit) & (reg < phicrit + 0.05), capa, base)
+    base = np.where(reg >= phicrit + 0.05, puro, base)
     return np.where(phi < 1.0e-8, 0.0, base * fac)
 
 
@@ -377,7 +383,7 @@ def _upwind_cara(ur, r):
     return np.gradient(np.concatenate([[0.0], ur, [0.0]]), x)[1:-1]
 
 
-def residual_bifasico(y, prev, h, mu, s0z, s0r, prev2, h_prev, fragmentado, umb):
+def residual_bifasico(y, prev, h, mu, s0z, s0r, prev2, h_prev, fragmentado, umb, peso=1.0):
     r = prev["r"]
     dr = prev["dr"]
     n = r.size
@@ -413,14 +419,20 @@ def residual_bifasico(y, prev, h, mu, s0z, s0r, prev2, h_prev, fragmentado, umb)
     slip_z = hatz * s0z
     slip_r = hatr * s0r
     slip_r_n = _ur_nodos(slip_r)
+    peso = float(np.clip(peso, 0.0, 1.0))
+    reg = (1.0 - peso) * prev["phi"] + peso * phi
+    reg_f = 0.5 * (reg[:-1] + reg[1:])
     speed_z = np.sqrt(slip_z ** 2 + slip_r_n ** 2)
     rb = _radio_burbuja(phi, Nd)
-    Cz = coef_arrastre(phi, rb, mu, rho_g, speed_z, umb["phi1"], umb["phi2"], umb["phicrit"])
+    Cz = coef_arrastre(
+        phi, rb, mu, rho_g, speed_z, umb["phi1"], umb["phi2"], umb["phicrit"], reg,
+    )
     Fz = Cz * slip_z
     slip_r_speed = np.sqrt((0.5 * (slip_z[:-1] + slip_z[1:])) ** 2 + slip_r ** 2)
     rb_f = _radio_burbuja(phi_f, 0.5 * (Nd[:-1] + Nd[1:]))
     Cr = coef_arrastre(
-        phi_f, rb_f, mu_f, rho_gf, slip_r_speed, umb["phi1"], umb["phi2"], umb["phicrit"],
+        phi_f, rb_f, mu_f, rho_gf, slip_r_speed,
+        umb["phi1"], umb["phi2"], umb["phicrit"], reg_f,
     )
     Fr = Cr * slip_r
 
@@ -623,17 +635,31 @@ def _paso_bifasico(prev, prev2, h, h_prev, fragmentado, umb):
     lo, hi = _cotas(prev, prev["r"].size, fragmentado)
     y = np.minimum(np.maximum(_empaquetar(guess, s0z, s0r), lo + 1.0e-14), hi - 1.0e-14)
     sol = None
-    for _ in range(3):
-        def fun(z, mu=mu, s0z=s0z, s0r=s0r):
+
+    def _resolver(y0, mu_f, s0z_f, s0r_f, peso):
+        def fun(z, mu=mu_f, s0z=s0z_f, s0r=s0r_f, peso=peso):
             return residual_bifasico(
-                z, prev, h, mu, s0z, s0r, prev2, h_prev, fragmentado, umb,
+                z, prev, h, mu, s0z, s0r, prev2, h_prev, fragmentado, umb, peso,
             )
 
-        sol = least_squares(
-            fun, y, bounds=(lo, hi), method="trf", x_scale="jac",
-            ftol=1.0e-12, xtol=1.0e-12, gtol=1.0e-12, max_nfev=max(80, 3 * y.size),
+        return least_squares(
+            fun, y0, bounds=(lo, hi), method="trf", x_scale="jac",
+            ftol=1.0e-12, xtol=1.0e-12, gtol=1.0e-12, max_nfev=max(80, 3 * y0.size),
         )
-        y = sol.x
+
+    for _ in range(3):
+        y_aqui = y.copy()
+        sol = _resolver(y, mu, s0z, s0r, 1.0)
+        if sol.cost > 1.0e-4:
+            # El empalme de arrastre cambia C en órdenes de magnitud. Se cruza
+            # con el régimen del paso anterior y recién al final queda el φ real.
+            y = y_aqui
+            for peso in (0.0, 0.5, 1.0):
+                sol = _resolver(y, mu, s0z, s0r, peso)
+                y = np.minimum(np.maximum(sol.x, lo + 1.0e-14), hi - 1.0e-14)
+                print(f"  continuación peso={peso:.1f} costo={sol.cost:.3e}", flush=True)
+        else:
+            y = sol.x
         P, phi, umz, ugz, umr, ugr, xi, Nd = _velocidad(y, prev, s0z, s0r, fragmentado)
         guess = dict(prev)
         guess.update({
@@ -643,7 +669,7 @@ def _paso_bifasico(prev, prev2, h, h_prev, fragmentado, umb):
         mu = viscosidad(P, phi, xi, umz, Nd, prev["dr"], umb["phicrit"], prev["umz"], h)
         s0z, s0r = _escalas(guess, mu, umb)
         y = np.minimum(np.maximum(_empaquetar(guess, s0z, s0r), lo + 1.0e-14), hi - 1.0e-14)
-        if sol.cost < 1.0e-7:
+        if sol.cost < 1.0e-4:
             break
     P, phi, umz, ugz, umr, ugr, xi, Nd = _velocidad(y, prev, s0z, s0r, fragmentado)
     nuevo = {
