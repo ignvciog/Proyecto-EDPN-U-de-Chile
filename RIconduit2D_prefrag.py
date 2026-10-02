@@ -576,17 +576,19 @@ def _predecir(prev, prev2, h, fragmentado):
 
 
 def _cotas(prev, n, fragmentado):
+    """P, φ y u_z quedan libres. u_r solo puede apartarse poco del paso anterior,
+    para no saltar a la raíz espuria del momento radial."""
     nf = n - 1
+    margen = 5.0 if fragmentado else 0.5
     p_lo = np.full(n, Patm)
-    p_hi = np.maximum(prev["P"] * 1.002, Patm * 2.0)
-    p_hi = np.minimum(p_hi, P_BASE * 1.02)
+    p_hi = np.minimum(np.maximum(prev["P"] * 1.002, Patm * 2.0), P_BASE * 1.02)
     phi_hi = 0.98 if fragmentado else min(0.98, max(float(np.max(prev["phi"])) + 0.04, 0.02))
     lo = np.concatenate([
         p_lo,
         np.zeros(n),
         np.zeros(nf),
         np.full(nf, -40.0),
-        np.full(nf, -40.0),
+        np.maximum(prev["umr"] - margen, -40.0),
         np.full(nf, -40.0),
         np.full(n, 0.2),
         np.full(n, 1.0e6),
@@ -596,7 +598,7 @@ def _cotas(prev, n, fragmentado):
         np.full(n, phi_hi),
         np.full(nf, 0.98 * CS),
         np.full(nf, 40.0),
-        np.full(nf, 40.0),
+        np.minimum(prev["umr"] + margen, 40.0),
         np.full(nf, 40.0),
         np.full(n, float(xmax)),
         np.full(n, 1.0e16),
@@ -622,7 +624,7 @@ def _paso_bifasico(prev, prev2, h, h_prev, fragmentado, umb):
 
         sol = least_squares(
             fun, y, bounds=(lo, hi), method="trf", x_scale="jac",
-            ftol=1.0e-10, xtol=1.0e-10, gtol=1.0e-10, max_nfev=max(80, 3 * y.size),
+            ftol=1.0e-12, xtol=1.0e-12, gtol=1.0e-12, max_nfev=max(80, 3 * y.size),
         )
         y = sol.x
         P, phi, umz, ugz, umr, ugr, xi, Nd = _velocidad(y, prev, s0z, s0r, fragmentado)
@@ -634,7 +636,7 @@ def _paso_bifasico(prev, prev2, h, h_prev, fragmentado, umb):
         mu = viscosidad(P, phi, xi, umz, Nd, prev["dr"], umb["phicrit"], prev["umz"], h)
         s0z, s0r = _escalas(guess, mu, umb)
         y = np.minimum(np.maximum(_empaquetar(guess, s0z, s0r), lo + 1.0e-14), hi - 1.0e-14)
-        if sol.cost < 1.0e-12:
+        if sol.cost < 1.0e-7:
             break
     P, phi, umz, ugz, umr, ugr, xi, Nd = _velocidad(y, prev, s0z, s0r, fragmentado)
     nuevo = {
@@ -690,14 +692,30 @@ def _h_max(phi, fragmentado, phicrit):
         return 0.5
     p = float(np.max(phi))
     if p < 0.02:
-        return 15.0
-    if p < 0.1:
         return 8.0
+    if p < 0.1:
+        return 6.0
     if p < 0.4:
         return 4.0
     if p < phicrit - 0.05:
         return 2.0
     return 0.5
+
+
+def _tablero(ur):
+    """True si u_r alterna de signo: esa raíz no es el perfil radial suave."""
+    if ur.size < 5:
+        return False
+    amp = float(np.max(np.abs(ur)))
+    if amp < 1.0e-3:
+        return False
+    signo = np.sign(ur)
+    signo[np.abs(ur) < 0.05 * amp] = 0.0
+    nz = signo[signo != 0.0]
+    if nz.size < 4:
+        return False
+    cambios = int(np.sum(nz[1:] * nz[:-1] < 0.0))
+    return cambios >= max(3, nz.size // 2)
 
 
 def marchar_columna(vin=15.5, n_r=13, h_liq=40.0, umb=None):
@@ -711,10 +729,10 @@ def marchar_columna(vin=15.5, n_r=13, h_liq=40.0, umb=None):
     st = hist[-1]
     prev2 = hist[-2]
     h_prev = st["z"] - prev2["z"]
-    h = 4.0
+    h = 2.0
     fragmentado = False
     z_f = None
-    while st["z"] < -0.2 and len(hist) < 2500:
+    while st["z"] < -0.2 and len(hist) < 4000:
         if (not fragmentado) and float(np.max(st["phi"])) >= umb["phicrit"]:
             fragmentado = True
             z_f = st["z"]
@@ -724,33 +742,56 @@ def marchar_columna(vin=15.5, n_r=13, h_liq=40.0, umb=None):
         nuevo, costo = _paso_bifasico(st, prev2, h_uso, h_prev, fragmentado, umb)
         dphi = float(np.max(nuevo["phi"]) - np.max(st["phi"]))
         cruza = (not fragmentado) and float(np.max(nuevo["phi"])) > umb["phicrit"] + 0.01
-        feo = (not np.isfinite(costo)) or costo > 5.0e-4 or cruza
-        h_min = 0.15 if fragmentado else 0.4
+        ur_max = float(np.max(np.abs(nuevo["umr"])))
+        margen = 5.0 if fragmentado else 0.5
+        desv = float(np.max(np.abs(nuevo["umr"] - st["umr"])))
+        # Si u_r queda pegado al borde de continuación, el paso no cerró la raíz suave.
+        en_borde = desv > 0.92 * margen
+        tablero = _tablero(nuevo["umr"]) or _tablero(nuevo["ugr"])
+        feo = (not np.isfinite(costo)) or costo > 1.0e-8 or cruza or en_borde or tablero
+        h_min = 0.1 if fragmentado else 0.25
         if feo and h_uso > h_min + 1.0e-9:
+            print(
+                f"reintento z={st['z']:.2f} h={h_uso:.3f} costo={costo:.2e} "
+                f"|ur|={ur_max:.3e} d|ur|={desv:.3e} borde={en_borde} tablero={tablero}",
+                flush=True,
+            )
             h = max(h_min, 0.5 * h_uso)
             continue
         if feo:
             print(
-                f"corte z={st['z']:.2f} costo={costo:.2e} phi={float(np.max(nuevo['phi'])):.4f} "
-                f"um={nuevo['umz'][0]:.2f} ug={nuevo['ugz'][0]:.2f}",
+                f"corte z={st['z']:.2f} h={h_uso:.3f} costo={costo:.2e} "
+                f"phi={float(np.max(nuevo['phi'])):.4f} "
+                f"um={nuevo['umz'][0]:.2f} ug={nuevo['ugz'][0]:.2f} "
+                f"|ur|={ur_max:.3e} d|ur|={desv:.3e} borde={en_borde} tablero={tablero}",
                 flush=True,
             )
+            print("ur", np.array2string(nuevo["umr"], precision=3), flush=True)
+            print("P MPa", np.array2string(nuevo["P"] / 1e6, precision=4), flush=True)
+            print("phi", np.array2string(nuevo["phi"], precision=4), flush=True)
+            print("umz", np.array2string(nuevo["umz"], precision=3), flush=True)
+            print("mu", np.array2string(nuevo["mu"], precision=4), flush=True)
             break
         prev2 = st
         h_prev = h_uso
         st = nuevo
         hist.append(st)
-        if costo < 1.0e-8 and dphi < 0.015:
-            h = min(h_uso * 1.25, _h_max(st["phi"], fragmentado, umb["phicrit"]))
+        h_tope = _h_max(st["phi"], fragmentado, umb["phicrit"])
+        if desv > 0.04 or costo > 1.0e-12:
+            h = min(h_uso, h_tope)
+        elif dphi < 0.01:
+            h = min(h_uso * 1.25, h_tope)
         else:
-            h = h_uso
-        if len(hist) % 8 == 0 or fragmentado:
+            h = min(h_uso, h_tope)
+        n_bi = len(hist) - len(liquido)
+        if n_bi <= 12 or n_bi % 10 == 0 or fragmentado:
             print(
                 f"z={st['z']:.2f} h={h_uso:.2f} costo={costo:.2e} "
                 f"P={st['P'][0]/1e6:.3f} phi={st['phi'][0]:.4f} "
                 f"um={st['umz'][0]:.2f} ug={st['ugz'][0]:.2f} "
                 f"slip={st['ugz'][0]-st['umz'][0]:.3e} "
                 f"|ur|={np.max(np.abs(st['umr'])):.3e} |ugr|={np.max(np.abs(st['ugr'])):.3e} "
+                f"dP={float(np.max(st['P'])-np.min(st['P']))/1e3:.2f}kPa "
                 f"xi={st['xi'][0]:.6f} N={st['N'][0]:.3e} Q={_caudal(st)/_caudal(hist[0]):.4f}",
                 flush=True,
             )
@@ -782,6 +823,7 @@ def _guardar_parcial(hist, umb, z_sat, z_f):
         z_sat=z_sat,
         z_f=-1.0 if z_f is None else z_f,
     )
+    graficar(hist, "/opt/cursor/artifacts/conducto_fd.png", umb, z_sat, z_f)
 
 
 def graficar(hist, ruta, umb, z_sat, z_frag):
@@ -815,7 +857,7 @@ def graficar(hist, ruta, umb, z_sat, z_frag):
     ax[0, 3].semilogx(np.maximum(ugr, 1.0e-16), z, color="C1", lw=1.2, ls="--", label="gas")
     ax[0, 3].set_xlabel(r"$|u_r|$ [m/s]")
     ax[0, 3].legend(frameon=False, fontsize=8)
-    ax[1, 0].plot(N, z, color="C0", lw=1.6)
+    ax[1, 0].semilogx(np.maximum(N, 1.0), z, color="C0", lw=1.6)
     ax[1, 0].set_xlabel(r"$N$ [m$^{-3}$]")
     ax[1, 1].plot(xi, z, color="C0", lw=1.6)
     ax[1, 1].set_xlabel(r"$\xi$")
