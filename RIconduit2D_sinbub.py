@@ -303,11 +303,13 @@ def graficar(hist, ruta):
     c2 = K_BULK / rho_eje
     formula = (-rho_eje * g - 8.0 * mu_m * ubar / R_COND ** 2) / (1.0 - (4.0 / 3.0) * ubar ** 2 / c2)
 
-    # Misma disposición que perfiles-eje: z vertical, y escala
-    # logarítmica horizontal en P, en |u_r| y en μ.
+    # Profundidad en el eje vertical. Logaritmo horizontal en P,
+    # en las dos componentes radiales y en la viscosidad.
+    # En este tramo no hay gas: u_g no entra, φ = 0, N = N(H), ξ = ξ_0.
     um_eje = np.array([s["uz"][0] for s in hist])
+    N0 = 1.0e8
     zk = z / 1000.0
-    fig, ax = plt.subplots(2, 3, figsize=(11.2, 6.6), sharey=True)
+    fig, ax = plt.subplots(2, 4, figsize=(13.4, 6.5), sharey=True)
     ax[0, 0].semilogx(P_eje / 1e6, zk, color="C0", lw=1.6)
     ax[0, 0].axvline(P_SAT / 1e6, color="k", lw=0.8, ls="--")
     ax[0, 0].set_xlim(10.0, 1.0e3)
@@ -315,15 +317,22 @@ def graficar(hist, ruta):
     ax[0, 1].plot(np.zeros_like(zk), zk, color="C0", lw=1.6)
     ax[0, 1].set_xlim(-0.02, 1.0)
     ax[0, 1].set_xlabel(r"$\phi$")
-    ax[0, 2].plot(rho_eje, zk, color="C0", lw=1.6)
-    ax[0, 2].set_xlabel(r"$\rho_m$ [kg/m$^3$]")
-    ax[1, 0].plot(um_eje, zk, color="C0", lw=1.6)
-    ax[1, 0].set_xlabel(r"$u_m$ [m/s]")
-    ax[1, 1].semilogx(np.maximum(urmax, 1.0e-16), zk, color="C0", lw=1.6)
-    ax[1, 1].set_xlabel(r"max $|u_r|$ [m/s]")
+    ax[0, 2].plot(um_eje, zk, color="C0", lw=1.6, label="fundido")
+    ax[0, 2].set_xlabel(r"$u_z$ [m/s]")
+    ax[0, 2].legend(frameon=False, fontsize=8)
+    ax[0, 3].semilogx(np.maximum(urmax, 1.0e-16), zk, color="C0", lw=1.6, label="fundido")
+    ax[0, 3].set_xlabel(r"$|u_r|$ [m/s]")
+    ax[0, 3].legend(frameon=False, fontsize=8)
+    ax[1, 0].plot(np.full_like(zk, N0), zk, color="C0", lw=1.6)
+    ax[1, 0].set_xlim(0.0, 2.0e8)
+    ax[1, 0].set_xlabel(r"$N$ [m$^{-3}$]")
+    ax[1, 1].plot(np.full_like(zk, XI0), zk, color="C0", lw=1.6)
+    ax[1, 1].set_xlim(0.0, 1.0)
+    ax[1, 1].set_xlabel(r"$\xi$")
     ax[1, 2].semilogx(np.maximum(mu_m, 1.0), zk, color="C0", lw=1.6)
     ax[1, 2].set_xlim(1.0e2, 1.0e6)
     ax[1, 2].set_xlabel(r"$\mu$ [Pa s]")
+    ax[1, 3].axis("off")
     ax[0, 0].set_ylabel("z [km]")
     ax[1, 0].set_ylabel("z [km]")
     for a in ax.ravel():
