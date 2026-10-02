@@ -770,7 +770,7 @@ def marchar_columna(vin=15.5, n_r=13, h_liq=40.0, umb=None):
         tablero = _tablero(nuevo["umr"]) or _tablero(nuevo["ugr"])
         # Con φ chico, |u_r| de varios cm/s es el modo de la malla, no el flujo.
         modo = (not fragmentado) and ur_max > 0.05 and float(np.max(nuevo["phi"])) < 0.05
-        feo = (not np.isfinite(costo)) or costo > 1.0e-6 or cruza or en_borde or tablero or modo
+        feo = (not np.isfinite(costo)) or costo > 1.0e-4 or cruza or en_borde or tablero or modo
         if feo and h_uso < _h_max(st["phi"], fragmentado, umb["phicrit"]) - 1.0e-9:
             print(
                 f"reintento z={st['z']:.2f} h={h_uso:.3f} costo={costo:.2e} "
