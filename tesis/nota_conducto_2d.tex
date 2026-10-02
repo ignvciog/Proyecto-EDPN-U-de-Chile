@@ -1242,25 +1242,60 @@ burbujas. \(u_z\) llega a \(113\,\mathrm{m/s}\) y \(|u_r|\) a
 
 \subsection{Después de fragmentar}
 
-\(N\) y \(\xi\) quedan en el valor del cruce. El caudal \(q(r)\) se
-congela, así que la masa radial deja de entrar. La fracción másica
-pierde el factor \((1-\xi)\),
+En \(z_f\) se guarda, radio por radio, el caudal vertical de la mezcla
+\begin{equation}
+\label{eq:q-frag}
+q(r)=\rho_c u_z,
+\qquad
+\rho_c=(1-\varphi)\rho_m+\varphi\rho_g,
+\end{equation}
+evaluado con el estado del cruce. Ese \(q(r)\) es el mismo en todos
+los niveles siguientes, y \(\rho_m\) queda en \(\rho_m(P(z_f))\).
+\(N\) y \(\xi\) quedan en el valor del cruce. A partir de ahí las
+incógnitas de cada radio interior son \(P\) y \(\varphi\).
+
+La fracción másica es Henry sin el factor \((1-\xi)\),
 \begin{equation}
 \label{eq:n-sinxi}
 n=\frac{c_0-C_1 P^{\beta}}{1-C_1 P^{\beta}},
+\qquad
+\rho_g=\frac{P}{\Rv T},
 \end{equation}
-y en cada radio
+y el caudal se reparte en
 \begin{equation}
 \label{eq:vel-frag}
 u_m=\frac{(1-n)\,q(r)}{\rho_m(1-\varphi)},
 \qquad
 u_g=\frac{n\,q(r)}{\rho_g\,\varphi}.
 \end{equation}
-El salto en el eje es de \(113\) a \(150\,\mathrm{m/s}\) en el gas,
-el factor \(1/(1-\xi_0)=4/3\). Lo que se integra es
-\eqref{eq:mom-loc}, con \(F_{mg}=300\,\varphi(1-\varphi)(u_g-u_m)|u_g-u_m|\).
-En la boca, \(z=-0{,}2\,\mathrm{m}\), \(P=2{,}33\,\mathrm{MPa}\),
-\(\varphi=0{,}95\), \(u_m=490\,\mathrm{m/s}\) y
+El arrastre es
+\begin{equation}
+\label{eq:Fmg-frag}
+F_{mg}=300\,\varphi(1-\varphi)\,(u_g-u_m)\,|u_g-u_m|.
+\end{equation}
+Con paso \(h\) hacia atrás, el nivel nuevo \((P,\varphi)\) cumple
+\begin{align}
+\label{eq:fd-post}
+\rho_m u_m\frac{u_m-u_m^{-}}{h}
++\frac{P-P^{-}}{h}+\rho_m g
+-\frac{F_{mg}}{1-\varphi}
+&=0,
+\\
+\rho_g u_g\frac{u_g-u_g^{-}}{h}
++\frac{P-P^{-}}{h}+\rho_g g
++\frac{F_{mg}}{\varphi}
+&=0,
+\end{align}
+donde el supraíndice \(-\) es el nivel anterior y \(u_m\), \(u_g\)
+entran por \eqref{eq:vel-frag}. Es la forma discreta de
+\eqref{eq:mom-loc}. La pared copia al radio vecino. Un radio se
+detiene si \(u_g\ge 0{,}98\,c_s\) o si \(P\le 1{,}05\,P_{\mathrm{atm}}\).
+
+En el cruce, con la misma \(P\) y el mismo \(\varphi\), el gas del eje
+pasa de \(113\) a \(150\,\mathrm{m/s}\), el factor
+\(1/(1-\xi_0)=4/3\), y el fundido de \(113\) a \(112\,\mathrm{m/s}\).
+En la boca, \(z=-0{,}18\,\mathrm{m}\), \(P=2{,}33\,\mathrm{MPa}\),
+\(\varphi=0{,}947\), \(u_m=491\,\mathrm{m/s}\) y
 \(u_g=578\,\mathrm{m/s}\), todavía bajo \(c_s=757\,\mathrm{m/s}\).
 
 \begin{figure}[ht]
