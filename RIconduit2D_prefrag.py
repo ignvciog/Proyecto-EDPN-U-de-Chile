@@ -4,7 +4,9 @@ Exsolución hasta antes de la fragmentación, en diferencias finitas.
 Se parte del tramo sin burbujas. Antes de fragmentar se resuelven
 la masa de la mezcla, los dos momentos y el transporte de N y de ξ.
 φ = φ_Henry(P, ξ). u_r queda libre dentro del conducto. Se corta
-cuando φ llega a φ_crit. Después, n va sin ξ y q(r) queda congelado.
+cuando φ llega a φ_crit. Después, n va sin ξ y se integran las dos
+masas, los dos momentos verticales y los dos momentos radiales, con
+el laplaciano viscoso y con u_r de cada fase.
 """
 
 from __future__ import annotations
@@ -362,6 +364,7 @@ def marchar_exsol(vin=5.0, n_r=17, h_sb=40.0, h=20.0, phicrit=0.7):
 
 
 C_DRAG = 300.0
+MU_G = 1.0e-5
 CS = math.sqrt(RV * T_GAS)
 
 
@@ -369,6 +372,13 @@ def n_sin_xi(P):
     """Fracción másica exsuelta después de fragmentar: Henry sin el factor (1-ξ)."""
     P = np.maximum(np.asarray(P, dtype=float), 1.0e4)
     return np.maximum((CO - C1 * P ** beta) / np.maximum(1.0 - C1 * P ** beta, 1.0e-12), 0.0)
+
+
+def _dn_dP_sin_xi(P):
+    P = np.maximum(np.asarray(P, dtype=float), 1.0e4)
+    a = C1 * P ** beta
+    den = np.maximum(1.0 - a, 1.0e-12)
+    return (CO - 1.0) * a * beta / (P * den ** 2)
 
 
 def _vel_frag(P, phi, q, rho_m):
@@ -385,29 +395,172 @@ def _fmg(um, ug, phi):
     return C_DRAG * phi * (1.0 - phi) * slip * abs(slip)
 
 
-def _paso_radio(P0, phi0, um0, ug0, q, rho_m, h):
-    def fun(y):
-        P, phi = float(y[0]), float(y[1])
-        um, ug = _vel_frag(P, phi, q, rho_m)
-        rho_g = max(P, 1.0e4) / (RV * T_GAS)
-        F = _fmg(um, ug, phi)
-        eq_m = rho_m * um * (um - um0) / h + (P - P0) / h + rho_m * g - F / (1.0 - phi)
-        eq_g = rho_g * ug * (ug - ug0) / h + (P - P0) / h + rho_g * g + F / max(phi, 1.0e-3)
-        esc = max(rho_m * g, 1.0)
-        return np.array([eq_m / esc, eq_g / esc])
+def _empacar_frag(P, phi, umz, ugz, umr, ugr):
+    return np.concatenate([P, phi, umz[:-1], ugz, umr, ugr])
 
-    y0 = np.array([max(P0 - rho_m * g * h, Patm * 1.2), phi0])
-    lo = np.array([Patm, 0.05])
-    hi = np.array([P0 * 1.01, 0.95])
+
+def _desempacar_frag(y, n):
+    nf = n - 1
+    i = 0
+    P = y[i : i + n].copy()
+    i += n
+    phi = y[i : i + n].copy()
+    i += n
+    umz = np.concatenate([y[i : i + n - 1], [0.0]])
+    i += n - 1
+    ugz = y[i : i + n].copy()
+    i += n
+    umr = y[i : i + nf].copy()
+    i += nf
+    ugr = y[i : i + nf].copy()
+    return P, phi, umz, ugz, umr, ugr
+
+
+def _upwind_cara(ur, x):
+    """Derivada radial de u_r en las caras, aguas arriba. En los extremos u_r=0."""
+    u = np.concatenate([[0.0], ur, [0.0]])
+    d = np.zeros(ur.size)
+    for j in range(ur.size):
+        if ur[j] >= 0.0:
+            d[j] = (u[j + 1] - u[j]) / max(x[j + 1] - x[j], 1.0e-8)
+        else:
+            d[j] = (u[j + 2] - u[j + 1]) / max(x[j + 2] - x[j + 1], 1.0e-8)
+    return d
+
+
+def residual_frag(y, prev, h, mu):
+    """Dos masas, dos momentos verticales y dos radiales. n(P) va sin ξ."""
+    r, dr = prev["r"], prev["dr"]
+    n = r.size
+    P, phi, umz, ugz, umr, ugr = _desempacar_frag(y, n)
+    phi = np.clip(phi, 1.0e-3, 0.98)
+    rho_m = rho_de(P)
+    rho_g = np.maximum(P, 1.0e4) / (RV * T_GAS)
+    rho_m0 = rho_de(prev["P"])
+    rho_g0 = np.maximum(prev["P"], 1.0e4) / (RV * T_GAS)
+    phi0 = prev["phi"]
+    umr_n = _ur_nodos(umr)
+    ugr_n = _ur_nodos(ugr)
+    phi_f = 0.5 * (phi[:-1] + phi[1:])
+    rho_mf = 0.5 * (rho_m[:-1] + rho_m[1:])
+    rho_gf = 0.5 * (rho_g[:-1] + rho_g[1:])
+    mu_f = 0.5 * (mu[:-1] + mu[1:])
+    umz_f = 0.5 * (umz[:-1] + umz[1:])
+    ugz_f = 0.5 * (ugz[:-1] + ugz[1:])
+
+    dndp = _dn_dP_sin_xi(P)
+    jz = rho_m * (1.0 - phi) * umz + rho_g * phi * ugz
+    jr = rho_m * (1.0 - phi) * umr_n + rho_g * phi * ugr_n
+    Gamma = jr * dndp * _d_dr(r, P) + jz * dndp * (P - prev["P"]) / h
+
+    jz_m = rho_m * (1.0 - phi) * umz
+    jz_m0 = rho_m0 * (1.0 - phi0) * prev["uz"]
+    jz_g = rho_g * phi * ugz
+    jz_g0 = rho_g0 * phi0 * prev["ugz"]
+    masa_m = (jz_m - jz_m0) / h + _div(r, dr, rho_mf * (1.0 - phi_f) * umr) + Gamma
+    masa_g = (jz_g - jz_g0) / h + _div(r, dr, rho_gf * phi_f * ugr) - Gamma
+
+    Fz = _fmg(umz, ugz, phi)
+    lap_mz = _lap_uz(r, dr, mu * (1.0 - phi), umz)
+    lap_gz = _lap_uz(r, dr, MU_G * phi, ugz)
+    dPdz = (P - prev["P"]) / h
+    adv_m = umz * (umz - prev["uz"]) / h + umr_n * _d_dr(r, umz)
+    adv_g = ugz * (ugz - prev["ugz"]) / h + ugr_n * _d_dr(r, ugz)
+    mom_mz = (
+        rho_m * (1.0 - phi) * adv_m
+        + (1.0 - phi) * dPdz
+        + rho_m * (1.0 - phi) * g
+        - Fz
+        - lap_mz
+    )
+    mom_gz = (
+        rho_g * phi * adv_g
+        + phi * dPdz
+        + rho_g * phi * g
+        + Fz
+        - lap_gz
+    )
+
+    Fr = _fmg(umr, ugr, phi_f)
+    lap_mr = _lap_ur(r, mu_f * (1.0 - phi_f), umr)
+    lap_gr = _lap_ur(r, MU_G * phi_f, ugr)
+    x = np.concatenate([[0.0], 0.5 * (r[:-1] + r[1:]), [r[-1]]])
+    dumr = _upwind_cara(umr, x)
+    dugr = _upwind_cara(ugr, x)
+    dPdr = (P[1:] - P[:-1]) / dr
+    mom_mr = (
+        rho_mf * (1.0 - phi_f) * (umz_f * (umr - prev["ur"]) / h + umr * dumr)
+        + (1.0 - phi_f) * dPdr
+        - Fr
+        - lap_mr
+    )
+    mom_gr = (
+        rho_gf * phi_f * (ugz_f * (ugr - prev["ugr"]) / h + ugr * dugr)
+        + phi_f * dPdr
+        + Fr
+        - lap_gr
+    )
+
+    esc_mm = max(float(np.max(np.abs(jz_m0))) / h, 1.0)
+    esc_mg = max(float(np.max(np.abs(jz_g0))) / h, 1.0)
+    esc_mz = max(float(np.max(rho_m0 * (1.0 - phi0) * g)), 1.0)
+    esc_gz = max(float(np.max(rho_g0 * phi0 * g)), 1.0)
+    # La pared no es un volumen: φ y u_g copian al radio interior. u_m(R)=0.
+    masa_m = masa_m / esc_mm
+    masa_g = masa_g / esc_mg
+    masa_m[-1] = (phi[-1] - phi[-2]) / 1.0e-4
+    masa_g[-1] = (ugz[-1] - ugz[-2]) / 1.0e-2
+    return np.concatenate([
+        masa_m,
+        masa_g,
+        mom_mz[:-1] / esc_mz,
+        mom_gz / esc_gz,
+        mom_mr / esc_mz,
+        mom_gr / esc_gz,
+    ])
+
+
+def _paso_frag(prev, h, mu):
+    n = prev["r"].size
+    nf = n - 1
+    P = np.maximum(prev["P"] - rho_de(prev["P"]) * (1.0 - prev["phi"]) * g * h, Patm * 1.2)
+    phi = np.clip(prev["phi"] + 0.002, 0.2, 0.97)
+    umz = prev["uz"].copy()
+    ugz = prev["ugz"].copy()
+    umr = prev["ur"].copy()
+    ugr = prev["ugr"].copy()
+    y0 = _empacar_frag(P, phi, umz, ugz, umr, ugr)
+    lo = np.concatenate([
+        np.full(n, Patm),
+        np.full(n, 0.20),
+        np.full(n - 1, 0.0),
+        np.full(n, 0.0),
+        np.full(nf, -80.0),
+        np.full(nf, -80.0),
+    ])
+    hi = np.concatenate([
+        np.maximum(prev["P"] * 1.02, Patm * 2.0),
+        np.full(n, 0.98),
+        np.full(n - 1, 0.98 * CS),
+        np.full(n, 0.98 * CS),
+        np.full(nf, 80.0),
+        np.full(nf, 80.0),
+    ])
     y0 = np.minimum(np.maximum(y0, lo + 1.0e-8), hi - 1.0e-8)
-    sol = least_squares(fun, y0, bounds=(lo, hi), method="trf", ftol=1e-10, xtol=1e-10, max_nfev=40)
-    P, phi = float(sol.x[0]), float(sol.x[1])
-    um, ug = _vel_frag(P, phi, q, rho_m)
-    return P, phi, um, ug, float(sol.cost)
+
+    def fun(y, mu=mu):
+        return residual_frag(y, prev, h, mu)
+
+    sol = least_squares(
+        fun, y0, bounds=(lo, hi), method="trf",
+        ftol=1e-12, xtol=1e-12, gtol=1e-12, max_nfev=180,
+    )
+    P, phi, umz, ugz, umr, ugr = _desempacar_frag(sol.x, n)
+    return P, phi, umz, ugz, umr, ugr, float(sol.cost)
 
 
-def marchar_frag(pre, h=5.0):
-    """Desde z_f, q(r) congelado y n(P) sin ξ. Cada radio integra los dos momentos."""
+def marchar_frag(pre, h=0.5):
+    """Desde z_f, con n(P) sin ξ. Siguen u_r, el momento radial y la viscosidad."""
     st = pre[-1]
     q = rho_mix(st["P"], st["xi"]) * st["uz"]
     rho_m = rho_de(st["P"])
@@ -417,53 +570,67 @@ def marchar_frag(pre, h=5.0):
         if q[i] <= 0.0:
             continue
         um[i], ug[i] = _vel_frag(st["P"][i], st["phi"][i], q[i], rho_m[i])
+    um[-1] = 0.0
+    ug[-1] = ug[-2]
     salto = dict(st)
     salto["uz"] = um
     salto["ugz"] = ug
-    salto["ur"] = np.full_like(st["ur"], np.nan)
+    salto["ur"] = np.asarray(st["ur"], dtype=float).copy()
+    salto["ugr"] = np.asarray(st["ur"], dtype=float).copy()
     hist = [salto]
-    vivo = np.array([q[i] > 1.0 and ug[i] < 0.98 * CS for i in range(um.size - 1)] + [False])
     z = st["z"]
-    P = st["P"].copy()
-    phi = st["phi"].copy()
-    h_uso = h
-    while z < -0.5 and vivo[:-1].any() and len(hist) < 400:
-        P2, phi2, um2, ug2 = P.copy(), phi.copy(), um.copy(), ug.copy()
-        costos = []
-        for i in range(um.size - 1):
-            if not vivo[i]:
-                continue
-            Pi, phii, umi, ugi, costo = _paso_radio(P[i], phi[i], um[i], ug[i], q[i], rho_m[i], h_uso)
-            P2[i], phi2[i], um2[i], ug2[i] = Pi, phii, umi, ugi
-            costos.append(costo)
-            if ugi >= 0.98 * CS or Pi <= Patm * 1.05:
-                vivo[i] = False
-        if costos and max(costos) > 1.0e-6 and h_uso > 0.5:
-            h_uso = max(0.5, 0.5 * h_uso)
+    h_uso = min(h, 0.5)
+    while z < -0.5 and len(hist) < 500:
+        if z + h_uso > 0.0:
+            h_uso = max(0.25, -z)
+        P, phi, umz, ugz, umr, ugr, costo = _paso_frag(hist[-1], h_uso, hist[-1]["mu"])
+        en_borde = max(float(np.max(np.abs(umr))), float(np.max(np.abs(ugr)))) > 70.0
+        malo = (not np.isfinite(costo)) or costo > 5.0e-3 or en_borde
+        if malo and h_uso > 0.25:
+            h_uso = max(0.25, 0.5 * h_uso)
             continue
-        P2[-1], phi2[-1] = P2[-2], phi2[-2]
+        if malo:
+            print(
+                f"frag se detiene en z={z:.2f} costo={costo:.2e} "
+                f"|ur|={np.max(np.abs(umr)):.2f} |ugr|={np.max(np.abs(ugr)):.2f}",
+                flush=True,
+            )
+            break
+        mu_n = np.array([
+            _mu_nodo(float(P[i]), float(min(phi[i], 0.9)), float(_gdot(umz, st["dr"])[i]))
+            for i in range(P.size)
+        ])
         z = z + h_uso
-        um, ug, P, phi = um2, ug2, P2, phi2
         hist.append({
             "z": z,
             "r": st["r"],
             "dr": st["dr"],
             "P": P.copy(),
-            "uz": um.copy(),
-            "ugz": ug.copy(),
-            "ur": np.full_like(st["ur"], np.nan),
-            "mu": st["mu"].copy(),
+            "uz": umz.copy(),
+            "ugz": ugz.copy(),
+            "ur": umr.copy(),
+            "ugr": ugr.copy(),
+            "mu": mu_n,
             "phi": phi.copy(),
             "N": np.asarray(st["N"], dtype=float).copy(),
             "xi": np.asarray(st["xi"], dtype=float).copy(),
         })
-        h_uso = h
-        if len(hist) % 8 == 0:
+        if len(hist) == 2 or len(hist) % 8 == 0:
+            Fz = _fmg(umz, ugz, np.clip(phi, 1.0e-3, 0.98))
+            lap = _lap_uz(st["r"], st["dr"], hist[-2]["mu"] * (1.0 - phi), umz)
+            dP = (P - hist[-2]["P"]) / max(z - hist[-2]["z"], 1.0e-6)
             print(
-                f"frag z={z:.1f} P={P[0]/1e6:.2f} MPa phi={phi[0]:.3f} "
-                f"um={um[0]:.1f} ug={ug[0]:.1f}",
+                f"frag z={z:.2f} P={P[0]/1e6:.3f} MPa phi={phi[0]:.3f} "
+                f"um={umz[0]:.1f} ug={ugz[0]:.1f} "
+                f"|ur|={np.max(np.abs(umr)):.3e} |ugr|={np.max(np.abs(ugr)):.3e} "
+                f"costo={costo:.2e} h={z - hist[-2]['z']:.2f} "
+                f"eje visc={-lap[0]:.3e} drag={-Fz[0]:.3e} dP={(1.0 - phi[0]) * dP[0]:.3e}",
                 flush=True,
             )
+        if ugz[0] >= 0.98 * CS or P[0] <= Patm * 1.05:
+            break
+        if costo < 1.0e-4 and h_uso < h:
+            h_uso = min(h, h_uso * 1.25)
     return hist
 
 
@@ -484,10 +651,15 @@ def graficar(hist, ruta, phicrit, phi1, z_frag=None):
     phi = np.array([s["phi"][0] for s in hist])
     uz = np.array([s["uz"][0] for s in hist])
     ug = np.array([s["ugz"][0] for s in hist])
-    ur = np.array([
-        np.nanmax(np.abs(s["ur"])) if np.isfinite(s["ur"]).any() else np.nan
-        for s in hist
-    ])
+    ur = []
+    for s in hist:
+        comps = [np.asarray(s["ur"], dtype=float)]
+        if "ugr" in s:
+            comps.append(np.asarray(s["ugr"], dtype=float))
+        vals = np.concatenate([np.abs(c).ravel() for c in comps])
+        vals = vals[np.isfinite(vals)]
+        ur.append(float(np.max(vals)) if vals.size else np.nan)
+    ur = np.array(ur)
     mu = np.array([float(np.nanmean(s["mu"])) for s in hist])
     zsat = float(z[np.argmax(phi > 1.0e-6)]) if np.any(phi > 1.0e-6) else z[-1]
 

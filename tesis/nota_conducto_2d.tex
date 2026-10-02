@@ -1231,80 +1231,83 @@ u_r\frac{\p \xi}{\p r}+u_z\frac{\p \xi}{\p z}
 eje, en la pared y en la base. El capilar da
 \(\varphi_1=0{,}167\) y \(\varphi_{\mathrm{crit}}=0{,}768\).
 
-La fragmentación cae en \(z_f=-84\,\mathrm{m}\), con
+La fragmentación cae en \(z_f=-84{,}43\,\mathrm{m}\), con
 \(P=9{,}13\,\mathrm{MPa}\) y \(\varphi=0{,}766\). En el eje,
 \(\xi\) pasa de \(0{,}25000\) a \(0{,}25020\) y \(N\) de
 \(10^{8}\) a \(9{,}55\times 10^{7}\,\mathrm{m^{-3}}\). El tiempo de
 ascenso desde la saturación es de unos minutos, frente a
 \(\tau_c=2\,\mathrm{h}\), y la coalescencia solo actúa cuando ya hay
-burbujas. \(u_z\) llega a \(113\,\mathrm{m/s}\) y \(|u_r|\) a
-\(0{,}11\,\mathrm{m/s}\).
+burbujas. \(u_z\) en el eje llega a \(112{,}6\,\mathrm{m/s}\) y
+\(|u_r|\) a \(0{,}49\,\mathrm{m/s}\).
 
 \subsection{Después de fragmentar}
 
-En \(z_f\) se guarda, radio por radio, el caudal vertical de la mezcla
-\begin{equation}
-\label{eq:q-frag}
-q(r)=\rho_c u_z,
-\qquad
-\rho_c=(1-\varphi)\rho_m+\varphi\rho_g,
-\end{equation}
-evaluado con el estado del cruce. Ese \(q(r)\) es el mismo en todos
-los niveles siguientes, y \(\rho_m\) queda en \(\rho_m(P(z_f))\).
-\(N\) y \(\xi\) quedan en el valor del cruce. A partir de ahí las
-incógnitas de cada radio interior son \(P\) y \(\varphi\).
-
-La fracción másica es Henry sin el factor \((1-\xi)\),
+\(N\) y \(\xi\) quedan en el valor del cruce, así que
+\(\Gamma_N=\Gamma_\xi=0\). Las incógnitas del nivel nuevo son
+\(P\), \(\varphi\), \(u_m\), \(u_g\), \(u_{m,r}\) y \(u_{g,r}\).
+La fracción másica pierde el factor \((1-\xi)\),
 \begin{equation}
 \label{eq:n-sinxi}
 n=\frac{c_0-C_1 P^{\beta}}{1-C_1 P^{\beta}},
 \qquad
 \rho_g=\frac{P}{\Rv T},
-\end{equation}
-y el caudal se reparte en
-\begin{equation}
-\label{eq:vel-frag}
-u_m=\frac{(1-n)\,q(r)}{\rho_m(1-\varphi)},
 \qquad
-u_g=\frac{n\,q(r)}{\rho_g\,\varphi}.
+\Gamma=\mathbf{j}\cdot\nabla n.
 \end{equation}
-El arrastre es
+En el cruce, con la misma \(P\) y el mismo \(\varphi\), ese \(n\)
+reparte el caudal vertical que traía la mezcla: en el eje el fundido
+pasa de \(112{,}6\) a \(111{,}8\,\mathrm{m/s}\) y el gas a
+\(150{,}2\,\mathrm{m/s}\), el factor \(1/(1-\xi_0)=4/3\).
+\(u_{m,r}\) y \(u_{g,r}\) salen de ese nivel con el \(u_r\) de antes
+de fragmentar.
+De ahí en adelante el caudal ya no se congela: las dos masas siguen
+siendo \eqref{eq:masa-2d}.
+
+El arrastre volumétrico es
 \begin{equation}
 \label{eq:Fmg-frag}
-F_{mg}=300\,\varphi(1-\varphi)\,(u_g-u_m)\,|u_g-u_m|.
+F_{mg}=300\,\varphi(1-\varphi)\,(u_g-u_m)\,|u_g-u_m|,
 \end{equation}
-Con paso \(h\) hacia atrás, el nivel nuevo \((P,\varphi)\) cumple
-\begin{align}
-\label{eq:fd-post}
-\rho_m u_m\frac{u_m-u_m^{-}}{h}
-+\frac{P-P^{-}}{h}+\rho_m g
--\frac{F_{mg}}{1-\varphi}
-&=0,
-\\
-\rho_g u_g\frac{u_g-u_g^{-}}{h}
-+\frac{P-P^{-}}{h}+\rho_g g
-+\frac{F_{mg}}{\varphi}
-&=0,
-\end{align}
-donde el supraíndice \(-\) es el nivel anterior y \(u_m\), \(u_g\)
-entran por \eqref{eq:vel-frag}. Es la forma discreta de
-\eqref{eq:mom-loc}. La pared copia al radio vecino. Un radio se
-detiene si \(u_g\ge 0{,}98\,c_s\) o si \(P\le 1{,}05\,P_{\mathrm{atm}}\).
+y \(F_{mg,r}\) usa el mismo coeficiente con \(u_{g,r}-u_{m,r}\).
+Los momentos son \eqref{eq:mom-mz} y \eqref{eq:mom-gz}, con el
+viscoseo radial
+\(\frac1r\partial_r\bigl[r\,\mu(1-\varphi)\,\partial_r u_m\bigr]\)
+en el fundido y
+\(\frac1r\partial_r\bigl[r\,\mu_g\varphi\,\partial_r u_g\bigr]\)
+en el gas, \(\mu_g=10^{-5}\,\mathrm{Pa\,s}\). La componente radial
+es \eqref{eq:mom-r-fd} para el fundido y la misma forma para el gas,
+con el término geométrico \(-\mu u_r/r^2\). En el eje y en la pared
+\(u_{m,r}=u_{g,r}=0\), y \(u_m(R)=0\). La pared copia \(\varphi\) y
+\(u_g\) del radio interior.
 
-En el cruce, con la misma \(P\) y el mismo \(\varphi\), el gas del eje
-pasa de \(113\) a \(150\,\mathrm{m/s}\), el factor
-\(1/(1-\xi_0)=4/3\), y el fundido de \(113\) a \(112\,\mathrm{m/s}\).
-En la boca, \(z=-0{,}18\,\mathrm{m}\), \(P=2{,}33\,\mathrm{MPa}\),
-\(\varphi=0{,}947\), \(u_m=491\,\mathrm{m/s}\) y
-\(u_g=578\,\mathrm{m/s}\), todavía bajo \(c_s=757\,\mathrm{m/s}\).
+En el primer paso sobre \(z_f\), con \(h=0{,}50\,\mathrm{m}\), el eje
+queda en \(z=-83{,}93\,\mathrm{m}\), \(P=9{,}08\,\mathrm{MPa}\),
+\(\varphi=0{,}768\), \(u_m=112{,}5\,\mathrm{m/s}\) y
+\(u_g=149{,}4\,\mathrm{m/s}\). El residuo cierra con costo
+\(1{,}3\times 10^{-3}\). Ahí el laplaciano viscoso del fundido entra
+con \(7{,}4\times 10^{2}\,\mathrm{Pa/m}\), el arrastre con
+\(-7{,}3\times 10^{4}\,\mathrm{Pa/m}\) y
+\((1-\varphi)\partial_z P\) con \(-2{,}1\times 10^{4}\,\mathrm{Pa/m}\).
+\(|u_r|=1{,}06\,\mathrm{m/s}\) y \(|u_{g,r}|=14\,\mathrm{m/s}\).
+
+La marcha sigue cerrada hasta \(z=-82{,}18\,\mathrm{m}\),
+\(2{,}25\,\mathrm{m}\) por encima de \(z_f\). El último paso aceptado
+tiene \(h=0{,}25\,\mathrm{m}\), costo \(2{,}6\times 10^{-3}\),
+\(|u_r|=5{,}7\,\mathrm{m/s}\) y \(|u_{g,r}|=34\,\mathrm{m/s}\). En el
+eje, \(P=8{,}94\,\mathrm{MPa}\), \(\varphi=0{,}771\),
+\(u_m=115\,\mathrm{m/s}\) y \(u_g=147\,\mathrm{m/s}\). El paso
+siguiente queda con costo \(1{,}6\times 10^{-2}\) y la integración se
+detiene. \(|u_{g,r}|\) crece porque
+\(\mu_g=10^{-5}\,\mathrm{Pa\,s}\) no amortigua el modo radial del gas.
 
 \begin{figure}[ht]
 \centering
 \includegraphics[width=\textwidth]{figuras_variantes/prefrag_fd.png}
 \caption{Entrada \(\bar u=15{,}5\,\mathrm{m/s}\). La línea gris es
 \(z_{\mathrm{sat}}\) y la punteada es \(z_f\). Antes de fragmentar,
-fundido y gas coinciden. Después, \(n\) va sin \(\xi\) y \(u_g\) se
-separa. \(|u_r|\) existe solo mientras \(q(r)\) no está congelado.}
+fundido y gas coinciden. Después, \(n\) va sin \(\xi\), \(u_g\) se
+separa y siguen \(u_r\) y el laplaciano viscoso. El tramo fragmentado
+que cierra llega a \(z=-82{,}18\,\mathrm{m}\).}
 \label{fig:prefrag-fd}
 \end{figure}
 
