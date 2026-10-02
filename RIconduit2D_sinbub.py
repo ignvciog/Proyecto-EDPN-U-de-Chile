@@ -176,7 +176,12 @@ def _desempacar(y, n):
     return P, uz, ur
 
 
-def residual(y, prev, h, mu):
+def _esfuerzo_axial(mu, u, u_prev, h):
+    """μ ∂u/∂z con la diferencia hacia atrás del paso."""
+    return mu * (u - u_prev) / h
+
+
+def residual(y, prev, h, mu, prev2=None, h_prev=None):
     r, dr = prev["r"], prev["dr"]
     n = r.size
     P, uz, ur = _desempacar(y, n)
@@ -185,20 +190,36 @@ def residual(y, prev, h, mu):
     rho_f = 0.5 * (rho[:-1] + rho[1:])
     # masa: ∂z(ρ u_z) + (1/r) ∂r(r ρ u_r) = 0
     masa = (rho * uz - rho0 * prev["uz"]) / h + _div(r, dr, rho_f * ur)
-    # momento axial
+    # momento axial. L[u] = (1/r)∂r(r μ ∂r u) + ∂z(μ ∂z u)
     ddz = (uz - prev["uz"]) / h
     urn = _ur_nodos(ur)
     lap = _lap_uz(r, dr, mu, uz)
+    flujo = _esfuerzo_axial(mu, uz, prev["uz"], h)
+    if prev2 is None:
+        flujo_prev = np.zeros_like(flujo)
+        h_flux = h
+    else:
+        flujo_prev = _esfuerzo_axial(prev["mu"], prev["uz"], prev2["uz"], h_prev)
+        h_flux = 0.5 * (h + h_prev)
+    lap = lap + (flujo - flujo_prev) / h_flux
     mom_z = rho * (uz * ddz + urn * _d_dr(r, uz)) + (P - prev["P"]) / h + rho * g - lap
-    # momento radial en las caras
+    # momento radial en las caras, con el mismo ∂z(μ ∂z u_r) y el término geométrico
     uz_f = 0.5 * (uz[:-1] + uz[1:])
     mu_f = 0.5 * (mu[:-1] + mu[1:])
     x = np.concatenate([[0.0], 0.5 * (r[:-1] + r[1:]), [r[-1]]])
     dur = np.gradient(np.concatenate([[0.0], ur, [0.0]]), x)[1:-1]
+    lap_r = _lap_ur(r, mu_f, ur)
+    flujo_r = _esfuerzo_axial(mu_f, ur, prev["ur"], h)
+    if prev2 is None:
+        flujo_r_prev = np.zeros_like(flujo_r)
+    else:
+        mu_prev_f = 0.5 * (prev["mu"][:-1] + prev["mu"][1:])
+        flujo_r_prev = _esfuerzo_axial(mu_prev_f, prev["ur"], prev2["ur"], h_prev)
+    lap_r = lap_r + (flujo_r - flujo_r_prev) / h_flux
     mom_r = (
         rho_f * (uz_f * (ur - prev["ur"]) / h + ur * dur)
         + (P[1:] - P[:-1]) / dr
-        - _lap_ur(r, mu_f, ur)
+        - lap_r
     )
     esc_m = max(RHO_H * max(float(np.max(prev["uz"])), 1.0) / h, 1.0)
     esc_z = max(RHO_H * g, 1.0)
@@ -206,7 +227,7 @@ def residual(y, prev, h, mu):
     return np.concatenate([masa / esc_m, mom_z[:-1] / esc_z, mom_r / esc_z])
 
 
-def _paso(prev, h):
+def _paso(prev, h, prev2=None, h_prev=None):
     n = prev["r"].size
     mu = prev["mu"]
     # semilla: Poiseuille solo para arrancar el solver; el paso lo corrige
@@ -232,8 +253,8 @@ def _paso(prev, h):
     ])
     y0 = np.minimum(np.maximum(y0, lo + 1.0e-8), hi - 1.0e-8)
 
-    def fun(y, mu=mu):
-        return residual(y, prev, h, mu)
+    def fun(y, mu=mu, prev2=prev2, h_prev=h_prev):
+        return residual(y, prev, h, mu, prev2=prev2, h_prev=h_prev)
 
     sol = least_squares(fun, y0, bounds=(lo, hi), method="trf", ftol=1e-12, xtol=1e-12, gtol=1e-12, max_nfev=80)
     P, uz, ur = _desempacar(sol.x, n)
@@ -263,15 +284,19 @@ def _caudal(st):
 def marchar(vin=16.133, n_r=17, h=25.0):
     st = estado_inicial(vin, n_r)
     hist = [st]
+    prev2 = None
+    h_prev = h
     while st["P"].min() > P_SAT:
         h_uso = min(h, 10.0) if st["P"].min() < P_SAT + 5.0e5 else h
         # no pasar de largo la saturación en el eje: prueba y recorta
-        nuevo, costo = _paso(st, h_uso)
+        nuevo, costo = _paso(st, h_uso, prev2, h_prev)
         if nuevo["P"].min() < P_SAT and h_uso > 2.0:
             # un paso más corto para caer cerca de P_sat
             h_uso = max(2.0, h_uso * (st["P"].min() - P_SAT) / max(st["P"].min() - nuevo["P"].min(), 1.0))
-            nuevo, costo = _paso(st, h_uso)
+            nuevo, costo = _paso(st, h_uso, prev2, h_prev)
         nuevo["costo"] = costo
+        prev2 = st
+        h_prev = h_uso
         hist.append(nuevo)
         st = nuevo
         if len(hist) % 20 == 0:
