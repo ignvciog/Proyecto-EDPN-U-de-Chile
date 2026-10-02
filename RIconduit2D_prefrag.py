@@ -923,10 +923,12 @@ def _caudal(st):
 
 
 def _h_max(phi, fragmentado, phicrit):
-    # Después de fragmentar el paso corto deja un residuo de masa que no es raíz.
-    # 40 m cierra el sistema; el modo radial sigue amortiguado porque μ bajó.
+    # Por encima de φ_crit el paso de 40 m se salta el punto sónico y cae
+    # en la raíz supersónica (P de unos 3 MPa y u de cientos de m/s), que
+    # no se puede continuar. Con 16 m la raíz es la subsónica: la presión
+    # baja poco y la velocidad sigue a la de aguas arriba.
     if fragmentado:
-        return 40.0
+        return 16.0
     p = float(np.max(phi))
     if p < 0.05:
         return 12.0
@@ -1030,20 +1032,21 @@ def marchar_columna(vin=15.5, n_r=13, h_liq=40.0, umb=None, reanudar=None, parci
         z_f = None
         q_ref = _caudal(hist[0])
         n_liq = len(liquido)
+    recortes = 0
     while st["z"] < -0.2 and len(hist) < 4000:
         cruce = False
         if (not fragmentado) and float(np.max(st["phi"])) >= umb["phicrit"] - 0.035:
             fragmentado = True
             cruce = True
             z_f = st["z"]
-            # El salto de n y el cambio de pared se resuelven en un tramo de 40 m.
-            # Un paso de unos metros deja la inercia y el reparto radial sin raíz.
-            h = 40.0
+            # 8 m no cierra el salto de n. 16 m da la raíz subsónica;
+            # 40 m salta el punto sónico.
+            h = 16.0
             print(f"z_f {z_f:.2f}  phi {float(np.max(st['phi'])):.4f}", flush=True)
             _guardar_estado(st, prev2, False, z_f, z_sat)
         piso = _h_piso(st, fragmentado)
         if cruce:
-            h_uso = min(40.0, max(-st["z"], piso))
+            h_uso = min(16.0, max(-st["z"], piso))
         else:
             h_uso = min(max(h, piso), _h_max(st["phi"], fragmentado, umb["phicrit"]), max(-st["z"], piso))
         nuevo, costo = _paso_bifasico(st, prev2, h_uso, h_prev, fragmentado, umb)
@@ -1057,8 +1060,23 @@ def marchar_columna(vin=15.5, n_r=13, h_liq=40.0, umb=None, reanudar=None, parci
         tablero = _tablero(nuevo["umr"]) or _tablero(nuevo["ugr"])
         # Con φ chico, |u_r| de varios cm/s es el modo de la malla, no el flujo.
         modo = (not fragmentado) and ur_max > 0.05 and float(np.max(nuevo["phi"])) < 0.05
-        feo = (not np.isfinite(costo)) or costo > 1.0e-4 or cruza or en_borde or tablero or modo
-        if feo and h_uso < _h_max(st["phi"], fragmentado, umb["phicrit"]) - 1.0e-9:
+        # Un salto de velocidad o una caída fuerte de P en un solo paso es la
+        # raíz supersónica. No es la continuación del conducto.
+        salto = fragmentado and (
+            float(nuevo["umz"][0]) > float(st["umz"][0]) * 1.8
+            or float(nuevo["P"][0]) < float(st["P"][0]) * 0.6
+        )
+        feo = (not np.isfinite(costo)) or costo > 1.0e-4 or cruza or en_borde or tablero or modo or salto
+        if feo and fragmentado and recortes < 2 and h_uso > 8.0:
+            recortes += 1
+            print(
+                f"reintento z={st['z']:.2f} h={h_uso:.3f} costo={costo:.2e} "
+                f"salto={salto} |ur|={ur_max:.3e}",
+                flush=True,
+            )
+            h = max(h_uso * 0.5, 8.0)
+            continue
+        if feo and (not fragmentado) and h_uso < _h_max(st["phi"], fragmentado, umb["phicrit"]) - 1.0e-9:
             print(
                 f"reintento z={st['z']:.2f} h={h_uso:.3f} costo={costo:.2e} "
                 f"|ur|={ur_max:.3e} d|ur|={desv:.3e} borde={en_borde} tablero={tablero}",
@@ -1080,6 +1098,7 @@ def marchar_columna(vin=15.5, n_r=13, h_liq=40.0, umb=None, reanudar=None, parci
             print("umz", np.array2string(nuevo["umz"], precision=3), flush=True)
             print("mu", np.array2string(nuevo["mu"], precision=4), flush=True)
             break
+        recortes = 0
         prev2 = st
         h_prev = h_uso
         st = nuevo
