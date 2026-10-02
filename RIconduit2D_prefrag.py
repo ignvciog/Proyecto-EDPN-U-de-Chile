@@ -232,16 +232,22 @@ def coef_arrastre(phi, rb, mu, rho_g, speed, phi1, phi2, phicrit, phi_regimen=No
     darcy = MU_G / np.maximum(kper, 1.0e-30)
     inercial = 0.33 * rho_g * speed_f / (4.0 * rb)
     perm = np.where(Re > 2200.0, inercial, darcy)
-    tt = np.clip((reg - phi1) / max(phi2 - phi1, 1.0e-8), 0.0, 1.0)
-    base = np.where((reg >= phi1) & (reg < phi2), perm ** tt * stokes ** (1.0 - tt), stokes)
-    base = np.where((reg >= phi2) & (reg < phicrit), perm, base)
-    tt4 = np.clip((reg - phicrit) / 0.05, 0.0, 1.0)
-    c_in = 0.33 / (4.0 * rb)
-    capa = np.maximum(c_in, 1.0e-30) ** (1.0 - tt4) * (C_J4 ** tt4) * rho_g * speed_f
+    # Transiciones suaves: el empalme a trozos dejaba un salto de C en φ_crit
+    # y el Newton se detenía sin raíz. Los extremos siguen siendo Stokes,
+    # permeabilidad y el arrastre de fragmentos.
+    tt = _suave((reg - phi1) / max(phi2 - phi1, 1.0e-8))
+    base = np.where(reg < phi2, perm ** tt * stokes ** (1.0 - tt), perm)
     puro = C_J4 * rho_g * speed_f
-    base = np.where((reg >= phicrit) & (reg < phicrit + 0.05), capa, base)
-    base = np.where(reg >= phicrit + 0.05, puro, base)
+    tt4 = _suave((reg - phicrit) / 0.05)
+    mezcla = np.maximum(perm, 1.0e-30) ** (1.0 - tt4) * np.maximum(puro, 1.0e-30) ** tt4
+    base = np.where(reg >= phicrit, mezcla, base)
     return np.where(phi < 1.0e-8, 0.0, base * fac)
+
+
+def _suave(x):
+    """Polinomio con derivada nula en 0 y en 1, para que C(φ) sea C1."""
+    x = np.clip(np.asarray(x, dtype=float), 0.0, 1.0)
+    return x * x * (3.0 - 2.0 * x)
 
 
 def _gamma_xi(P, xi):
@@ -407,14 +413,20 @@ def residual_bifasico(y, prev, h, mu, s0z, s0r, prev2, h_prev, fragmentado, umb,
 
     n_new = n_de(P, xi, fragmentado)
     n_old = n_de(prev["P"], prev["xi"], prev["fragmentado"])
-    jz = rho_m * (1.0 - phi) * umz + rho_g * phi * ugz
+    # u_g(R)=0 es la pared. La media-celda pegada a ella no cabe en esa capa:
+    # su flujo axial es el del nodo interior. Si no, se pierde el gas de un
+    # Δr/R de la sección y la masa global no cierra.
+    ugz_m = ugz.copy()
+    if fragmentado:
+        ugz_m[-1] = ugz[-2]
+    jz = rho_m * (1.0 - phi) * umz + rho_g * phi * ugz_m
     jr = rho_m * (1.0 - phi) * umr_n + rho_g * phi * ugr_n
     Gamma = jr * _d_dr(r, n_new) + jz * (n_new - n_old) / h
 
     jz_m0 = rho_m0 * (1.0 - prev["phi"]) * prev["umz"]
     jz_g0 = rho_g0 * prev["phi"] * prev["ugz"]
     masa_m = (rho_m * (1.0 - phi) * umz - jz_m0) / h + _div(r, dr, rho_mf * (1.0 - phi_f) * umr) + Gamma
-    masa_g = (rho_g * phi * ugz - jz_g0) / h + _div(r, dr, rho_gf * phi_f * ugr) - Gamma
+    masa_g = (rho_g * phi * ugz_m - jz_g0) / h + _div(r, dr, rho_gf * phi_f * ugr) - Gamma
 
     # El resbalamiento real es 10^{-12} m/s y desaparece al sumarlo a u.
     # La fuerza se evalúa con el hat del sistema, sin pasar por u_g - u_m.
@@ -579,8 +591,19 @@ def _predecir(prev, prev2, h, fragmentado):
     phi = np.clip(phi, 0.0, 0.97)
     phi[-1] = phi[-2]
     phi[0] = 0.5 * (phi[0] + phi[1])
+    if fragmentado and not prev["fragmentado"]:
+        # El salto de n no es dz·dn/dz. φ de equilibrio con el n nuevo, y el
+        # caudal de masa se reparte. Sirve solo de semilla del Newton.
+        vivo = n1 > 1.0e-8
+        phi = np.array(prev["phi"], copy=True)
+        rho_m = np.maximum(rho_de(st["P"]), 1.0)
+        phi[vivo] = 1.0 / (1.0 + (rho_g[vivo] / rho_m[vivo]) * (1.0 - n1[vivo]) / n1[vivo])
+        phi = np.clip(phi, 0.0, 0.95)
+        phi[-1] = phi[-2]
+        phi[0] = 0.5 * (phi[0] + phi[1])
     st["phi"] = phi
-    rho_new = np.maximum(rho_de(st["P"]) * np.maximum(1.0 - phi, 0.02), 1.0)
+    rho_m = np.maximum(rho_de(st["P"]), 1.0)
+    rho_new = np.maximum(rho_m * np.maximum(1.0 - phi, 0.02), 1.0)
     rho_old = np.maximum(rho_de(prev["P"]) * np.maximum(1.0 - prev["phi"], 0.02), 1.0)
     st["umz"] = prev["umz"] * rho_old / rho_new
     st["ugz"] = st["umz"] + (prev["ugz"] - prev["umz"])
@@ -600,11 +623,150 @@ def _predecir(prev, prev2, h, fragmentado):
     return st
 
 
+def _cierre_axial(P, phi, i, prev, h, umb):
+    """u_m, u_g y los dos momentos axiales, con la masa ya cerrada y u_r = 0."""
+    P0 = float(prev["P"][i])
+    phi0 = float(prev["phi"][i])
+    um0 = float(prev["umz"][i])
+    ug0 = float(prev["ugz"][i])
+    xi0 = float(prev["xi"][i])
+    Nd = float(prev["N"][i])
+    rho_m0 = float(rho_de(P0))
+    rho_g0 = max(P0, 1.0e4) / (RV * T_GAS)
+    melt0 = rho_m0 * (1.0 - phi0) * max(um0, 0.0)
+    gas0 = rho_g0 * phi0 * max(ug0, 0.0)
+    jz0 = melt0 + gas0
+    if jz0 < 30.0:
+        return None
+    n0 = float(n_de(P0, xi0, False))
+    rho_m = float(rho_de(P))
+    rho_g = max(P, 1.0e4) / (RV * T_GAS)
+    dn = float(n_de(P, xi0, True)) - n0
+    melt = melt0 - jz0 * dn
+    gas = gas0 + jz0 * dn
+    if melt <= 1.0 or gas <= 1.0 or not (0.02 < phi < 0.97):
+        return None
+    um = melt / (rho_m * (1.0 - phi))
+    ug = gas / (rho_g * phi)
+    if not (0.0 < um < 700.0 and 0.0 < ug < 700.0):
+        return None
+    slip = ug - um
+    rb = float(_radio_burbuja(np.array([phi]), np.array([Nd]))[0])
+    C = float(coef_arrastre(
+        np.array([phi]), np.array([rb]), np.array([1.0e4]), np.array([rho_g]),
+        np.array([abs(slip)]), umb["phi1"], umb["phi2"], umb["phicrit"],
+    )[0])
+    F = C * slip
+    mom_m = (
+        rho_m * (1.0 - phi) * um * (um - um0)
+        + (1.0 - phi) * (P - P0)
+        + rho_m * (1.0 - phi) * g * h
+        - F * h
+    )
+    mom_g = rho_g * phi * ug * (ug - ug0) + phi * (P - P0) + rho_g * phi * g * h + F * h
+    return um, ug, mom_m, mom_g, melt0
+
+
+def _raiz_axial(prev, h, umb):
+    """Raíz 1D del eje, la más cercana al estado anterior."""
+    P0 = float(prev["P"][0])
+    um0 = float(prev["umz"][0])
+    mejor = None
+    for P in np.linspace(max(P0 * 0.45, Patm * 3.0), P0 * 0.995, 28):
+        for phi in np.linspace(0.55, 0.94, 22):
+            st = _cierre_axial(P, phi, 0, prev, h, umb)
+            if st is None:
+                continue
+            um, ug, mom_m, mom_g, melt0 = st
+            c = (mom_m / 1.0e5) ** 2 + (mom_g / 1.0e4) ** 2
+            cerca = abs(um - um0) / max(um0, 1.0) + abs(P - P0) / P0
+            if mejor is None or c < mejor[0] or (c < 1.0 and mejor[0] > 1.0):
+                mejor = (c, P, phi, cerca)
+            elif c < 1.0e-2 and cerca < mejor[3] and mejor[0] < 1.0e-2:
+                mejor = (c, P, phi, cerca)
+    if mejor is None:
+        return None
+
+    def fun(x):
+        st = _cierre_axial(x[0], x[1], 0, prev, h, umb)
+        if st is None:
+            return np.array([10.0, 10.0])
+        return np.array([st[2] / 1.0e5, st[3] / 1.0e4])
+
+    sol = least_squares(
+        fun, np.array([mejor[1], mejor[2]]), method="trf",
+        bounds=([Patm, 0.05], [P0 * 1.001, 0.96]),
+        ftol=1.0e-14, xtol=1.0e-14, gtol=1.0e-14, max_nfev=60,
+    )
+    st = _cierre_axial(sol.x[0], sol.x[1], 0, prev, h, umb)
+    if st is None or sol.cost > 1.0e-8:
+        return None
+    return float(sol.x[0]), float(sol.x[1]), float(st[0]), float(st[1])
+
+
+def _semilla_fragmentacion(prev, h, umb):
+    """Perfil plano con la raíz axial y el u_r que reparte la masa.
+
+    El salto de n y el cambio de pared no caben en una extrapolación nodo a nodo:
+    el eje se acelera y la pared, que estaba quieta, pasa a llevar fundido.
+    """
+    raiz = _raiz_axial(prev, h, umb)
+    st = {k: (v.copy() if isinstance(v, np.ndarray) else v) for k, v in prev.items()}
+    if raiz is None:
+        return _predecir(prev, None, h, True)
+    P, phi, um, ug = raiz
+    n = prev["r"].size
+    nf = n - 1
+    r = prev["r"]
+    dr = float(prev["dr"])
+    st["P"] = np.full(n, P) + (prev["P"] - prev["P"][0])
+    st["phi"] = np.full(n, phi)
+    st["umz"] = np.full(n, um)
+    st["ugz"] = np.full(n, ug)
+    st["umz"][-1] = st["umz"][-2]
+    st["ugz"][-1] = 0.0
+    st["umr"] = np.zeros(nf)
+    st["ugr"] = np.zeros(nf)
+    rho_m0 = rho_de(prev["P"])
+    rho_g0 = np.maximum(prev["P"], 1.0e4) / (RV * T_GAS)
+    for _ in range(5):
+        rho_m = rho_de(st["P"])
+        rho_g = np.maximum(st["P"], 1.0e4) / (RV * T_GAS)
+        n_new = n_de(st["P"], st["xi"], True)
+        n_old = n_de(prev["P"], prev["xi"], False)
+        ug_flujo = st["ugz"].copy()
+        ug_flujo[-1] = st["ugz"][-2]
+        umr_n = _ur_nodos(st["umr"])
+        ugr_n = _ur_nodos(st["ugr"])
+        jz = rho_m * (1.0 - st["phi"]) * st["umz"] + rho_g * st["phi"] * ug_flujo
+        jr = rho_m * (1.0 - st["phi"]) * umr_n + rho_g * st["phi"] * ugr_n
+        Gamma = jr * _d_dr(r, n_new) + jz * (n_new - n_old) / h
+        melt = rho_m * (1.0 - st["phi"]) * st["umz"]
+        gas = rho_g * st["phi"] * ug_flujo
+        melt0 = rho_m0 * (1.0 - prev["phi"]) * prev["umz"]
+        gas0 = rho_g0 * prev["phi"] * prev["ugz"]
+        div_m = -(melt - melt0) / h - Gamma
+        div_g = -(gas - gas0) / h + Gamma
+        rf = 0.5 * (r[:-1] + r[1:])
+        Fm = np.zeros(nf)
+        Fg = np.zeros(nf)
+        Fm[0] = div_m[0] * rf[0] / 2.0
+        Fg[0] = div_g[0] * rf[0] / 2.0
+        for i in range(1, n - 1):
+            Fm[i] = (div_m[i] * r[i] * dr + rf[i - 1] * Fm[i - 1]) / max(rf[i], 1.0e-8)
+            Fg[i] = (div_g[i] * r[i] * dr + rf[i - 1] * Fg[i - 1]) / max(rf[i], 1.0e-8)
+        phi_f = 0.5 * (st["phi"][:-1] + st["phi"][1:])
+        st["umr"] = Fm / np.maximum(0.5 * (rho_m[:-1] + rho_m[1:]) * (1.0 - phi_f), 1.0)
+        st["ugr"] = Fg / np.maximum(0.5 * (rho_g[:-1] + rho_g[1:]) * phi_f, 1.0e-6)
+    st["fragmentado"] = True
+    return st
+
+
 def _cotas(prev, n, fragmentado):
     """P, φ y u_z quedan libres. u_r solo puede apartarse poco del paso anterior,
     para no saltar a la raíz espuria del momento radial."""
     nf = n - 1
-    margen = 5.0 if fragmentado else 2.0
+    margen = 15.0 if fragmentado else 2.0
     p_lo = np.full(n, Patm)
     p_hi = np.minimum(np.maximum(prev["P"] * 1.002, Patm * 2.0), P_BASE * 1.02)
     phi_hi = 0.98 if fragmentado else min(0.98, max(float(np.max(prev["phi"])) + 0.04, 0.02))
@@ -632,17 +794,37 @@ def _cotas(prev, n, fragmentado):
 
 
 def _paso_bifasico(prev, prev2, h, h_prev, fragmentado, umb):
-    guess = _predecir(prev, prev2, h, fragmentado)
+    cruce = fragmentado and not prev["fragmentado"]
+    if cruce:
+        guess = _semilla_fragmentacion(prev, h, umb)
+    else:
+        guess = _predecir(prev, prev2, h, fragmentado)
     mu = viscosidad(
         guess["P"], guess["phi"], guess["xi"], guess["umz"], guess["N"],
         prev["dr"], umb["phicrit"], prev["umz"], h, fragmentado,
     )
     s0z, s0r = _escalas(guess, mu, umb)
-    lo, hi = _cotas(prev, prev["r"].size, fragmentado)
+    n = prev["r"].size
+    nf = n - 1
+    lo, hi = _cotas(prev, n, fragmentado)
+    if cruce:
+        # El reparto radial del salto usa unos m/s; la caja de continuación
+        # de antes de fragmentar no alcanza.
+        iur = 2 * n + 2 * nf
+        lo = lo.copy()
+        hi = hi.copy()
+        lo[iur:iur + nf] = -20.0
+        hi[iur:iur + nf] = 20.0
     y = np.minimum(np.maximum(_empaquetar(guess, s0z, s0r), lo + 1.0e-14), hi - 1.0e-14)
     sol = None
+    if cruce:
+        nfev = max(1200, 8 * y.size)
+    elif fragmentado:
+        nfev = max(800, 6 * y.size)
+    else:
+        nfev = max(80, 3 * y.size)
 
-    def _resolver(y0, mu_f, s0z_f, s0r_f, peso):
+    def _resolver(y0, mu_f, s0z_f, s0r_f, peso, nfev=nfev):
         def fun(z, mu=mu_f, s0z=s0z_f, s0r=s0r_f, peso=peso):
             return residual_bifasico(
                 z, prev, h, mu, s0z, s0r, prev2, h_prev, fragmentado, umb, peso,
@@ -650,18 +832,19 @@ def _paso_bifasico(prev, prev2, h, h_prev, fragmentado, umb):
 
         return least_squares(
             fun, y0, bounds=(lo, hi), method="trf", x_scale="jac",
-            ftol=1.0e-12, xtol=1.0e-12, gtol=1.0e-12, max_nfev=max(80, 3 * y0.size),
+            ftol=1.0e-12, xtol=1.0e-12, gtol=1.0e-12, max_nfev=nfev,
         )
 
-    for _ in range(3):
+    picard = 3 if cruce else 3
+    for _ in range(picard):
         y_aqui = y.copy()
         sol = _resolver(y, mu, s0z, s0r, 1.0)
-        if sol.cost > 1.0e-4:
+        if sol.cost > 1.0e-4 and not cruce and not fragmentado:
             # El empalme de arrastre cambia C en órdenes de magnitud. Se cruza
             # con el régimen del paso anterior y recién al final queda el φ real.
             y = y_aqui
             for peso in (0.0, 0.5, 1.0):
-                sol = _resolver(y, mu, s0z, s0r, peso)
+                sol = _resolver(y, mu, s0z, s0r, peso, max(80, 3 * y.size))
                 y = np.minimum(np.maximum(sol.x, lo + 1.0e-14), hi - 1.0e-14)
                 print(f"  continuación peso={peso:.1f} costo={sol.cost:.3e}", flush=True)
         else:
@@ -727,8 +910,10 @@ def _caudal(st):
 
 
 def _h_max(phi, fragmentado, phicrit):
+    # Después de fragmentar el paso corto deja un residuo de masa que no es raíz.
+    # 40 m cierra el sistema; el modo radial sigue amortiguado porque μ bajó.
     if fragmentado:
-        return 8.0
+        return 40.0
     p = float(np.max(phi))
     if p < 0.05:
         return 12.0
@@ -743,7 +928,7 @@ def _h_piso(st, fragmentado):
     Sale de ρ u Δr² / (4 μ): con Δr ≈ 1,3 m y μ ≈ 5 kPa s el umbral es unos 8 m.
     """
     if fragmentado:
-        return 0.5
+        return 4.0
     dr = float(st["dr"])
     uz = max(float(np.max(np.abs(st["umz"]))), 1.0)
     mu = max(float(np.min(st["mu"])), 1.0)
@@ -767,34 +952,92 @@ def _tablero(ur):
     return cambios >= max(3, nz.size // 2)
 
 
-def marchar_columna(vin=15.5, n_r=13, h_liq=40.0, umb=None):
+def _estado_de(ruta, pref):
+    d = np.load(ruta)
+    st = {
+        k: np.array(d[f"{pref}{k}"], dtype=float)
+        for k in ("z", "r", "dr", "P", "phi", "umz", "ugz", "umr", "ugr", "xi", "N", "mu")
+    }
+    st["z"] = float(st["z"])
+    st["dr"] = float(st["dr"])
+    st["fragmentado"] = False
+    return st, float(np.asarray(d["z_sat"]).reshape(-1)[0]), float(np.asarray(d["z_f"]).reshape(-1)[0])
+
+
+def _hist_eje(ruta):
+    """Serie en el eje guardada a mitad de marcha, para no rehacer el tramo líquido."""
+    d = np.load(ruta)
+    hist = []
+    for i in range(d["z"].size):
+        hist.append({
+            "z": float(d["z"][i]),
+            "P": np.array([float(d["P"][i])]),
+            "phi": np.array([float(d["phi"][i])]),
+            "umz": np.array([float(d["um"][i])]),
+            "ugz": np.array([float(d["ug"][i])]),
+            "umr": np.array([float(d["ur"][i])]),
+            "ugr": np.array([float(d["ugr"][i])]),
+            "N": np.array([float(d["N"][i])]),
+            "xi": np.array([float(d["xi"][i])]),
+            "mu": np.array([float(d["mu"][i])]),
+            "fragmentado": False,
+        })
+    return hist
+
+
+def marchar_columna(vin=15.5, n_r=13, h_liq=40.0, umb=None, reanudar=None, parcial=None):
     if umb is None:
         umb = _umbrales(vin)
-    liquido = marchar(vin=vin, n_r=n_r, h=h_liq)
-    hist = [_desde_liquido(s) for s in liquido]
-    # N(r) queda fijado al cruzar la saturación, con la tasa local.
-    hist[-1]["N"] = _nucleacion(hist[-1], hist[-2])
-    z_sat = hist[-1]["z"]
-    st = hist[-1]
-    prev2 = hist[-2]
-    h_prev = st["z"] - prev2["z"]
-    h = 8.0
-    fragmentado = False
-    z_f = None
+    if reanudar:
+        st, z_sat, _z_f_archivo = _estado_de(reanudar, "s_")
+        prev2, _, _ = _estado_de(reanudar, "p_")
+        hist = _hist_eje(parcial) if parcial else []
+        hist = [s for s in hist if s["z"] <= st["z"] + 1.0e-3]
+        if not hist or abs(hist[-1]["z"] - st["z"]) > 1.0e-2:
+            hist.append(st)
+        else:
+            hist[-1] = st
+        h_prev = st["z"] - prev2["z"]
+        h = 8.0
+        fragmentado = False
+        z_f = None
+        q_ref = float(rho_de(P_BASE) * vin * math.pi * R_COND ** 2)
+        n_liq = 0
+    else:
+        liquido = marchar(vin=vin, n_r=n_r, h=h_liq)
+        hist = [_desde_liquido(s) for s in liquido]
+        # N(r) queda fijado al cruzar la saturación, con la tasa local.
+        hist[-1]["N"] = _nucleacion(hist[-1], hist[-2])
+        z_sat = hist[-1]["z"]
+        st = hist[-1]
+        prev2 = hist[-2]
+        h_prev = st["z"] - prev2["z"]
+        h = 8.0
+        fragmentado = False
+        z_f = None
+        q_ref = _caudal(hist[0])
+        n_liq = len(liquido)
     while st["z"] < -0.2 and len(hist) < 4000:
+        cruce = False
         if (not fragmentado) and float(np.max(st["phi"])) >= umb["phicrit"] - 0.035:
             fragmentado = True
+            cruce = True
             z_f = st["z"]
-            h = 4.0
+            # El salto de n y el cambio de pared se resuelven en un tramo de 40 m.
+            # Un paso de unos metros deja la inercia y el reparto radial sin raíz.
+            h = 40.0
             print(f"z_f {z_f:.2f}  phi {float(np.max(st['phi'])):.4f}", flush=True)
             _guardar_estado(st, prev2, False, z_f, z_sat)
         piso = _h_piso(st, fragmentado)
-        h_uso = min(max(h, piso), _h_max(st["phi"], fragmentado, umb["phicrit"]), max(-st["z"], piso))
+        if cruce:
+            h_uso = min(40.0, max(-st["z"], piso))
+        else:
+            h_uso = min(max(h, piso), _h_max(st["phi"], fragmentado, umb["phicrit"]), max(-st["z"], piso))
         nuevo, costo = _paso_bifasico(st, prev2, h_uso, h_prev, fragmentado, umb)
         dphi = float(np.max(nuevo["phi"]) - np.max(st["phi"]))
         cruza = (not fragmentado) and float(np.max(nuevo["phi"])) > umb["phicrit"] + 0.01
         ur_max = float(np.max(np.abs(nuevo["umr"])))
-        margen = 5.0 if fragmentado else 2.0
+        margen = 15.0 if fragmentado else 2.0
         desv = float(np.max(np.abs(nuevo["umr"] - st["umr"])))
         # Si u_r queda pegado al borde de continuación, el paso no cerró la raíz suave.
         en_borde = desv > 0.92 * margen
@@ -836,7 +1079,7 @@ def marchar_columna(vin=15.5, n_r=13, h_liq=40.0, umb=None):
             h = min(max(h_uso * 1.15, h_piso_nuevo), h_tope)
         else:
             h = min(max(h_uso, h_piso_nuevo), h_tope)
-        n_bi = len(hist) - len(liquido)
+        n_bi = len(hist) - n_liq
         if n_bi <= 12 or n_bi % 10 == 0 or fragmentado:
             print(
                 f"z={st['z']:.2f} h={h_uso:.2f} costo={costo:.2e} "
@@ -845,7 +1088,7 @@ def marchar_columna(vin=15.5, n_r=13, h_liq=40.0, umb=None):
                 f"slip={st['ugz'][0]-st['umz'][0]:.3e} "
                 f"|ur|={np.max(np.abs(st['umr'])):.3e} |ugr|={np.max(np.abs(st['ugr'])):.3e} "
                 f"dP={float(np.max(st['P'])-np.min(st['P']))/1e3:.2f}kPa "
-                f"xi={st['xi'][0]:.6f} N={st['N'][0]:.3e} Q={_caudal(st)/_caudal(hist[0]):.4f}",
+                f"xi={st['xi'][0]:.6f} N={st['N'][0]:.3e} Q={_caudal(st)/q_ref:.4f}",
                 flush=True,
             )
         if st["P"][0] <= Patm * 1.05 or st["ugz"][0] >= 0.98 * CS:
@@ -943,6 +1186,7 @@ def graficar(hist, ruta, umb, z_sat, z_frag):
 
 
 if __name__ == "__main__":
+    import os
     vin = 15.5
     umb = _umbrales(vin)
     print(
@@ -950,9 +1194,17 @@ if __name__ == "__main__":
         f"phi1 {umb['phi1']:.4f}  phi2 {umb['phi2']:.4f}  phi_crit {umb['phicrit']:.4f}",
         flush=True,
     )
-    hist, umb, z_f, z_sat = marchar_columna(vin=vin, n_r=13, h_liq=40.0, umb=umb)
+    reanudar = os.environ.get("CONDUIT_REANUDAR")
+    parcial = os.environ.get(
+        "CONDUIT_PARCIAL", "/opt/cursor/artifacts/conducto_fd_parcial.npz",
+    )
+    hist, umb, z_f, z_sat = marchar_columna(
+        vin=vin, n_r=13, h_liq=40.0, umb=umb,
+        reanudar=reanudar, parcial=parcial if reanudar else None,
+    )
     graficar(hist, "/opt/cursor/artifacts/conducto_fd.png", umb, z_sat, z_f)
     ult = hist[-1]
+    q_ref = float(rho_de(P_BASE) * vin * math.pi * R_COND ** 2)
     print(
         f"z_sat {z_sat:.1f}  z_f {z_f}  z_final {ult['z']:.2f}  "
         f"P {ult['P'][0]/1e6:.3f}  phi {ult['phi'][0]:.4f}  "
@@ -960,7 +1212,7 @@ if __name__ == "__main__":
         flush=True,
     )
     print(
-        f"N eje {hist[0]['N'][0]:.3e} -> sat {hist[-1]['N'][0]:.3e}  "
-        f"xi {ult['xi'][0]:.6f}  Q { _caudal(ult)/_caudal(hist[0]):.5f}",
+        f"N eje {hist[0]['N'][0]:.3e} -> final {ult['N'][0]:.3e}  "
+        f"xi {ult['xi'][0]:.6f}  Q { _caudal(ult)/q_ref:.5f}",
         flush=True,
     )
