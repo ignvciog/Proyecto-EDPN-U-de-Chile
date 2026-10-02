@@ -369,16 +369,12 @@ def _axial(lap, mu_eff, u, u_prev, mu_prev, u_prev2, h, h_prev):
 
 
 def _upwind_cara(ur, r):
-    rf = 0.5 * (r[:-1] + r[1:])
-    x = np.concatenate([[0.0], rf, [r[-1]]])
-    u = np.concatenate([[0.0], ur, [0.0]])
-    d = np.zeros(ur.size)
-    for j in range(ur.size):
-        if ur[j] >= 0.0:
-            d[j] = (u[j + 1] - u[j]) / max(x[j + 1] - x[j], 1.0e-8)
-        else:
-            d[j] = (u[j + 2] - u[j + 1]) / max(x[j + 2] - x[j + 1], 1.0e-8)
-    return d
+    """Derivada radial centrada en las caras, con u_r = 0 en el eje y en la pared.
+
+    El tramo líquido usa esta misma derivada y no alimenta el modo de damero.
+    """
+    x = np.concatenate([[0.0], 0.5 * (r[:-1] + r[1:]), [r[-1]]])
+    return np.gradient(np.concatenate([[0.0], ur, [0.0]]), x)[1:-1]
 
 
 def residual_bifasico(y, prev, h, mu, s0z, s0r, prev2, h_prev, fragmentado, umb):
@@ -408,16 +404,25 @@ def residual_bifasico(y, prev, h, mu, s0z, s0r, prev2, h_prev, fragmentado, umb)
     masa_m = (rho_m * (1.0 - phi) * umz - jz_m0) / h + _div(r, dr, rho_mf * (1.0 - phi_f) * umr) + Gamma
     masa_g = (rho_g * phi * ugz - jz_g0) / h + _div(r, dr, rho_gf * phi_f * ugr) - Gamma
 
-    speed_z = np.sqrt((ugz - umz) ** 2 + (ugr_n - umr_n) ** 2)
+    # El resbalamiento real es 10^{-12} m/s y desaparece al sumarlo a u.
+    # La fuerza se evalúa con el hat del sistema, sin pasar por u_g - u_m.
+    sl = _cortes(n)
+    hatz = np.zeros(n)
+    hatz[:-1] = y[sl["hz"]]
+    hatr = y[sl["hr"]]
+    slip_z = hatz * s0z
+    slip_r = hatr * s0r
+    slip_r_n = _ur_nodos(slip_r)
+    speed_z = np.sqrt(slip_z ** 2 + slip_r_n ** 2)
     rb = _radio_burbuja(phi, Nd)
     Cz = coef_arrastre(phi, rb, mu, rho_g, speed_z, umb["phi1"], umb["phi2"], umb["phicrit"])
-    Fz = Cz * (ugz - umz)
-    slip_r = np.sqrt((0.5 * ((ugz - umz)[:-1] + (ugz - umz)[1:])) ** 2 + (ugr - umr) ** 2)
+    Fz = Cz * slip_z
+    slip_r_speed = np.sqrt((0.5 * (slip_z[:-1] + slip_z[1:])) ** 2 + slip_r ** 2)
     rb_f = _radio_burbuja(phi_f, 0.5 * (Nd[:-1] + Nd[1:]))
     Cr = coef_arrastre(
-        phi_f, rb_f, mu_f, rho_gf, slip_r, umb["phi1"], umb["phi2"], umb["phicrit"],
+        phi_f, rb_f, mu_f, rho_gf, slip_r_speed, umb["phi1"], umb["phi2"], umb["phicrit"],
     )
-    Fr = Cr * (ugr - umr)
+    Fr = Cr * slip_r
 
     dPdz = (P - prev["P"]) / h
     adv_mz = umz * (umz - prev["umz"]) / h + _adveccion_radial(umr_n, umz, r)
@@ -498,8 +503,10 @@ def residual_bifasico(y, prev, h, mu, s0z, s0r, prev2, h_prev, fragmentado, umb)
         float(np.max(rho_g0)) * 1.0e-4 * max(float(np.max(prev["umz"])), 1.0) / h,
     )
     esc_z = max(float(np.max(rho_m0 * np.maximum(1.0 - prev["phi"], 0.05) * g)), 1.0)
-    esc_gz = np.maximum(np.maximum(Cz, rho_g * np.maximum(phi, 1.0e-5) * g), 1.0)
-    esc_gr = np.maximum(0.5 * (esc_gz[:-1] + esc_gz[1:]), 1.0)
+    # Misma escala física para las dos fases: ρ φ g. Dividir por el arrastre
+    # escondía un F de cientos de Pa/m detrás de un resbalamiento de 10^{-11} m/s.
+    esc_gz = np.maximum(rho_g * np.maximum(phi, 1.0e-5) * g, 1.0e-2)
+    esc_gr = np.maximum(0.5 * (esc_gz[:-1] + esc_gz[1:]), 1.0e-2)
     u_ref = max(float(np.max(np.abs(prev["umz"]))), 1.0)
     N_ref = max(float(np.max(prev["N"])), 1.0)
     masa_m = masa_m / esc_m
@@ -689,17 +696,29 @@ def _caudal(st):
 
 def _h_max(phi, fragmentado, phicrit):
     if fragmentado:
-        return 0.5
-    p = float(np.max(phi))
-    if p < 0.02:
-        return 8.0
-    if p < 0.1:
-        return 6.0
-    if p < 0.4:
         return 4.0
-    if p < phicrit - 0.05:
-        return 2.0
-    return 0.5
+    p = float(np.max(phi))
+    if p < 0.05:
+        return 12.0
+    if p < 0.2:
+        return 10.0
+    if p < 0.5:
+        return 8.0
+    return 6.0
+
+
+def _h_piso(st, fragmentado):
+    """Por debajo de este paso el marchar en z amplifica el modo radial de la malla.
+
+    Sale de ρ u Δr² / (4 μ): con Δr ≈ 1,3 m y μ ≈ 5 kPa s el umbral es unos 8 m.
+    """
+    if fragmentado:
+        return 0.5
+    dr = float(st["dr"])
+    uz = max(float(np.max(np.abs(st["umz"]))), 1.0)
+    mu = max(float(np.min(st["mu"])), 1.0)
+    rho = 2500.0
+    return float(np.clip(1.15 * rho * uz * dr * dr / (4.0 * mu), 8.0, 16.0))
 
 
 def _tablero(ur):
@@ -729,7 +748,7 @@ def marchar_columna(vin=15.5, n_r=13, h_liq=40.0, umb=None):
     st = hist[-1]
     prev2 = hist[-2]
     h_prev = st["z"] - prev2["z"]
-    h = 2.0
+    h = 8.0
     fragmentado = False
     z_f = None
     while st["z"] < -0.2 and len(hist) < 4000:
@@ -738,7 +757,8 @@ def marchar_columna(vin=15.5, n_r=13, h_liq=40.0, umb=None):
             z_f = st["z"]
             h = min(h, 0.5)
             print(f"z_f {z_f:.2f}  phi {float(np.max(st['phi'])):.4f}", flush=True)
-        h_uso = min(h, _h_max(st["phi"], fragmentado, umb["phicrit"]), max(-st["z"], 0.1))
+        piso = _h_piso(st, fragmentado)
+        h_uso = min(max(h, piso), _h_max(st["phi"], fragmentado, umb["phicrit"]), max(-st["z"], piso))
         nuevo, costo = _paso_bifasico(st, prev2, h_uso, h_prev, fragmentado, umb)
         dphi = float(np.max(nuevo["phi"]) - np.max(st["phi"]))
         cruza = (not fragmentado) and float(np.max(nuevo["phi"])) > umb["phicrit"] + 0.01
@@ -748,15 +768,16 @@ def marchar_columna(vin=15.5, n_r=13, h_liq=40.0, umb=None):
         # Si u_r queda pegado al borde de continuación, el paso no cerró la raíz suave.
         en_borde = desv > 0.92 * margen
         tablero = _tablero(nuevo["umr"]) or _tablero(nuevo["ugr"])
-        feo = (not np.isfinite(costo)) or costo > 1.0e-8 or cruza or en_borde or tablero
-        h_min = 0.1 if fragmentado else 0.25
-        if feo and h_uso > h_min + 1.0e-9:
+        # Con φ chico, |u_r| de varios cm/s es el modo de la malla, no el flujo.
+        modo = (not fragmentado) and ur_max > 0.05 and float(np.max(nuevo["phi"])) < 0.05
+        feo = (not np.isfinite(costo)) or costo > 1.0e-8 or cruza or en_borde or tablero or modo
+        if feo and h_uso < _h_max(st["phi"], fragmentado, umb["phicrit"]) - 1.0e-9:
             print(
                 f"reintento z={st['z']:.2f} h={h_uso:.3f} costo={costo:.2e} "
                 f"|ur|={ur_max:.3e} d|ur|={desv:.3e} borde={en_borde} tablero={tablero}",
                 flush=True,
             )
-            h = max(h_min, 0.5 * h_uso)
+            h = min(_h_max(st["phi"], fragmentado, umb["phicrit"]), max(h_uso * 1.25, h_uso + 2.0))
             continue
         if feo:
             print(
@@ -777,12 +798,13 @@ def marchar_columna(vin=15.5, n_r=13, h_liq=40.0, umb=None):
         st = nuevo
         hist.append(st)
         h_tope = _h_max(st["phi"], fragmentado, umb["phicrit"])
-        if desv > 0.04 or costo > 1.0e-12:
-            h = min(h_uso, h_tope)
+        h_piso_nuevo = _h_piso(st, fragmentado)
+        if desv > 0.02 or costo > 1.0e-12 or ur_max > 0.02:
+            h = min(max(h_uso, h_piso_nuevo), h_tope)
         elif dphi < 0.01:
-            h = min(h_uso * 1.25, h_tope)
+            h = min(max(h_uso * 1.15, h_piso_nuevo), h_tope)
         else:
-            h = min(h_uso, h_tope)
+            h = min(max(h_uso, h_piso_nuevo), h_tope)
         n_bi = len(hist) - len(liquido)
         if n_bi <= 12 or n_bi % 10 == 0 or fragmentado:
             print(
