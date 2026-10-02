@@ -598,7 +598,7 @@ def _cotas(prev, n, fragmentado):
     """P, φ y u_z quedan libres. u_r solo puede apartarse poco del paso anterior,
     para no saltar a la raíz espuria del momento radial."""
     nf = n - 1
-    margen = 5.0 if fragmentado else 0.5
+    margen = 5.0 if fragmentado else 2.0
     p_lo = np.full(n, Patm)
     p_hi = np.minimum(np.maximum(prev["P"] * 1.002, Patm * 2.0), P_BASE * 1.02)
     phi_hi = 0.98 if fragmentado else min(0.98, max(float(np.max(prev["phi"])) + 0.04, 0.02))
@@ -728,9 +728,7 @@ def _h_max(phi, fragmentado, phicrit):
         return 12.0
     if p < 0.2:
         return 10.0
-    if p < 0.5:
-        return 8.0
-    return 6.0
+    return 8.0
 
 
 def _h_piso(st, fragmentado):
@@ -789,7 +787,7 @@ def marchar_columna(vin=15.5, n_r=13, h_liq=40.0, umb=None):
         dphi = float(np.max(nuevo["phi"]) - np.max(st["phi"]))
         cruza = (not fragmentado) and float(np.max(nuevo["phi"])) > umb["phicrit"] + 0.01
         ur_max = float(np.max(np.abs(nuevo["umr"])))
-        margen = 5.0 if fragmentado else 0.5
+        margen = 5.0 if fragmentado else 2.0
         desv = float(np.max(np.abs(nuevo["umr"] - st["umr"])))
         # Si u_r queda pegado al borde de continuación, el paso no cerró la raíz suave.
         en_borde = desv > 0.92 * margen
