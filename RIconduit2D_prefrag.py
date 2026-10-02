@@ -1,11 +1,10 @@
 """
 Exsolución hasta antes de la fragmentación, en diferencias finitas.
 
-Se parte del tramo sin burbujas. Desde P_sat, Henry da n y
-φ = φ_Henry(P, ξ_0). Antes de fragmentar las dos fases comparten la
-velocidad, así que la masa de la mezcla y los dos momentos cierran
-(P, u_z, u_r). u_r queda libre dentro del conducto. Se corta cuando
-φ llega a φ_crit, sin entrar en la fragmentación.
+Se parte del tramo sin burbujas. Antes de fragmentar se resuelven
+la masa de la mezcla, los dos momentos y el transporte de N y de ξ.
+φ = φ_Henry(P, ξ). u_r queda libre dentro del conducto. Se corta
+cuando φ llega a φ_crit. Después, n va sin ξ y q(r) queda congelado.
 """
 
 from __future__ import annotations
@@ -18,8 +17,10 @@ from scipy.special import erf
 
 from calbuco2015d import (
     C1,
+    Fc,
     Patm,
     R,
+    tcar,
     T1,
     Tc1,
     al2o3,
@@ -68,16 +69,20 @@ RV = float(R)
 T_GAS = float(T1)
 
 
-def n_henry(P):
+def n_henry(P, xi=None):
+    """n(P, ξ) de Henry. Con ξ = ξ_0 recupera (1-ξ_0)(c_0 - C_1 P^β)/(1 - C_1 P^β)."""
     P = np.maximum(np.asarray(P, dtype=float), 1.0e4)
-    num = (1.0 - XI0) * (CO - C1 * P ** beta)
+    if xi is None:
+        xi = XI0
+    xi = np.asarray(xi, dtype=float)
+    num = (1.0 - XI0) * CO - (1.0 - xi) * C1 * P ** beta
     den = np.maximum(1.0 - C1 * P ** beta, 1.0e-12)
     return np.maximum(num / den, 0.0)
 
 
-def phi_henry(P):
+def phi_henry(P, xi=None):
     P = np.asarray(P, dtype=float)
-    n = n_henry(P)
+    n = n_henry(P, xi)
     rho_m = rho_de(P)
     rho_g = np.maximum(P, 1.0e4) / (RV * T_GAS)
     phi = np.zeros_like(n, dtype=float)
@@ -88,8 +93,8 @@ def phi_henry(P):
     return np.clip(phi, 0.0, 0.95)
 
 
-def rho_mix(P):
-    phi = phi_henry(P)
+def rho_mix(P, xi=None):
+    phi = phi_henry(P, xi)
     rho_g = np.maximum(np.asarray(P, dtype=float), 1.0e4) / (RV * T_GAS)
     return (1.0 - phi) * rho_de(P) + phi * rho_g
 
@@ -185,8 +190,9 @@ def residual(y, prev, h, mu):
     r, dr = prev["r"], prev["dr"]
     n = r.size
     P, uz, ur = _desempacar(y, n)
-    rho = rho_mix(P)
-    rho0 = rho_mix(prev["P"])
+    xi = prev["xi"]
+    rho = rho_mix(P, xi)
+    rho0 = rho_mix(prev["P"], xi)
     rho_f = 0.5 * (rho[:-1] + rho[1:])
     masa = (rho * uz - rho0 * prev["uz"]) / h + _div(r, dr, rho_f * ur)
     ddz = (uz - prev["uz"]) / h
@@ -207,14 +213,73 @@ def residual(y, prev, h, mu):
     return np.concatenate([masa / esc_m, mom_z[:-1] / esc_z, mom_r / esc_z])
 
 
-def _paso(prev, h, mu):
+def _gamma_xi(P, xi):
+    num = (1.0 - XI0) * CO - (1.0 - xi) * C1 * np.maximum(P, 1.0e4) ** beta
+    den = (1.0 - XI0) * CO - (1.0 - xmax) * C1 * Patm ** beta
+    f2 = np.maximum(num / max(den, 1.0e-30), 0.0)
+    xi_eq = XI0 + (xmax - XI0) * f2
+    f3 = np.maximum(1.0 - xi / np.maximum(xi_eq, 1.0e-8), 0.0)
+    return np.maximum((xmax - XI0) * f2 * f3 / tcar, 0.0)
+
+
+def _gamma_N(P, phi, N, mu, phicrit):
+    phi = np.asarray(phi, dtype=float)
+    N = np.maximum(np.asarray(N, dtype=float), 1.0)
+    mu = np.maximum(np.asarray(mu, dtype=float), 1.0)
+    rho_g = np.maximum(P, 1.0e4) / (RV * T_GAS)
+    rho_m = rho_de(P)
+    rb = (
+        np.maximum(phi, 1.0e-16)
+        / ((4.0 / 3.0) * math.pi * N * np.maximum(1.0 - phi, 1.0e-6))
+    ) ** (1.0 / 3.0)
+    vivo = (phi > 1.0e-8) & (phi < phicrit) & (rb < 0.5 * R_COND)
+    F1, F2 = 1.8, 0.2
+    inner = (F1 + F2) * (
+        (3.0 * np.maximum(phi, 0.0) * math.pi / (6.0 * phicrit)) / (4.0 * math.pi)
+    ) ** (1.0 / 3.0)
+    den = 1.0 - inner
+    tasa = (
+        -(N ** (2.0 / 3.0))
+        * (1.0 / np.maximum(1.0 - phi, 1.0e-6)) ** (1.0 / 3.0)
+        * ((rho_m - rho_g) * g / (9.0 * mu))
+        * (3.0 * np.maximum(phi, 0.0) / (4.0 * math.pi)) ** (2.0 / 3.0)
+        * (F1 ** 2 - F2 ** 2)
+        / np.maximum(den, 1.0e-8)
+        * Fc
+        * (1.0 - phi / phicrit)
+        * (R_COND - rb) / R_COND
+    )
+    return np.where(vivo & (den > 1.0e-8), tasa, 0.0)
+
+
+def _transportar(prev, P, uz, ur, mu, phicrit, h):
+    """Euler explícito de u_r ∂_r + u_z ∂_z = Γ, con ξ y N del nivel anterior."""
+    xi = np.asarray(prev["xi"], dtype=float).copy()
+    N = np.asarray(prev["N"], dtype=float).copy()
+    r = prev["r"]
+    urn = _ur_nodos(ur)
+    uzs = np.maximum(uz, 1.0e-3)
+    uzs[-1] = max(float(uzs[-2]), 1.0e-3)
+    nsub = 8
+    hs = h / nsub
+    for _ in range(nsub):
+        Gx = _gamma_xi(P, xi)
+        GN = _gamma_N(P, phi_henry(P, xi), N, mu, phicrit)
+        xi = xi + (hs / uzs) * (Gx - urn * _d_dr(r, xi))
+        N = N + (hs / uzs) * (GN - urn * _d_dr(r, N))
+        xi = np.clip(xi, 0.0, float(xmax))
+        N = np.maximum(N, 1.0)
+    return xi, N
+
+
+def _paso(prev, h, mu, phicrit):
     n = prev["r"].size
-    rho0 = rho_mix(prev["P"])
+    rho0 = rho_mix(prev["P"], prev["xi"])
     uz_c = float(prev["uz"][0])
     mu_c = float(np.mean(mu))
     Gvis = -float(np.mean(rho0)) * g - 8.0 * mu_c * (0.5 * uz_c) / R_COND ** 2
     P = np.maximum(prev["P"] + Gvis * h, 1.0e5)
-    rho = np.maximum(rho_mix(P), 1.0)
+    rho = np.maximum(rho_mix(P, prev["xi"]), 1.0)
     uz = prev["uz"] * rho0 / rho
     uz[-1] = 0.0
     ur = np.zeros_like(prev["ur"])
@@ -239,6 +304,8 @@ def _paso(prev, h, mu):
         ftol=1e-10, xtol=1e-10, gtol=1e-10, max_nfev=60,
     )
     P, uz, ur = _desempacar(sol.x, n)
+    mu_n = mu_mix(P, uz, prev["dr"])
+    xi, Nd = _transportar(prev, P, uz, ur, mu_n, phicrit, h)
     nuevo = {
         "z": prev["z"] + h,
         "r": prev["r"],
@@ -246,11 +313,11 @@ def _paso(prev, h, mu):
         "P": P,
         "uz": uz,
         "ur": ur,
-        "mu": mu_mix(P, uz, prev["dr"]),
-        "phi": phi_henry(P),
+        "mu": mu_n,
+        "phi": phi_henry(P, xi),
         "ugz": uz.copy(),
-        "N": N0,
-        "xi": XI0,
+        "N": Nd,
+        "xi": xi,
     }
     return nuevo, float(sol.cost)
 
@@ -262,15 +329,15 @@ def marchar_exsol(vin=5.0, n_r=17, h_sb=40.0, h=20.0, phicrit=0.7):
         t = dict(s)
         t["phi"] = phi_henry(s["P"])
         t["ugz"] = s["uz"].copy()
-        t["N"] = N0
-        t["xi"] = XI0
+        t["N"] = np.full(s["r"].size, N0)
+        t["xi"] = np.full(s["r"].size, XI0)
         hist.append(t)
     st = hist[-1]
     h_uso = h
     while st["z"] < -0.5 and len(hist) < 800:
         if st["z"] + h_uso > 0.0:
             h_uso = max(0.5, -st["z"])
-        nuevo, costo = _paso(st, h_uso, st["mu"])
+        nuevo, costo = _paso(st, h_uso, st["mu"], phicrit)
         cruza = float(np.max(nuevo["phi"])) >= phicrit
         malo = costo > 1.0e-8 or not np.isfinite(costo)
         if cruza or malo:
@@ -342,7 +409,7 @@ def _paso_radio(P0, phi0, um0, ug0, q, rho_m, h):
 def marchar_frag(pre, h=5.0):
     """Desde z_f, q(r) congelado y n(P) sin ξ. Cada radio integra los dos momentos."""
     st = pre[-1]
-    q = rho_mix(st["P"]) * st["uz"]
+    q = rho_mix(st["P"], st["xi"]) * st["uz"]
     rho_m = rho_de(st["P"])
     um = np.zeros_like(st["uz"])
     ug = np.zeros_like(st["uz"])
@@ -387,8 +454,8 @@ def marchar_frag(pre, h=5.0):
             "ur": np.full_like(st["ur"], np.nan),
             "mu": st["mu"].copy(),
             "phi": phi.copy(),
-            "N": N0,
-            "xi": XI0,
+            "N": np.asarray(st["N"], dtype=float).copy(),
+            "xi": np.asarray(st["xi"], dtype=float).copy(),
         })
         h_uso = h
         if len(hist) % 8 == 0:
@@ -437,11 +504,11 @@ def graficar(hist, ruta, phicrit, phi1, z_frag=None):
     ax[0, 2].legend(frameon=False, fontsize=8)
     ax[0, 3].semilogx(np.maximum(ur, 1.0e-16), zk, color="C0", lw=1.6)
     ax[0, 3].set_xlabel(r"$|u_r|$ [m/s]")
-    ax[1, 0].plot(np.full_like(zk, N0), zk, color="C0", lw=1.6)
-    ax[1, 0].set_xlim(0.0, 2.0e8)
+    N = np.array([float(np.asarray(s["N"])[0]) for s in hist])
+    xi = np.array([float(np.asarray(s["xi"])[0]) for s in hist])
+    ax[1, 0].plot(N, zk, color="C0", lw=1.6)
     ax[1, 0].set_xlabel(r"$N$ [m$^{-3}$]")
-    ax[1, 1].plot(np.full_like(zk, XI0), zk, color="C0", lw=1.6)
-    ax[1, 1].set_xlim(0.0, 1.0)
+    ax[1, 1].plot(xi, zk, color="C0", lw=1.6)
     ax[1, 1].set_xlabel(r"$\xi$")
     ax[1, 2].semilogx(np.maximum(mu, 1.0), zk, color="C0", lw=1.6)
     ax[1, 2].set_xlabel(r"$\mu$ [Pa s]")
@@ -478,3 +545,5 @@ if __name__ == "__main__":
     print(f"salto eje um {pre[-1]['uz'][0]:.2f} -> {salto['uz'][0]:.2f}  ug {salto['ugz'][0]:.2f}")
     print(f"z_final {ultimo['z']:.2f}  P {ultimo['P'][0]/1e6:.3f}  phi {ultimo['phi'][0]:.4f}")
     print(f"um {ultimo['uz'][0]:.2f}  ug {ultimo['ugz'][0]:.2f}  cs {CS:.1f}")
+    print(f"xi eje {float(np.asarray(pre[0]['xi'])[0]):.5f} -> {float(np.asarray(pre[-1]['xi'])[0]):.5f}")
+    print(f"N eje {float(np.asarray(pre[0]['N'])[0]):.4e} -> {float(np.asarray(pre[-1]['N'])[0]):.4e}")

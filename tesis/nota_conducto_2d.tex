@@ -1186,20 +1186,23 @@ uniforme en $r$.}
 \subsection{Exsolución hasta la fragmentación}
 
 La entrada es \(\bar u(H)=15{,}5\,\mathrm{m/s}\). Antes de
-fragmentar las incógnitas son \(P\), \(u_z\) y \(u_r\). El agua
-exsuelta lleva el factor de cristales,
+fragmentar las incógnitas son \(P\), \(u_z\), \(u_r\), \(N\) y
+\(\xi\). Henry usa el \(\xi\) local,
 \begin{equation}
 \label{eq:n-pre}
-n=(1-\xi_0)\frac{c_0-C_1 P^{\beta}}{1-C_1 P^{\beta}},
+n(P,\xi)
+=\max\Biggl(0,\;
+\frac{(1-\xi_0)c_0-(1-\xi)\,C_1 P^{\beta}}{1-C_1 P^{\beta}}\Biggr),
 \end{equation}
-y el volumen es el de Henry con las dos fases a la misma velocidad,
+y el volumen, con las dos fases a la misma velocidad, es
 \begin{equation}
 \label{eq:phi-pre}
 \varphi
 =\Biggl(1+\frac{P}{n\,\Rv T}\frac{1-n}{\rho_m}\Biggr)^{-1}.
 \end{equation}
 Con \(\rho_c=(1-\varphi)\rho_m+\varphi\rho_g\) y
-\(\mathbf{u}_g=\mathbf{u}_m=\mathbf{u}\), se resuelve
+\(\mathbf{u}_g=\mathbf{u}_m=\mathbf{u}\), el sistema en diferencias
+finitas es
 \begin{align}
 \label{eq:fd-pre}
 \frac{\p}{\p z}(\rho_c u_z)
@@ -1214,15 +1217,28 @@ Con \(\rho_c=(1-\varphi)\rho_m+\varphi\rho_g\) y
 \rho_c\Biggl(u_z\frac{\p u_r}{\p z}+u_r\frac{\p u_r}{\p r}\Biggr)
 &=
 -\frac{\p P}{\p r}
-+L_r[\mu]\,u_r.
++L_r[\mu]\,u_r,
+\\
+u_r\frac{\p N}{\p r}+u_z\frac{\p N}{\p z}
+&=\Gamma_N,
+\\
+u_r\frac{\p \xi}{\p r}+u_z\frac{\p \xi}{\p z}
+&=\Gamma_\xi.
 \end{align}
+\(\Gamma_N\) es la coalescencia \eqref{eq:GammaN} y \(\Gamma_\xi\) es
+\eqref{eq:Gammaxi}, con \(\tau_c=2\,\mathrm{h}\). En la base,
 \(N=10^{8}\,\mathrm{m^{-3}}\) y \(\xi=\xi_0\). \(u_r=0\) solo en el
-eje, en la pared y en la base. Con este \(\bar u\), el capilar da
+eje, en la pared y en la base. El capilar da
 \(\varphi_1=0{,}167\) y \(\varphi_{\mathrm{crit}}=0{,}768\).
 
 La fragmentación cae en \(z_f=-84\,\mathrm{m}\), con
-\(P=9{,}12\,\mathrm{MPa}\) y \(\varphi=0{,}766\). \(u_z\) en el eje
-llega a \(113\,\mathrm{m/s}\) y \(|u_r|\) a \(0{,}11\,\mathrm{m/s}\).
+\(P=9{,}13\,\mathrm{MPa}\) y \(\varphi=0{,}766\). En el eje,
+\(\xi\) pasa de \(0{,}25000\) a \(0{,}25020\) y \(N\) de
+\(10^{8}\) a \(9{,}55\times 10^{7}\,\mathrm{m^{-3}}\). El tiempo de
+ascenso desde la saturación es de unos minutos, frente a
+\(\tau_c=2\,\mathrm{h}\), y la coalescencia solo actúa cuando ya hay
+burbujas. \(u_z\) llega a \(113\,\mathrm{m/s}\) y \(|u_r|\) a
+\(0{,}11\,\mathrm{m/s}\).
 
 \subsection{Después de fragmentar}
 
