@@ -173,7 +173,7 @@ def _corte(umz, dr, u_prev=None, h=None):
     return np.maximum(np.sqrt(g_r ** 2 + g_z ** 2), 1.0e-3)
 
 
-def _mu_nodo(P, phi, xi, Nd, gdot, phicrit=0.75):
+def _mu_nodo(P, phi, xi, Nd, gdot, phicrit=0.75, fragmentado=False):
     P = float(P)
     if float(n_de(P, xi, False)) <= 0.0 and float(phi) <= 1.0e-8:
         h2o = float(h2o1)
@@ -181,6 +181,9 @@ def _mu_nodo(P, phi, xi, Nd, gdot, phicrit=0.75):
         h2o = float(C1 * max(P, 1.0e4) ** beta * 100.0)
     vis = float(viscosity(sio2, tio2, al2o3, feo, mno, mgo, cao, na2o, k2o, p2o5, h2o, f2o, Tc1))
     vis *= float(fvrel(model, float(xi), XI0, ar1, ar2, xmax, max(float(gdot), 1.0e-3)))
+    # Después de fragmentar el fundido ya no es la fase continua: no va el factor de suspensión.
+    if fragmentado:
+        return max(vis, 1.0)
     phi = float(phi)
     if phi < 1.0e-8:
         return max(vis, 1.0)
@@ -197,10 +200,13 @@ def _mu_nodo(P, phi, xi, Nd, gdot, phicrit=0.75):
     return max(float(factor) * vis, 1.0)
 
 
-def viscosidad(P, phi, xi, umz, Nd, dr, phicrit, u_prev=None, h=None):
+def viscosidad(P, phi, xi, umz, Nd, dr, phicrit, u_prev=None, h=None, fragmentado=False):
     gdot = _corte(umz, dr, u_prev, h)
     return np.array([
-        _mu_nodo(float(P[i]), float(phi[i]), float(xi[i]), float(Nd[i]), float(gdot[i]), phicrit)
+        _mu_nodo(
+            float(P[i]), float(phi[i]), float(xi[i]), float(Nd[i]),
+            float(gdot[i]), phicrit, fragmentado,
+        )
         for i in range(P.size)
     ])
 
@@ -629,7 +635,7 @@ def _paso_bifasico(prev, prev2, h, h_prev, fragmentado, umb):
     guess = _predecir(prev, prev2, h, fragmentado)
     mu = viscosidad(
         guess["P"], guess["phi"], guess["xi"], guess["umz"], guess["N"],
-        prev["dr"], umb["phicrit"], prev["umz"], h,
+        prev["dr"], umb["phicrit"], prev["umz"], h, fragmentado,
     )
     s0z, s0r = _escalas(guess, mu, umb)
     lo, hi = _cotas(prev, prev["r"].size, fragmentado)
@@ -666,7 +672,7 @@ def _paso_bifasico(prev, prev2, h, h_prev, fragmentado, umb):
             "P": P, "phi": phi, "umz": umz, "ugz": ugz, "umr": umr, "ugr": ugr,
             "xi": xi, "N": Nd, "fragmentado": fragmentado,
         })
-        mu = viscosidad(P, phi, xi, umz, Nd, prev["dr"], umb["phicrit"], prev["umz"], h)
+        mu = viscosidad(P, phi, xi, umz, Nd, prev["dr"], umb["phicrit"], prev["umz"], h, fragmentado)
         s0z, s0r = _escalas(guess, mu, umb)
         y = np.minimum(np.maximum(_empaquetar(guess, s0z, s0r), lo + 1.0e-14), hi - 1.0e-14)
         if sol.cost < 1.0e-4:
@@ -722,7 +728,7 @@ def _caudal(st):
 
 def _h_max(phi, fragmentado, phicrit):
     if fragmentado:
-        return 4.0
+        return 8.0
     p = float(np.max(phi))
     if p < 0.05:
         return 12.0
@@ -776,10 +782,9 @@ def marchar_columna(vin=15.5, n_r=13, h_liq=40.0, umb=None):
     fragmentado = False
     z_f = None
     while st["z"] < -0.2 and len(hist) < 4000:
-        if (not fragmentado) and float(np.max(st["phi"])) >= umb["phicrit"]:
+        if (not fragmentado) and float(np.max(st["phi"])) >= umb["phicrit"] - 0.035:
             fragmentado = True
             z_f = st["z"]
-            h = min(h, 0.5)
             print(f"z_f {z_f:.2f}  phi {float(np.max(st['phi'])):.4f}", flush=True)
         piso = _h_piso(st, fragmentado)
         h_uso = min(max(h, piso), _h_max(st["phi"], fragmentado, umb["phicrit"]), max(-st["z"], piso))
