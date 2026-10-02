@@ -328,6 +328,17 @@ def _cortes(n):
     return s
 
 
+def _ug_flujo(ugz, fragmentado):
+    """Velocidad axial del gas que entra en el flujo de masa.
+
+    En la pared fragmentada el nodo vale 0, pero la media-celda no.
+    """
+    u = np.array(ugz, dtype=float, copy=True)
+    if fragmentado and u.size >= 2:
+        u[-1] = u[-2]
+    return u
+
+
 def _aplicar_pared(um_int, ug_int, fragmentado):
     n = um_int.size + 1
     umz = np.zeros(n)
@@ -413,18 +424,19 @@ def residual_bifasico(y, prev, h, mu, s0z, s0r, prev2, h_prev, fragmentado, umb,
 
     n_new = n_de(P, xi, fragmentado)
     n_old = n_de(prev["P"], prev["xi"], prev["fragmentado"])
-    # u_g(R)=0 es la pared. La media-celda pegada a ella no cabe en esa capa:
-    # su flujo axial es el del nodo interior. Si no, se pierde el gas de un
-    # Δr/R de la sección y la masa global no cierra.
-    ugz_m = ugz.copy()
-    if fragmentado:
-        ugz_m[-1] = ugz[-2]
+    # u_g(R)=0 es la condición puntual de la pared. La media-celda tiene un
+    # espesor Δr y la capa límite del gas es mucho más fina: el flujo axial de
+    # esa celda es el del nodo interior. El nivel anterior tiene que usar la
+    # misma reconstrucción. Si se le resta el u_g(R)=0 guardado, cada paso
+    # aparece un flujo de gas que no estaba y el conducto se frena.
+    ugz_m = _ug_flujo(ugz, fragmentado)
+    ugz_0 = _ug_flujo(prev["ugz"], prev["fragmentado"])
     jz = rho_m * (1.0 - phi) * umz + rho_g * phi * ugz_m
     jr = rho_m * (1.0 - phi) * umr_n + rho_g * phi * ugr_n
     Gamma = jr * _d_dr(r, n_new) + jz * (n_new - n_old) / h
 
     jz_m0 = rho_m0 * (1.0 - prev["phi"]) * prev["umz"]
-    jz_g0 = rho_g0 * prev["phi"] * prev["ugz"]
+    jz_g0 = rho_g0 * prev["phi"] * ugz_0
     masa_m = (rho_m * (1.0 - phi) * umz - jz_m0) / h + _div(r, dr, rho_mf * (1.0 - phi_f) * umr) + Gamma
     masa_g = (rho_g * phi * ugz_m - jz_g0) / h + _div(r, dr, rho_gf * phi_f * ugr) - Gamma
 
@@ -905,7 +917,8 @@ def _caudal(st):
     r = st["r"]
     rho_m = rho_de(st["P"])
     rho_g = np.maximum(st["P"], 1.0e4) / (RV * T_GAS)
-    jz = rho_m * (1.0 - st["phi"]) * st["umz"] + rho_g * st["phi"] * st["ugz"]
+    ug = _ug_flujo(st["ugz"], st.get("fragmentado", False))
+    jz = rho_m * (1.0 - st["phi"]) * st["umz"] + rho_g * st["phi"] * ug
     return float(2.0 * math.pi * np.trapezoid(jz * r, r))
 
 
