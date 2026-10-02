@@ -76,6 +76,10 @@ MU_G = 1.0e-5
 RA = 1.0e-3
 CD = 0.8
 C_J4 = 3.0 * CD / (8.0 * RA)  # 300 m^{-1}
+# Corte del fundido ya fragmentado. μ del fundido (~10^5 Pa·s) a escala del
+# conducto frena el núcleo contra la pared. Este valor solo regulariza la
+# capa junto a la pared.
+MU_PIRO = 8.0e3
 CS = math.sqrt(RV * T_GAS)
 PRES = 2.5e4  # escala de ∂P/∂z, Pa/m, solo para adimensionalizar el resbalamiento
 
@@ -469,18 +473,29 @@ def residual_bifasico(y, prev, h, mu, s0z, s0r, prev2, h_prev, fragmentado, umb,
     dPdz = (P - prev["P"]) / h
     adv_mz = umz * (umz - prev["umz"]) / h + _adveccion_radial(umr_n, umz, r)
     adv_gz = ugz * (ugz - prev["ugz"]) / h + _adveccion_radial(ugr_n, ugz, r)
-    mu_m = mu * (1.0 - phi)
+    # Después de fragmentar el fundido son piroclastos. μ del fundido a
+    # escala del conducto (~10^5 Pa·s) reparte el núcleo rápido hacia la
+    # pared y u_z baja. Se deja solo lo necesario para la capa de la pared;
+    # el arrastre entre fases queda, y la viscosidad del gas sigue en su laplaciano.
     mu_g = MU_G * np.maximum(phi, 0.0)
-    mu_m0 = prev["mu"] * (1.0 - prev["phi"])
     mu_g0 = MU_G * np.maximum(prev["phi"], 0.0)
+    if fragmentado:
+        mu_m = np.full_like(phi, MU_PIRO) * (1.0 - phi)
+        mu_m0 = np.full_like(prev["phi"], MU_PIRO) * (1.0 - prev["phi"])
+    else:
+        mu_m = mu * (1.0 - phi)
+        mu_m0 = prev["mu"] * (1.0 - prev["phi"])
     if prev2 is None:
         um2 = ug2 = None
         mu_m2 = mu_g2 = None
     else:
         um2 = prev2["umz"]
         ug2 = prev2["ugz"]
-        mu_m2 = prev2["mu"] * (1.0 - prev2["phi"])
         mu_g2 = MU_G * np.maximum(prev2["phi"], 0.0)
+        if fragmentado:
+            mu_m2 = np.full_like(prev2["phi"], MU_PIRO) * (1.0 - prev2["phi"])
+        else:
+            mu_m2 = prev2["mu"] * (1.0 - prev2["phi"])
     lap_mz = _axial(_lap_uz(r, dr, mu_m, umz), mu_m, umz, prev["umz"], mu_m0, um2, h, h_prev)
     lap_gz = _axial(_lap_uz(r, dr, mu_g, ugz), mu_g, ugz, prev["ugz"], mu_g0, ug2, h, h_prev)
     mom_mz = (
@@ -495,7 +510,10 @@ def residual_bifasico(y, prev, h, mu, s0z, s0r, prev2, h_prev, fragmentado, umb,
     umz_f = 0.5 * (umz[:-1] + umz[1:])
     ugz_f = 0.5 * (ugz[:-1] + ugz[1:])
     dPdr = (P[1:] - P[:-1]) / dr
-    mu_mf = mu_f * (1.0 - phi_f)
+    if fragmentado:
+        mu_mf = np.full_like(phi_f, MU_PIRO) * (1.0 - phi_f)
+    else:
+        mu_mf = mu_f * (1.0 - phi_f)
     mu_gf = MU_G * np.maximum(phi_f, 0.0)
     mu_mf0 = 0.5 * (mu_m0[:-1] + mu_m0[1:])
     mu_gf0 = 0.5 * (mu_g0[:-1] + mu_g0[1:])
@@ -505,8 +523,11 @@ def residual_bifasico(y, prev, h, mu, s0z, s0r, prev2, h_prev, fragmentado, umb,
     else:
         ur2 = prev2["umr"]
         ugr2 = prev2["ugr"]
-        mu_m2f = prev2["mu"] * (1.0 - prev2["phi"])
         mu_g2f = MU_G * np.maximum(prev2["phi"], 0.0)
+        if fragmentado:
+            mu_m2f = np.full_like(prev2["phi"], MU_PIRO) * (1.0 - prev2["phi"])
+        else:
+            mu_m2f = prev2["mu"] * (1.0 - prev2["phi"])
         mu_mf2 = 0.5 * (mu_m2f[:-1] + mu_m2f[1:])
         mu_gf2 = 0.5 * (mu_g2f[:-1] + mu_g2f[1:])
     lap_mr = _axial(
