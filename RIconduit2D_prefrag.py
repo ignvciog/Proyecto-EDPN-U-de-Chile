@@ -18,6 +18,7 @@ from scipy.special import erf
 
 from calbuco2015d import (
     C1,
+    Patm,
     R,
     T1,
     Tc1,
@@ -93,7 +94,7 @@ def rho_mix(P):
     return (1.0 - phi) * rho_de(P) + phi * rho_g
 
 
-def _umbrales(vin=16.133):
+def _umbrales(vin=5.0):
     """φ1, φ2, φ_crit en el estado φ*=0.2, con la tasa de la parábola axial."""
     lo, hi = 1.0e5, P_SAT
     Pstar = 0.5 * (lo + hi)
@@ -247,24 +248,28 @@ def _paso(prev, h, mu):
         "ur": ur,
         "mu": mu_mix(P, uz, prev["dr"]),
         "phi": phi_henry(P),
+        "ugz": uz.copy(),
         "N": N0,
         "xi": XI0,
     }
     return nuevo, float(sol.cost)
 
 
-def marchar_exsol(vin=16.133, n_r=17, h_sb=40.0, h=20.0, phicrit=0.7):
+def marchar_exsol(vin=5.0, n_r=17, h_sb=40.0, h=20.0, phicrit=0.7):
     base = marchar(vin=vin, n_r=n_r, h=h_sb)
     hist = []
     for s in base:
         t = dict(s)
         t["phi"] = phi_henry(s["P"])
+        t["ugz"] = s["uz"].copy()
         t["N"] = N0
         t["xi"] = XI0
         hist.append(t)
     st = hist[-1]
     h_uso = h
-    while st["z"] < -1.0 and len(hist) < 800:
+    while st["z"] < -0.5 and len(hist) < 800:
+        if st["z"] + h_uso > 0.0:
+            h_uso = max(0.5, -st["z"])
         nuevo, costo = _paso(st, h_uso, st["mu"])
         cruza = float(np.max(nuevo["phi"])) >= phicrit
         malo = costo > 1.0e-8 or not np.isfinite(costo)
@@ -289,13 +294,119 @@ def marchar_exsol(vin=16.133, n_r=17, h_sb=40.0, h=20.0, phicrit=0.7):
     return hist
 
 
+C_DRAG = 300.0
+CS = math.sqrt(RV * T_GAS)
+
+
+def n_sin_xi(P):
+    """Fracción másica exsuelta después de fragmentar: Henry sin el factor (1-ξ)."""
+    P = np.maximum(np.asarray(P, dtype=float), 1.0e4)
+    return np.maximum((CO - C1 * P ** beta) / np.maximum(1.0 - C1 * P ** beta, 1.0e-12), 0.0)
+
+
+def _vel_frag(P, phi, q, rho_m):
+    n = float(n_sin_xi(P))
+    rho_g = max(float(P), 1.0e4) / (RV * T_GAS)
+    phi = min(max(float(phi), 1.0e-3), 0.98)
+    um = (1.0 - n) * q / (rho_m * (1.0 - phi))
+    ug = n * q / (rho_g * phi)
+    return um, ug
+
+
+def _fmg(um, ug, phi):
+    slip = ug - um
+    return C_DRAG * phi * (1.0 - phi) * slip * abs(slip)
+
+
+def _paso_radio(P0, phi0, um0, ug0, q, rho_m, h):
+    def fun(y):
+        P, phi = float(y[0]), float(y[1])
+        um, ug = _vel_frag(P, phi, q, rho_m)
+        rho_g = max(P, 1.0e4) / (RV * T_GAS)
+        F = _fmg(um, ug, phi)
+        eq_m = rho_m * um * (um - um0) / h + (P - P0) / h + rho_m * g - F / (1.0 - phi)
+        eq_g = rho_g * ug * (ug - ug0) / h + (P - P0) / h + rho_g * g + F / max(phi, 1.0e-3)
+        esc = max(rho_m * g, 1.0)
+        return np.array([eq_m / esc, eq_g / esc])
+
+    y0 = np.array([max(P0 - rho_m * g * h, Patm * 1.2), phi0])
+    lo = np.array([Patm, 0.05])
+    hi = np.array([P0 * 1.01, 0.95])
+    y0 = np.minimum(np.maximum(y0, lo + 1.0e-8), hi - 1.0e-8)
+    sol = least_squares(fun, y0, bounds=(lo, hi), method="trf", ftol=1e-10, xtol=1e-10, max_nfev=40)
+    P, phi = float(sol.x[0]), float(sol.x[1])
+    um, ug = _vel_frag(P, phi, q, rho_m)
+    return P, phi, um, ug, float(sol.cost)
+
+
+def marchar_frag(pre, h=5.0):
+    """Desde z_f, q(r) congelado y n(P) sin ξ. Cada radio integra los dos momentos."""
+    st = pre[-1]
+    q = rho_mix(st["P"]) * st["uz"]
+    rho_m = rho_de(st["P"])
+    um = np.zeros_like(st["uz"])
+    ug = np.zeros_like(st["uz"])
+    for i in range(um.size - 1):
+        if q[i] <= 0.0:
+            continue
+        um[i], ug[i] = _vel_frag(st["P"][i], st["phi"][i], q[i], rho_m[i])
+    salto = dict(st)
+    salto["uz"] = um
+    salto["ugz"] = ug
+    salto["ur"] = np.full_like(st["ur"], np.nan)
+    hist = [salto]
+    vivo = np.array([q[i] > 1.0 and ug[i] < 0.98 * CS for i in range(um.size - 1)] + [False])
+    z = st["z"]
+    P = st["P"].copy()
+    phi = st["phi"].copy()
+    h_uso = h
+    while z < -0.5 and vivo[:-1].any() and len(hist) < 400:
+        P2, phi2, um2, ug2 = P.copy(), phi.copy(), um.copy(), ug.copy()
+        costos = []
+        for i in range(um.size - 1):
+            if not vivo[i]:
+                continue
+            Pi, phii, umi, ugi, costo = _paso_radio(P[i], phi[i], um[i], ug[i], q[i], rho_m[i], h_uso)
+            P2[i], phi2[i], um2[i], ug2[i] = Pi, phii, umi, ugi
+            costos.append(costo)
+            if ugi >= 0.98 * CS or Pi <= Patm * 1.05:
+                vivo[i] = False
+        if costos and max(costos) > 1.0e-6 and h_uso > 0.5:
+            h_uso = max(0.5, 0.5 * h_uso)
+            continue
+        P2[-1], phi2[-1] = P2[-2], phi2[-2]
+        z = z + h_uso
+        um, ug, P, phi = um2, ug2, P2, phi2
+        hist.append({
+            "z": z,
+            "r": st["r"],
+            "dr": st["dr"],
+            "P": P.copy(),
+            "uz": um.copy(),
+            "ugz": ug.copy(),
+            "ur": np.full_like(st["ur"], np.nan),
+            "mu": st["mu"].copy(),
+            "phi": phi.copy(),
+            "N": N0,
+            "xi": XI0,
+        })
+        h_uso = h
+        if len(hist) % 8 == 0:
+            print(
+                f"frag z={z:.1f} P={P[0]/1e6:.2f} MPa phi={phi[0]:.3f} "
+                f"um={um[0]:.1f} ug={ug[0]:.1f}",
+                flush=True,
+            )
+    return hist
+
+
 def _caudal(st):
     r = st["r"]
     jz = rho_mix(st["P"]) * st["uz"]
     return float(2.0 * math.pi * np.trapezoid(jz * r, r))
 
 
-def graficar(hist, ruta, phicrit, phi1):
+def graficar(hist, ruta, phicrit, phi1, z_frag=None):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -305,8 +416,12 @@ def graficar(hist, ruta, phicrit, phi1):
     P = np.array([s["P"][0] for s in hist])
     phi = np.array([s["phi"][0] for s in hist])
     uz = np.array([s["uz"][0] for s in hist])
-    ur = np.array([np.max(np.abs(s["ur"])) for s in hist])
-    mu = np.array([float(np.mean(s["mu"])) for s in hist])
+    ug = np.array([s["ugz"][0] for s in hist])
+    ur = np.array([
+        np.nanmax(np.abs(s["ur"])) if np.isfinite(s["ur"]).any() else np.nan
+        for s in hist
+    ])
+    mu = np.array([float(np.nanmean(s["mu"])) for s in hist])
     zsat = float(z[np.argmax(phi > 1.0e-6)]) if np.any(phi > 1.0e-6) else z[-1]
 
     fig, ax = plt.subplots(2, 4, figsize=(13.6, 6.6), sharey=True)
@@ -317,13 +432,11 @@ def graficar(hist, ruta, phicrit, phi1):
     ax[0, 1].axvline(phi1, color="0.4", lw=0.8, ls=":")
     ax[0, 1].set_xlabel(r"$\phi$")
     ax[0, 2].plot(uz, zk, color="C0", lw=1.8, label="fundido")
-    ax[0, 2].plot(uz, zk, color="C1", lw=1.2, ls="--", label="gas")
+    ax[0, 2].plot(ug, zk, color="C1", lw=1.2, ls="--", label="gas")
     ax[0, 2].set_xlabel(r"$u_z$ [m/s]")
     ax[0, 2].legend(frameon=False, fontsize=8)
-    ax[0, 3].semilogx(np.maximum(ur, 1.0e-16), zk, color="C0", lw=1.8, label="fundido")
-    ax[0, 3].semilogx(np.maximum(ur, 1.0e-16), zk, color="C1", lw=1.2, ls="--", label="gas")
+    ax[0, 3].semilogx(np.maximum(ur, 1.0e-16), zk, color="C0", lw=1.6)
     ax[0, 3].set_xlabel(r"$|u_r|$ [m/s]")
-    ax[0, 3].legend(frameon=False, fontsize=8)
     ax[1, 0].plot(np.full_like(zk, N0), zk, color="C0", lw=1.6)
     ax[1, 0].set_xlim(0.0, 2.0e8)
     ax[1, 0].set_xlabel(r"$N$ [m$^{-3}$]")
@@ -335,27 +448,33 @@ def graficar(hist, ruta, phicrit, phi1):
     ax[1, 3].axis("off")
     for a in ax.ravel():
         a.axhline(zsat / 1000.0, color="0.5", lw=0.6, ls="--")
+        if z_frag is not None:
+            a.axhline(z_frag / 1000.0, color="C3", lw=0.7, ls=":")
         a.grid(True, alpha=0.3, which="both")
     ax[0, 0].set_ylabel("z [km]")
     ax[1, 0].set_ylabel("z [km]")
     fig.tight_layout()
     fig.savefig(ruta, dpi=140)
     plt.close(fig)
-    return {"z": z, "P": P, "phi": phi, "uz": uz, "ur": ur, "mu": mu, "Q": np.array([_caudal(s) for s in hist])}
+    return {"z": z, "P": P, "phi": phi, "uz": uz, "ug": ug, "ur": ur, "mu": mu}
 
 
 if __name__ == "__main__":
-    umb = _umbrales()
+    vin = 15.5
+    umb = _umbrales(vin)
     print(
-        f"P* {umb['Pstar']/1e6:.2f} MPa  Ca {umb['Ca']:.3e}  "
+        f"vin {vin:.3f} m/s  P* {umb['Pstar']/1e6:.2f} MPa  Ca {umb['Ca']:.3e}  "
         f"phi1 {umb['phi1']:.3f}  phi_crit {umb['phicrit']:.3f}",
         flush=True,
     )
-    hist = marchar_exsol(phicrit=umb["phicrit"])
-    info = graficar(hist, "/tmp/prefrag_fd.png", umb["phicrit"], umb["phi1"])
+    pre = marchar_exsol(vin=vin, phicrit=umb["phicrit"])
+    frag = marchar_frag(pre)
+    zf = pre[-1]["z"]
+    hist = pre + frag
+    info = graficar(hist, "/tmp/prefrag_fd.png", umb["phicrit"], umb["phi1"], z_frag=zf)
     ultimo = hist[-1]
-    print(f"z_final {ultimo['z']:.2f}  P {ultimo['P'][0]/1e6:.3f} MPa  phi {ultimo['phi'][0]:.4f}")
-    print(f"uz eje {info['uz'][0]:.2f} -> {info['uz'][-1]:.2f}")
-    print(f"mu {info['mu'][0]:.3e} -> {info['mu'][-1]:.3e}")
-    print(f"Q ratio {info['Q'][-1]/info['Q'][0]:.6f}")
-    print(f"max|ur| final {info['ur'][-1]:.4e}  pico {info['ur'].max():.4e}")
+    salto = frag[0]
+    print(f"z_f {zf:.2f}  P_f {pre[-1]['P'][0]/1e6:.3f} MPa  phi_f {pre[-1]['phi'][0]:.4f}")
+    print(f"salto eje um {pre[-1]['uz'][0]:.2f} -> {salto['uz'][0]:.2f}  ug {salto['ugz'][0]:.2f}")
+    print(f"z_final {ultimo['z']:.2f}  P {ultimo['P'][0]/1e6:.3f}  phi {ultimo['phi'][0]:.4f}")
+    print(f"um {ultimo['uz'][0]:.2f}  ug {ultimo['ugz'][0]:.2f}  cs {CS:.1f}")

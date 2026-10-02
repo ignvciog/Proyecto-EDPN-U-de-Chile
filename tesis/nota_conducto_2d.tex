@@ -1185,31 +1185,75 @@ uniforme en $r$.}
 
 \subsection{Exsolución hasta la fragmentación}
 
-Desde el estado en \(P_{\mathrm{sat}}\) se sigue en diferencias
-finitas con exsolución. \(\varphi=\varphi_{\mathrm{Henry}}(P,\xi_0)\)
-y, antes de fragmentar, \(u_g=u_m\) en las dos componentes. La masa
-de la mezcla y los dos momentos se resuelven en \(P\), \(u_z\) y
-\(u_r\). \(u_r\) no se impone dentro del conducto.
-\(N=10^{8}\,\mathrm{m^{-3}}\) y \(\xi=\xi_0\). Los límites salen del
-capilar de referencia: \(\varphi_1=0{,}166\) y
-\(\varphi_{\mathrm{crit}}=0{,}768\).
+La entrada es \(\bar u(H)=15{,}5\,\mathrm{m/s}\). Antes de
+fragmentar las incógnitas son \(P\), \(u_z\) y \(u_r\). El agua
+exsuelta lleva el factor de cristales,
+\begin{equation}
+\label{eq:n-pre}
+n=(1-\xi_0)\frac{c_0-C_1 P^{\beta}}{1-C_1 P^{\beta}},
+\end{equation}
+y el volumen es el de Henry con las dos fases a la misma velocidad,
+\begin{equation}
+\label{eq:phi-pre}
+\varphi
+=\Biggl(1+\frac{P}{n\,\Rv T}\frac{1-n}{\rho_m}\Biggr)^{-1}.
+\end{equation}
+Con \(\rho_c=(1-\varphi)\rho_m+\varphi\rho_g\) y
+\(\mathbf{u}_g=\mathbf{u}_m=\mathbf{u}\), se resuelve
+\begin{align}
+\label{eq:fd-pre}
+\frac{\p}{\p z}(\rho_c u_z)
++\frac{1}{r}\frac{\p}{\p r}(r\,\rho_c u_r)
+&=0,
+\\
+\rho_c\Biggl(u_z\frac{\p u_z}{\p z}+u_r\frac{\p u_z}{\p r}\Biggr)
+&=
+-\frac{\p P}{\p z}-\rho_c g
++\frac{1}{r}\frac{\p}{\p r}\Biggl(r\mu\frac{\p u_z}{\p r}\Biggr),
+\\
+\rho_c\Biggl(u_z\frac{\p u_r}{\p z}+u_r\frac{\p u_r}{\p r}\Biggr)
+&=
+-\frac{\p P}{\p r}
++L_r[\mu]\,u_r.
+\end{align}
+\(N=10^{8}\,\mathrm{m^{-3}}\) y \(\xi=\xi_0\). \(u_r=0\) solo en el
+eje, en la pared y en la base. Con este \(\bar u\), el capilar da
+\(\varphi_1=0{,}167\) y \(\varphi_{\mathrm{crit}}=0{,}768\).
 
-La marcha corta en \(z=-144\,\mathrm{m}\), al llegar
-\(\varphi\) a \(\varphi_{\mathrm{crit}}\), con \(P=9{,}03\,\mathrm{MPa}\).
-\(u_z\) en el eje pasa de \(32{,}3\) a \(118\,\mathrm{m/s}\).
-\(|u_r|\) crece hasta \(0{,}19\,\mathrm{m/s}\). El caudal de masa se
-conserva a \(3\times 10^{-4}\) relativo. La viscosidad de la mezcla
-baja de \(4{,}5\times 10^{3}\) a \(3{,}6\times 10^{3}\,\mathrm{Pa\,s}\):
-el fundido solo, ya con \(1{,}2\,\mathrm{wt\%}\) de agua, valdría
-\(8{,}9\times 10^{4}\,\mathrm{Pa\,s}\), y las burbujas lo compensan.
+La fragmentación cae en \(z_f=-84\,\mathrm{m}\), con
+\(P=9{,}12\,\mathrm{MPa}\) y \(\varphi=0{,}766\). \(u_z\) en el eje
+llega a \(113\,\mathrm{m/s}\) y \(|u_r|\) a \(0{,}11\,\mathrm{m/s}\).
+
+\subsection{Después de fragmentar}
+
+\(N\) y \(\xi\) quedan en el valor del cruce. El caudal \(q(r)\) se
+congela, así que la masa radial deja de entrar. La fracción másica
+pierde el factor \((1-\xi)\),
+\begin{equation}
+\label{eq:n-sinxi}
+n=\frac{c_0-C_1 P^{\beta}}{1-C_1 P^{\beta}},
+\end{equation}
+y en cada radio
+\begin{equation}
+\label{eq:vel-frag}
+u_m=\frac{(1-n)\,q(r)}{\rho_m(1-\varphi)},
+\qquad
+u_g=\frac{n\,q(r)}{\rho_g\,\varphi}.
+\end{equation}
+El salto en el eje es de \(113\) a \(150\,\mathrm{m/s}\) en el gas,
+el factor \(1/(1-\xi_0)=4/3\). Lo que se integra es
+\eqref{eq:mom-loc}, con \(F_{mg}=300\,\varphi(1-\varphi)(u_g-u_m)|u_g-u_m|\).
+En la boca, \(z=-0{,}2\,\mathrm{m}\), \(P=2{,}33\,\mathrm{MPa}\),
+\(\varphi=0{,}95\), \(u_m=490\,\mathrm{m/s}\) y
+\(u_g=578\,\mathrm{m/s}\), todavía bajo \(c_s=757\,\mathrm{m/s}\).
 
 \begin{figure}[ht]
 \centering
 \includegraphics[width=\textwidth]{figuras_variantes/prefrag_fd.png}
-\caption{Columna hasta la fragmentación. La línea horizontal marca
-\(z_{\mathrm{sat}}\). \(P\), \(|u_r|\) y \(\mu\) van en escala
-logarítmica. Fundido y gas coinciden porque todavía no hay
-deslizamiento. La marcha se detiene en \(\varphi_{\mathrm{crit}}\).}
+\caption{Entrada \(\bar u=15{,}5\,\mathrm{m/s}\). La línea gris es
+\(z_{\mathrm{sat}}\) y la punteada es \(z_f\). Antes de fragmentar,
+fundido y gas coinciden. Después, \(n\) va sin \(\xi\) y \(u_g\) se
+separa. \(|u_r|\) existe solo mientras \(q(r)\) no está congelado.}
 \label{fig:prefrag-fd}
 \end{figure}
 
