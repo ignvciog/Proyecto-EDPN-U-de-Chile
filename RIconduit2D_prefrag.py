@@ -785,7 +785,9 @@ def marchar_columna(vin=15.5, n_r=13, h_liq=40.0, umb=None):
         if (not fragmentado) and float(np.max(st["phi"])) >= umb["phicrit"] - 0.035:
             fragmentado = True
             z_f = st["z"]
+            h = 4.0
             print(f"z_f {z_f:.2f}  phi {float(np.max(st['phi'])):.4f}", flush=True)
+            _guardar_estado(st, prev2, False, z_f, z_sat)
         piso = _h_piso(st, fragmentado)
         h_uso = min(max(h, piso), _h_max(st["phi"], fragmentado, umb["phicrit"]), max(-st["z"], piso))
         nuevo, costo = _paso_bifasico(st, prev2, h_uso, h_prev, fragmentado, umb)
@@ -848,10 +850,21 @@ def marchar_columna(vin=15.5, n_r=13, h_liq=40.0, umb=None):
             )
         if st["P"][0] <= Patm * 1.05 or st["ugz"][0] >= 0.98 * CS:
             break
-        if len(hist) % 20 == 0:
+        if len(hist) % 20 == 0 or fragmentado:
             _guardar_parcial(hist, umb, z_sat, z_f)
+            _guardar_estado(st, prev2, fragmentado, z_f, z_sat)
     _guardar_parcial(hist, umb, z_sat, z_f)
     return hist, umb, z_f, z_sat
+
+
+def _guardar_estado(st, prev2, fragmentado, z_f, z_sat):
+    campos = ("z", "r", "dr", "P", "phi", "umz", "ugz", "umr", "ugr", "xi", "N", "mu")
+    datos = {f"s_{k}": np.asarray(st[k]) for k in campos}
+    datos.update({f"p_{k}": np.asarray(prev2[k]) for k in campos})
+    datos["fragmentado"] = np.array([1.0 if fragmentado else 0.0])
+    datos["z_f"] = np.array([-1.0 if z_f is None else z_f])
+    datos["z_sat"] = np.array([z_sat])
+    np.savez("/opt/cursor/artifacts/conducto_estado.npz", **datos)
 
 
 def _guardar_parcial(hist, umb, z_sat, z_f):
