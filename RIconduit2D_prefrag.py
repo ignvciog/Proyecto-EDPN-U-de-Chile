@@ -1087,15 +1087,21 @@ def marchar_columna(vin=15.5, n_r=13, h_liq=40.0, umb=None, reanudar=None, parci
             float(nuevo["umz"][0]) > float(st["umz"][0]) * 1.8
             or float(nuevo["P"][0]) < float(st["P"][0]) * 0.6
         )
-        feo = (not np.isfinite(costo)) or costo > 1.0e-4 or cruza or en_borde or tablero or modo or salto
-        if feo and fragmentado and recortes < 2 and h_uso > 8.0:
+        # Por encima de esto el momento radial se fue a la caja de búsqueda.
+        # El primer paso fragmentado de la columna sana queda en unos 5 m/s.
+        ur_falso = ur_max > 8.0
+        feo = (
+            (not np.isfinite(costo)) or costo > 1.0e-4 or cruza
+            or en_borde or tablero or modo or salto or ur_falso
+        )
+        if feo and fragmentado and recortes < 4 and h_uso > 4.0 + 1.0e-9:
             recortes += 1
             print(
                 f"reintento z={st['z']:.2f} h={h_uso:.3f} costo={costo:.2e} "
                 f"salto={salto} |ur|={ur_max:.3e}",
                 flush=True,
             )
-            h = max(h_uso * 0.5, 8.0)
+            h = max(h_uso * 0.5, 4.0)
             continue
         if feo and (not fragmentado) and h_uso < _h_max(st["phi"], fragmentado, umb["phicrit"]) - 1.0e-9:
             print(
@@ -1281,15 +1287,16 @@ def _clasificar_boca(sal):
     """
     z, P, ug, phi = sal["z"], sal["P"], sal["ug"], sal["phi"]
     Ma = sal["Ma"]
-    if sal.get("fallo") and z < -30.0 and P > 5.0e6 and Ma < 0.85:
-        return "fallo"
     en_boca = z >= -8.0
     if en_boca and P >= 0.8 * Patm and (Ma >= 0.95 or abs(P - Patm) <= 1.5e5):
         return "boca"
     if P < Patm or (z < -15.0 and (Ma >= 0.98 or P <= 1.5 * Patm)):
         return "baja"
-    if sal.get("fallo") and z < -15.0 and Ma >= 0.9:
+    # Un corte numérico ya pegado al Mach 1 es el punto sónico bajo la boca.
+    if sal.get("fallo") and z < -15.0 and Ma >= 0.98:
         return "baja"
+    if sal.get("fallo"):
+        return "fallo"
     return "sube"
 
 
@@ -1336,15 +1343,17 @@ def _guardar_tabla(tabla, ruta="/opt/cursor/artifacts/tiro_tabla.json"):
         f.write("\n")
 
 
-def tiro(n_r=9, tol=0.35, v_max=48.0, pasos=7):
+def tiro(n_r=13, tol=0.4, v_max=48.0, pasos=5, vin0=20.0, lo0=15.5):
     """Bisección de la velocidad en la base.
 
-    Se parte de un valor que llega a la boca todavía lento y con presión de
-    sobra, y se sube hasta acorralar la salida atmosférica o sónica.
+    15.5 m/s llega a la boca con unos 8.5 MPa y Mach de mezcla ~0.7, así que
+    el intervalo parte de ahí y el primer disparo prueba 20 m/s. Se sube
+    mientras la boca siga presurizada y se baja si el punto sónico queda
+    bajo el cráter.
     """
-    lo = 12.0
+    lo = float(lo0)
     hi = None
-    vin = 22.0
+    vin = float(vin0)
     tabla = []
     mejor = None
     for k in range(pasos):
@@ -1399,8 +1408,9 @@ if __name__ == "__main__":
     import os
     import sys
     if len(sys.argv) > 1 and sys.argv[1] == "tiro":
-        n_r = int(sys.argv[2]) if len(sys.argv) > 2 else 9
-        tiro(n_r=n_r)
+        n_r = int(sys.argv[2]) if len(sys.argv) > 2 else 13
+        vin0 = float(sys.argv[3]) if len(sys.argv) > 3 else 20.0
+        tiro(n_r=n_r, vin0=vin0)
         sys.exit(0)
     vin = 15.5
     umb = _umbrales(vin)
