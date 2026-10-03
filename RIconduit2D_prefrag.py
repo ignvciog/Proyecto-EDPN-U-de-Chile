@@ -1118,6 +1118,7 @@ def marchar_columna(vin=15.5, n_r=13, h_liq=40.0, umb=None, reanudar=None, parci
             print("phi", np.array2string(nuevo["phi"], precision=4), flush=True)
             print("umz", np.array2string(nuevo["umz"], precision=3), flush=True)
             print("mu", np.array2string(nuevo["mu"], precision=4), flush=True)
+            st["corte_numerico"] = True
             break
         recortes = 0
         prev2 = st
@@ -1144,6 +1145,16 @@ def marchar_columna(vin=15.5, n_r=13, h_liq=40.0, umb=None, reanudar=None, parci
                 f"xi={st['xi'][0]:.6f} N={st['N'][0]:.3e} Q={_caudal(st)/q_ref:.4f}",
                 flush=True,
             )
+        Ma_m, _c_m = _mach_mezcla(
+            st["P"][0], st["ugz"][0], fragmentado, st["xi"][0],
+        )
+        if Ma_m >= 0.98:
+            print(
+                f"choke Ma={Ma_m:.3f} c={_c_m:.1f} z={st['z']:.2f} "
+                f"P={st['P'][0]/1e6:.3f}",
+                flush=True,
+            )
+            break
         if st["P"][0] <= Patm * 1.05 or st["ugz"][0] >= 0.98 * CS:
             break
         if len(hist) % 20 == 0 or fragmentado:
@@ -1238,8 +1249,159 @@ def graficar(hist, ruta, umb, z_sat, z_frag):
     plt.close(fig)
 
 
+def _mach_mezcla(P, u, fragmentado, xi):
+    """Número de Mach de la mezcla en equilibrio, u / c(P)."""
+    P = float(P)
+    d = max(P * 1.0e-3, 50.0)
+
+    def rho_eq(Pp):
+        n = float(np.asarray(n_de(Pp, xi, fragmentado)).reshape(-1)[0])
+        rm = float(rho_de(Pp))
+        rg = max(Pp, 1.0e4) / (RV * T_GAS)
+        if n <= 1.0e-8:
+            return rm
+        phi = n * rm / (rg * (1.0 - n) + n * rm)
+        return rm * (1.0 - phi) + rg * phi
+
+    p_lo = max(P - d, Patm)
+    drdp = (rho_eq(P + d) - rho_eq(p_lo)) / (P + d - p_lo)
+    if drdp <= 0.0:
+        return 0.0, CS
+    c = 1.0 / math.sqrt(drdp)
+    return float(u) / c, c
+
+
+def _clasificar_boca(sal):
+    """'boca' si la salida ya cumple, 'sube' si vin es chica, 'baja' si es grande.
+
+    Es el mismo criterio que el tiro 1D: o la boca está a presión atmosférica
+    con el conducto fragmentado, o el flujo llega sónico a z = 0. Si la
+    presión cae bajo la atmósfera antes, o el punto sónico queda bajo la
+    boca, la velocidad de entrada es demasiado alta.
+    """
+    z, P, ug, phi = sal["z"], sal["P"], sal["ug"], sal["phi"]
+    Ma = sal["Ma"]
+    if sal.get("fallo") and z < -30.0 and P > 5.0e6 and Ma < 0.85:
+        return "fallo"
+    en_boca = z >= -8.0
+    if en_boca and P >= 0.8 * Patm and (Ma >= 0.95 or abs(P - Patm) <= 1.5e5):
+        return "boca"
+    if P < Patm or (z < -15.0 and (Ma >= 0.98 or P <= 1.5 * Patm)):
+        return "baja"
+    if sal.get("fallo") and z < -15.0 and Ma >= 0.9:
+        return "baja"
+    return "sube"
+
+
+def evaluar_vin(vin, n_r=9):
+    """Una marcha completa. Devuelve la salida y la historia."""
+    print(f"\n=== tiro  vin {vin:.4f}   n_r {n_r} ===", flush=True)
+    umb = _umbrales(vin)
+    hist, umb, z_f, z_sat = marchar_columna(vin=vin, n_r=n_r, h_liq=40.0, umb=umb)
+    ult = hist[-1]
+    frag = bool(ult.get("fragmentado", z_f is not None))
+    Ma, c = _mach_mezcla(ult["P"][0], ult["ugz"][0], frag or z_f is not None, ult["xi"][0])
+    sal = {
+        "vin": float(vin),
+        "z": float(ult["z"]),
+        "P": float(ult["P"][0]),
+        "um": float(ult["umz"][0]),
+        "ug": float(ult["ugz"][0]),
+        "phi": float(ult["phi"][0]),
+        "z_f": None if z_f is None else float(z_f),
+        "z_sat": float(z_sat),
+        "phicrit": float(umb["phicrit"]),
+        "Ma": float(Ma),
+        "c": float(c),
+        "fallo": bool(ult.get("corte_numerico", False)),
+    }
+    sal["ajuste"] = _clasificar_boca(sal)
+    print(
+        f"resultado vin {vin:.3f}  {sal['ajuste']}  z {sal['z']:.1f}  "
+        f"P {sal['P']/1e6:.3f} MPa  um {sal['um']:.2f}  ug {sal['ug']:.2f}  "
+        f"Ma {sal['Ma']:.3f}  phi {sal['phi']:.3f}  z_f {sal['z_f']}",
+        flush=True,
+    )
+    return sal, hist, umb, z_f, z_sat
+
+
+def _guardar_tabla(tabla, ruta="/opt/cursor/artifacts/tiro_tabla.json"):
+    import json
+    import os
+    os_dir = os.path.dirname(ruta)
+    if os_dir:
+        os.makedirs(os_dir, exist_ok=True)
+    with open(ruta, "w", encoding="utf-8") as f:
+        json.dump(tabla, f, indent=2)
+        f.write("\n")
+
+
+def tiro(n_r=9, tol=0.35, v_max=48.0, pasos=7):
+    """Bisección de la velocidad en la base.
+
+    Se parte de un valor que llega a la boca todavía lento y con presión de
+    sobra, y se sube hasta acorralar la salida atmosférica o sónica.
+    """
+    lo = 12.0
+    hi = None
+    vin = 22.0
+    tabla = []
+    mejor = None
+    for k in range(pasos):
+        sal, hist, umb, z_f, z_sat = evaluar_vin(vin, n_r=n_r)
+        tabla.append(sal)
+        _guardar_tabla(tabla)
+        aj = sal["ajuste"]
+        if aj == "boca" or (
+            aj == "sube" and (mejor is None or sal["vin"] >= mejor[0]["vin"])
+        ):
+            mejor = (sal, hist, umb, z_f, z_sat)
+            graficar(hist, "/opt/cursor/artifacts/conducto_tiro.png", umb, z_sat, z_f)
+        if aj == "boca":
+            break
+        if aj == "fallo":
+            vin = max(8.0, 0.8 * vin)
+            print(f"reintento por corte numérico, vin {vin:.3f}", flush=True)
+            continue
+        if aj == "sube":
+            lo = max(lo, vin)
+            vin = 0.5 * (vin + hi) if hi is not None else min(vin * 1.4, v_max)
+        else:
+            hi = vin if hi is None else min(hi, vin)
+            vin = 0.5 * (lo + hi)
+        print(f"intervalo  {lo:.3f} .. {hi if hi is not None else v_max:.3f}  siguiente {vin:.3f}", flush=True)
+        if hi is not None and (hi - lo) < tol:
+            break
+        if hi is None and vin >= v_max - 1.0e-6:
+            break
+    if mejor is None:
+        raise RuntimeError("el tiro no produjo ninguna marcha usable")
+    sal, hist, umb, z_f, z_sat = mejor
+    print("\nTabla del tiro", flush=True)
+    print(f"{'vin':>8} {'ajuste':>6} {'z':>8} {'P_MPa':>8} {'ug':>8} {'Ma':>6} {'z_f':>8}", flush=True)
+    for s in tabla:
+        zf = s["z_f"] if s["z_f"] is not None else float("nan")
+        print(
+            f"{s['vin']:8.3f} {s['ajuste']:>6} {s['z']:8.1f} {s['P']/1e6:8.3f} "
+            f"{s['ug']:8.2f} {s['Ma']:6.3f} {zf:8.1f}",
+            flush=True,
+        )
+    graficar(hist, "/opt/cursor/artifacts/conducto_tiro.png", umb, z_sat, z_f)
+    print(
+        f"vin elegido {sal['vin']:.3f}  P_boca {sal['P']/1e6:.3f} MPa  "
+        f"um {sal['um']:.2f}  ug {sal['ug']:.2f}  Ma {sal['Ma']:.3f}  z_f {sal['z_f']}",
+        flush=True,
+    )
+    return sal, tabla, hist
+
+
 if __name__ == "__main__":
     import os
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == "tiro":
+        n_r = int(sys.argv[2]) if len(sys.argv) > 2 else 9
+        tiro(n_r=n_r)
+        sys.exit(0)
     vin = 15.5
     umb = _umbrales(vin)
     print(
