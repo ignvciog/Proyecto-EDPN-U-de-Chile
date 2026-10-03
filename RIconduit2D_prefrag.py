@@ -1035,8 +1035,14 @@ def marchar_columna(vin=15.5, n_r=13, h_liq=40.0, umb=None, reanudar=None, parci
             hist[-1] = st
         h_prev = st["z"] - prev2["z"]
         h = 8.0
-        fragmentado = False
-        z_f = None
+        marca = np.load(reanudar)
+        fragmentado = bool(float(np.asarray(marca["fragmentado"]).reshape(-1)[0]))
+        z_f_archivo = float(np.asarray(marca["z_f"]).reshape(-1)[0])
+        z_f = None if z_f_archivo < -6000.0 else z_f_archivo
+        st["fragmentado"] = fragmentado
+        prev2["fragmentado"] = bool(
+            fragmentado and z_f is not None and float(prev2["z"]) >= z_f - 1.0
+        )
         q_ref = float(rho_de(P_BASE) * vin * math.pi * R_COND ** 2)
         n_liq = 0
     else:
@@ -1163,10 +1169,16 @@ def marchar_columna(vin=15.5, n_r=13, h_liq=40.0, umb=None, reanudar=None, parci
             break
         if st["P"][0] <= Patm * 1.05 or st["ugz"][0] >= 0.98 * CS:
             break
-        if len(hist) % 20 == 0 or fragmentado:
-            _guardar_parcial(hist, umb, z_sat, z_f)
-            _guardar_estado(st, prev2, fragmentado, z_f, z_sat)
-    _guardar_parcial(hist, umb, z_sat, z_f)
+        if len(hist) % 20 == 0 or (fragmentado and len(hist) % 4 == 0):
+            try:
+                _guardar_parcial(hist, umb, z_sat, z_f)
+                _guardar_estado(st, prev2, fragmentado, z_f, z_sat)
+            except OSError as exc:
+                print(f"no se pudo guardar el parcial ({exc})", flush=True)
+    try:
+        _guardar_parcial(hist, umb, z_sat, z_f)
+    except OSError as exc:
+        print(f"no se pudo guardar el parcial final ({exc})", flush=True)
     return hist, umb, z_f, z_sat
 
 
@@ -1251,7 +1263,16 @@ def graficar(hist, ruta, umb, z_sat, z_frag):
     ax[0, 0].set_ylabel("z [km]")
     ax[1, 0].set_ylabel("z [km]")
     fig.tight_layout()
-    fig.savefig(ruta, dpi=140)
+    import time
+    for intento in range(6):
+        try:
+            fig.savefig(ruta, dpi=140)
+            break
+        except OSError as exc:
+            print(f"reintento figura {ruta} ({exc})", flush=True)
+            time.sleep(0.4 * (intento + 1))
+    else:
+        print(f"no se pudo guardar {ruta}", flush=True)
     plt.close(fig)
 
 
@@ -1300,11 +1321,13 @@ def _clasificar_boca(sal):
     return "sube"
 
 
-def evaluar_vin(vin, n_r=9):
+def evaluar_vin(vin, n_r=9, reanudar=None, parcial=None):
     """Una marcha completa. Devuelve la salida y la historia."""
     print(f"\n=== tiro  vin {vin:.4f}   n_r {n_r} ===", flush=True)
     umb = _umbrales(vin)
-    hist, umb, z_f, z_sat = marchar_columna(vin=vin, n_r=n_r, h_liq=40.0, umb=umb)
+    hist, umb, z_f, z_sat = marchar_columna(
+        vin=vin, n_r=n_r, h_liq=40.0, umb=umb, reanudar=reanudar, parcial=parcial,
+    )
     ult = hist[-1]
     frag = bool(ult.get("fragmentado", z_f is not None))
     Ma, c = _mach_mezcla(ult["P"][0], ult["ugz"][0], frag or z_f is not None, ult["xi"][0])
@@ -1343,7 +1366,7 @@ def _guardar_tabla(tabla, ruta="/opt/cursor/artifacts/tiro_tabla.json"):
         f.write("\n")
 
 
-def tiro(n_r=13, tol=0.4, v_max=48.0, pasos=5, vin0=20.0, lo0=15.5):
+def tiro(n_r=13, tol=0.4, v_max=48.0, pasos=5, vin0=20.0, lo0=15.5, hi0=None):
     """Bisección de la velocidad en la base.
 
     15.5 m/s llega a la boca con unos 8.5 MPa y Mach de mezcla ~0.7, así que
@@ -1352,7 +1375,7 @@ def tiro(n_r=13, tol=0.4, v_max=48.0, pasos=5, vin0=20.0, lo0=15.5):
     bajo el cráter.
     """
     lo = float(lo0)
-    hi = None
+    hi = None if hi0 is None else float(hi0)
     vin = float(vin0)
     tabla = []
     mejor = None
@@ -1384,8 +1407,11 @@ def tiro(n_r=13, tol=0.4, v_max=48.0, pasos=5, vin0=20.0, lo0=15.5):
         if hi is None and vin >= v_max - 1.0e-6:
             break
     if mejor is None:
-        raise RuntimeError("el tiro no produjo ninguna marcha usable")
-    sal, hist, umb, z_f, z_sat = mejor
+        print("ningún disparo llegó a la boca sin ahogarse", flush=True)
+        sal = tabla[-1]
+        hist = None
+    else:
+        sal, hist, umb, z_f, z_sat = mejor
     print("\nTabla del tiro", flush=True)
     print(f"{'vin':>8} {'ajuste':>6} {'z':>8} {'P_MPa':>8} {'ug':>8} {'Ma':>6} {'z_f':>8}", flush=True)
     for s in tabla:
@@ -1395,7 +1421,8 @@ def tiro(n_r=13, tol=0.4, v_max=48.0, pasos=5, vin0=20.0, lo0=15.5):
             f"{s['ug']:8.2f} {s['Ma']:6.3f} {zf:8.1f}",
             flush=True,
         )
-    graficar(hist, "/opt/cursor/artifacts/conducto_tiro.png", umb, z_sat, z_f)
+    if hist is not None:
+        graficar(hist, "/opt/cursor/artifacts/conducto_tiro.png", umb, z_sat, z_f)
     print(
         f"vin elegido {sal['vin']:.3f}  P_boca {sal['P']/1e6:.3f} MPa  "
         f"um {sal['um']:.2f}  ug {sal['ug']:.2f}  Ma {sal['Ma']:.3f}  z_f {sal['z_f']}",
@@ -1410,7 +1437,17 @@ if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "tiro":
         n_r = int(sys.argv[2]) if len(sys.argv) > 2 else 13
         vin0 = float(sys.argv[3]) if len(sys.argv) > 3 else 20.0
-        tiro(n_r=n_r, vin0=vin0)
+        lo0 = float(sys.argv[4]) if len(sys.argv) > 4 else 15.5
+        hi0 = float(sys.argv[5]) if len(sys.argv) > 5 else None
+        tiro(
+            n_r=n_r, vin0=vin0, lo0=lo0, hi0=hi0,
+            pasos=2 if hi0 is not None else 5,
+        )
+        sys.exit(0)
+    if len(sys.argv) > 1 and sys.argv[1] == "seguir":
+        vin = float(sys.argv[2])
+        n_r = int(sys.argv[3])
+        evaluar_vin(vin, n_r=n_r, reanudar=sys.argv[4], parcial=sys.argv[5])
         sys.exit(0)
     vin = 15.5
     umb = _umbrales(vin)
