@@ -65,6 +65,7 @@ from RIconduit2D_sinbub import (
     _lap_ur,
     _lap_uz,
     _ur_nodos,
+    estado_inicial,
     marchar,
     rho_de,
 )
@@ -290,19 +291,29 @@ def _gamma_N(P, phi, Nd, mu, phicrit):
     return np.where(vivo & (den > 1.0e-8), tasa, 0.0)
 
 
-def _nucleacion(st, prev):
-    """N(r) de Toramaru donde ese radio cruza la saturación. En la pared no se evalúa."""
-    h = max(st["z"] - prev["z"], 1.0e-6)
-    dPdz = (st["P"] - prev["P"]) / h
-    dPdr = _d_dr(st["r"], st["P"])
-    ur = _ur_nodos(st["umr"])
-    Pdot = -(ur * dPdr + st["umz"] * dPdz)
-    N = np.full(st["P"].size, N0)
-    vivo = (st["umz"] > 0.05) & (Pdot > 1.0)
+def _N_entrada(vin, n_r):
+    """N(r) en la base, con la misma rama que el modelo 1D.
+
+    Si el fundido ya entra con gas, N = N0. Si entra subsaturado, Toramaru
+    usa la parábola de entrada y el ∂P/∂z de ese perfil. Ese N(r) se copia
+    en toda la columna líquida, aunque ahí φ = 0.
+    """
+    base = estado_inicial(vin, n_r)
+    uz = np.asarray(base["uz"], dtype=float)
+    n = uz.size
+    if C1 * P_BASE ** beta < CO:
+        return np.full(n, N0)
+    dr = float(base["dr"])
+    rho = float(np.asarray(rho_de(P_BASE)).reshape(-1)[0])
+    du_dr = (uz[-1] - uz[-2]) / dr
+    dpdz = -rho * g + (2.0 / R_COND) * float(base["mu"][-1]) * du_dr
+    Pdot = -uz * dpdz
+    N = np.full(n, N0)
+    vivo = (uz > 0.05) & (Pdot > 1.0)
     N[vivo] = np.power(10.0, 1.5 * np.log10(Pdot[vivo]) + 5.0)
-    if not vivo[0]:
-        N[0] = N[1] if N.size > 1 else N0
-    for i in range(1, N.size):
+    if n > 1 and not vivo[0]:
+        N[0] = N[1]
+    for i in range(1, n):
         if not vivo[i]:
             N[i] = N[i - 1]
     return np.clip(N, 1.0e6, 1.0e16)
@@ -913,7 +924,7 @@ def _paso_bifasico(prev, prev2, h, h_prev, fragmentado, umb):
     return nuevo, float(sol.cost)
 
 
-def _desde_liquido(s):
+def _desde_liquido(s, N_entrada):
     n = s["r"].size
     ur = np.asarray(s["ur"], dtype=float).copy()
     return {
@@ -927,7 +938,7 @@ def _desde_liquido(s):
         "umr": ur,
         "ugr": ur.copy(),
         "xi": np.full(n, XI0),
-        "N": np.full(n, N0),
+        "N": np.asarray(N_entrada, dtype=float).copy(),
         "mu": np.asarray(s["mu"], dtype=float).copy(),
         "fragmentado": False,
         "costo": float(s.get("costo", 0.0)),
@@ -1047,9 +1058,12 @@ def marchar_columna(vin=15.5, n_r=13, h_liq=40.0, umb=None, reanudar=None, parci
         n_liq = 0
     else:
         liquido = marchar(vin=vin, n_r=n_r, h=h_liq)
-        hist = [_desde_liquido(s) for s in liquido]
-        # N(r) queda fijado al cruzar la saturación, con la tasa local.
-        hist[-1]["N"] = _nucleacion(hist[-1], hist[-2])
+        N_entrada = _N_entrada(vin, n_r)
+        print(
+            f"N entrada eje {N_entrada[0]:.3e}  pared {N_entrada[-1]:.3e}",
+            flush=True,
+        )
+        hist = [_desde_liquido(s, N_entrada) for s in liquido]
         z_sat = hist[-1]["z"]
         st = hist[-1]
         prev2 = hist[-2]
