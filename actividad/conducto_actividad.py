@@ -37,6 +37,9 @@ SOBREPRESION = 5.0e6       # Pa
 PROFUNDIDAD = 7000.0       # m
 RADIO = 16.0               # m
 VOLUMEN = 0.3e9            # m3 de magma denso, ejemplo del orden de Calbuco 2015
+# Orificios y botellas de la auxiliar. 4 / 2.5 = 1.6.
+RADIOS_MM = (2.5, 4.0)
+VOLUMENES_ML = (500, 1500, 3000)
 # Mastin et al. (2009): H [km] = 2.00 * Vdot^0.241, con Vdot en m3/s de roca densa.
 K_ALTURA = 2.00
 B_ALTURA = 0.241
@@ -182,8 +185,8 @@ def _linea(texto=""):
     print(texto, flush=True)
 
 
-def tabla_volcan(radios=(8.0, 16.0, 32.0), volumenes_km3=(0.05, 0.15, 0.30)):
-    """Tres radios y tres volumenes, en la proporcion 1 : 2 : 4 y 1 : 3 : 6."""
+def tabla_volcan(radios=(16.0, 16.0 * 4.0 / 2.5), volumenes_km3=(0.05, 0.15, 0.30)):
+    """Dos radios en la razon 4/2.5 de los orificios, y volumenes 1 : 3 : 6."""
     _linea("Conducto viscoso. Profundidad 7 km, dP 5 MPa, agua 4 %, mu 3000 Pa s.")
     _linea(f"{'R [m]':>8} {'u_in':>8} {'u_boca':>8} {'Q [m3/s]':>12} {'H [km]':>8}")
     base = None
@@ -204,16 +207,17 @@ def tabla_volcan(radios=(8.0, 16.0, 32.0), volumenes_km3=(0.05, 0.15, 0.30)):
     return base
 
 
-def tabla_analogico():
-    """Mismos factores que la auxiliar: volumen x1, x3, x6 y orificio x1, x2."""
+def tabla_analogico(radios_mm=RADIOS_MM, volumenes_ml=VOLUMENES_ML):
+    """Botellas de 500, 1500 y 3000 ml, con orificios de 2.5 y 4 mm."""
     _linea("Analogo inercial. dP = 3 bar, densidad del agua.")
     _linea(f"{'V [ml]':>8} {'R [mm]':>8} {'u [m/s]':>8} {'H [m]':>8} {'t [s]':>8}")
-    for volumen, radio_mm in ((500, 4), (500, 8), (1500, 4), (1500, 8), (3000, 4)):
-        s = analogico(radio_mm / 1000.0, volumen)
-        _linea(
-            f"{volumen:8.0f} {radio_mm:8.0f} {s['velocidad_m_s']:8.1f} "
-            f"{s['altura_chorro_m']:8.1f} {s['duracion_s']:8.2f}"
-        )
+    for volumen in volumenes_ml:
+        for radio_mm in radios_mm:
+            s = analogico(radio_mm / 1000.0, volumen)
+            _linea(
+                f"{volumen:8.0f} {radio_mm:8.1f} {s['velocidad_m_s']:8.1f} "
+                f"{s['altura_chorro_m']:8.1f} {s['duracion_s']:8.2f}"
+            )
 
 
 def graficar(ruta="conducto_actividad.png"):
@@ -231,6 +235,9 @@ def graficar(ruta="conducto_actividad.png"):
     horas = [correr(radio=16.0, volumen_m3=v)["duracion_h"] for v in volumenes]
     fig, ejes = plt.subplots(1, 2, figsize=(8.2, 3.6))
     ejes[0].plot(radios, alturas, color="C0", lw=1.8)
+    for radio in (16.0, 16.0 * 4.0 / 2.5):
+        ejes[0].axvline(radio, color="0.4", lw=0.8, ls="--")
+        ejes[0].text(radio, alturas[-1], f"{radio:.1f} m", rotation=90, va="top", ha="right", fontsize=8)
     ejes[0].set_xlabel("radio del conducto [m]")
     ejes[0].set_ylabel("altura de columna [km]")
     ejes[1].plot([v / 1.0e9 for v in volumenes], horas, color="C1", lw=1.8)

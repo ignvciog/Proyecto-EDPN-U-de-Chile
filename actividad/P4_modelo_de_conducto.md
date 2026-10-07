@@ -20,7 +20,7 @@ Desde Python, las dos funciones que importan son estas:
 from conducto_actividad import correr, analogico
 
 volcan = correr(radio=16, volumen_m3=0.3e9)
-botella = analogico(radio_m=0.004, volumen_ml=500)
+botella = analogico(radio_m=0.0025, volumen_ml=500)
 ```
 
 `correr` es el conducto. `analogico` es la botella.
@@ -53,10 +53,10 @@ Sin gas, la misma cuenta se reduce a Poiseuille, \(u = R^2\Delta P/(8\mu L)\). E
 
 ## Que tienen que entregar
 
-1. Corran `analogico` con el radio del orificio y el volumen de su grupo. Comparen \(u\), la altura del chorro y la duracion con lo que midieron en la experiencia y con lo que estimaron en la P2.
+1. Corran `analogico` con el orificio y la botella de su grupo. Los orificios son \(2{,}5\,\mathrm{mm}\) y \(4\,\mathrm{mm}\). Las botellas son \(500\), \(1500\) y \(3000\,\mathrm{ml}\). Comparen \(u\), la altura del chorro y la duracion con lo que midieron en la experiencia y con lo que estimaron en la P2.
 2. Corran `correr` con \(R = 16\,\mathrm{m}\) y un volumen de \(0{,}3\,\mathrm{km}^3\). Anoten \(u_{\mathrm{in}}\), \(Q\), \(H\) y la duracion.
-3. Repitan `correr` cambiando solo el radio, en la misma proporcion entre orificio chico y orificio grande que usaron en la experiencia. Si no alcanzaron a medir la razon, usen \(8\), \(16\) y \(32\,\mathrm{m}\).
-4. Repitan `correr` cambiando solo el volumen, en la proporcion de las botellas: \(0{,}05\), \(0{,}15\) y \(0{,}30\,\mathrm{km}^3\) (es \(1:3:6\), como \(500\), \(1500\) y \(3000\,\mathrm{ml}\)).
+3. Repitan `correr` cambiando solo el radio, con la misma razon \(4/2{,}5 = 1{,}6\) de los orificios: \(16\,\mathrm{m}\) y \(25{,}6\,\mathrm{m}\).
+4. Repitan `correr` cambiando solo el volumen, en la proporcion de las botellas: \(0{,}05\), \(0{,}15\) y \(0{,}30\,\mathrm{km}^3\), que es \(1:3:6\) como \(500\), \(1500\) y \(3000\,\mathrm{ml}\).
 5. Con esos numeros, respondan:
    - En la botella, al agrandar el orificio, que le pasa a la altura y que le pasa a la duracion.
    - En el conducto, al agrandar el radio, que le pasa a \(Q\), a la altura y a la duracion.
