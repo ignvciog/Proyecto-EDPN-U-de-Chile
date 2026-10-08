@@ -1092,6 +1092,8 @@ def marchar_columna(vin=15.5, n_r=13, h_liq=40.0, umb=None, reanudar=None, parci
         q_ref = _caudal(hist[0])
         n_liq = len(liquido)
     recortes = 0
+    finos = 0
+    h_fino = None
     while st["z"] < -0.2 and len(hist) < 4000:
         cruce = False
         if (not fragmentado) and float(np.max(st["phi"])) >= umb["phicrit"] - 0.035:
@@ -1104,7 +1106,12 @@ def marchar_columna(vin=15.5, n_r=13, h_liq=40.0, umb=None, reanudar=None, parci
             print(f"z_f {z_f:.2f}  phi {float(np.max(st['phi'])):.4f}", flush=True)
             _guardar_estado(st, prev2, False, z_f, z_sat)
         piso = _h_piso(st, fragmentado)
-        if cruce:
+        if h_fino is not None:
+            # El piso de 8 m amplifica el modo solo con φ chico. En el empalme
+            # de permeabilidad un paso de 8 m no cierra la raíz, y uno más corto sí.
+            h_uso = min(h_fino, max(-st["z"], 2.0))
+            h_fino = None
+        elif cruce:
             h_uso = min(16.0, max(-st["z"], piso))
         else:
             h_uso = min(max(h, piso), _h_max(st["phi"], fragmentado, umb["phicrit"]), max(-st["z"], piso))
@@ -1149,6 +1156,18 @@ def marchar_columna(vin=15.5, n_r=13, h_liq=40.0, umb=None, reanudar=None, parci
             )
             h = min(_h_max(st["phi"], fragmentado, umb["phicrit"]), max(h_uso * 1.25, h_uso + 2.0))
             continue
+        if (
+            feo and (not fragmentado) and finos < 4 and h_uso > 2.0 + 1.0e-9
+            and float(np.max(st["phi"])) >= umb["phi1"] - 0.03
+        ):
+            finos += 1
+            h_fino = max(h_uso * 0.5, 2.0)
+            print(
+                f"reintento fino z={st['z']:.2f} h={h_uso:.3f}->{h_fino:.3f} "
+                f"costo={costo:.2e} |ur|={ur_max:.3e}",
+                flush=True,
+            )
+            continue
         if feo:
             print(
                 f"corte z={st['z']:.2f} h={h_uso:.3f} costo={costo:.2e} "
@@ -1165,6 +1184,7 @@ def marchar_columna(vin=15.5, n_r=13, h_liq=40.0, umb=None, reanudar=None, parci
             st["corte_numerico"] = True
             break
         recortes = 0
+        finos = 0
         prev2 = st
         h_prev = h_uso
         st = nuevo
