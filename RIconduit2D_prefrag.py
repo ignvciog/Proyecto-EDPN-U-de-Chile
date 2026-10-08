@@ -61,6 +61,7 @@ from RIconduit2D_sinbub import (
     R_COND,
     XI0,
     _d_dr,
+    _dcorte_z,
     _div,
     _lap_ur,
     _lap_uz,
@@ -525,8 +526,15 @@ def residual_bifasico(y, prev, h, mu, s0z, s0r, prev2, h_prev, fragmentado, umb,
             mu_m2 = np.full_like(prev2["phi"], MU_PIRO) * (1.0 - prev2["phi"])
         else:
             mu_m2 = prev2["mu"] * (1.0 - prev2["phi"])
-    lap_mz = _axial(_lap_uz(r, dr, mu_m, umz), mu_m, umz, prev["umz"], mu_m0, um2, h, h_prev)
-    lap_gz = _axial(_lap_uz(r, dr, mu_g, ugz), mu_g, ugz, prev["ugz"], mu_g0, ug2, h, h_prev)
+    # τ = 2μ e. El cortante radial de u_z lleva ∂u_r/∂z; la extensión axial lleva 2μ.
+    dur_dz_m = (umr - prev["umr"]) / h
+    dur_dz_g = (ugr - prev["ugr"]) / h
+    lap_mz = _axial(
+        _lap_uz(r, dr, mu_m, umz, dur_dz_m), 2.0 * mu_m, umz, prev["umz"], 2.0 * mu_m0, um2, h, h_prev,
+    )
+    lap_gz = _axial(
+        _lap_uz(r, dr, mu_g, ugz, dur_dz_g), 2.0 * mu_g, ugz, prev["ugz"], 2.0 * mu_g0, ug2, h, h_prev,
+    )
     mom_mz = (
         rho_m * (1.0 - phi) * adv_mz
         + (1.0 - phi) * dPdz
@@ -559,12 +567,16 @@ def residual_bifasico(y, prev, h, mu, s0z, s0r, prev2, h_prev, fragmentado, umb,
             mu_m2f = prev2["mu"] * (1.0 - prev2["phi"])
         mu_mf2 = 0.5 * (mu_m2f[:-1] + mu_m2f[1:])
         mu_gf2 = 0.5 * (mu_g2f[:-1] + mu_g2f[1:])
+    # Extensión radial con 2μ. ∂z(μ ∂u_r/∂z) queda con coeficiente 1, y se suma ∂z(μ ∂u_z/∂r).
+    h_corte = h if prev2 is None else 0.5 * (h + h_prev)
     lap_mr = _axial(
-        _lap_ur(r, mu_mf, umr), mu_mf, umr, prev["umr"], mu_mf0, ur2, h, h_prev,
+        2.0 * _lap_ur(r, mu_mf, umr), mu_mf, umr, prev["umr"], mu_mf0, ur2, h, h_prev,
     )
+    lap_mr = lap_mr + _dcorte_z(mu_mf, umz, mu_mf0, prev["umz"], dr, h_corte)
     lap_gr = _axial(
-        _lap_ur(r, mu_gf, ugr), mu_gf, ugr, prev["ugr"], mu_gf0, ugr2, h, h_prev,
+        2.0 * _lap_ur(r, mu_gf, ugr), mu_gf, ugr, prev["ugr"], mu_gf0, ugr2, h, h_prev,
     )
+    lap_gr = lap_gr + _dcorte_z(mu_gf, ugz, mu_gf0, prev["ugz"], dr, h_corte)
     dumr = _upwind_cara(umr, r)
     dugr = _upwind_cara(ugr, r)
     mom_mr = (
@@ -1307,7 +1319,10 @@ def graficar(hist, ruta, umb, z_sat, z_frag):
     ax[0, 3].semilogx(np.maximum(ugr, 1.0e-16), z, color="C1", lw=1.2, ls="--", label="gas")
     ax[0, 3].set_xlabel(r"$|u_r|$ [m/s]")
     ax[0, 3].legend(frameon=False, fontsize=8)
-    ax[1, 0].semilogx(np.maximum(N, 1.0), z, color="C0", lw=1.6)
+    # N en el eje es casi constante (~6,5e13). El eje log solo mostraba
+    # el ruido de partes por millón y parecía una curva.
+    ax[1, 0].plot(N, z, color="C0", lw=1.6)
+    ax[1, 0].set_xlim(0.0, 8.0e13)
     ax[1, 0].set_xlabel(r"$N$ [m$^{-3}$]")
     ax[1, 1].plot(xi, z, color="C0", lw=1.6)
     ax[1, 1].set_xlabel(r"$\xi$")
@@ -1323,6 +1338,7 @@ def graficar(hist, ruta, umb, z_sat, z_frag):
         a.grid(True, alpha=0.3, which="both")
     ax[0, 0].set_ylabel("z [km]")
     ax[1, 0].set_ylabel("z [km]")
+    fig.suptitle(r"perfiles en el eje, $r=0$", fontsize=12)
     fig.tight_layout()
     import time
     for intento in range(6):

@@ -114,13 +114,23 @@ def _div(r, dr, F):
     return div
 
 
-def _lap_uz(r, dr, mu, u):
+def _lap_uz(r, dr, mu, u, dur_dz=None):
+    """(1/r) ∂r[ r μ (∂u_z/∂r + ∂u_r/∂z) ].
+
+    dur_dz es ∂u_r/∂z en las n−1 caras. Sin ese dato el cortante queda
+    solo con ∂u_z/∂r, que es lo que había antes. La extensión axial
+    ∂z(2μ ∂u_z/∂z) no entra aquí: va aparte, con el factor 2.
+    """
     n = r.size
     L = np.zeros(n)
     mu_h = 0.5 * (mu[:-1] + mu[1:])
     r_h = 0.5 * (r[:-1] + r[1:])
-    flux = r_h * mu_h * np.diff(u) / dr
-    L[0] = 4.0 * mu[0] * (u[1] - u[0]) / dr ** 2
+    grad = np.diff(u) / dr
+    if dur_dz is not None:
+        grad = grad + np.asarray(dur_dz, dtype=float)
+    flux = r_h * mu_h * grad
+    # Disco del eje, cara en dr/2: (1/r)∂r(r τ) → 2τ/r_cara = 4τ/dr.
+    L[0] = 4.0 * mu[0] * grad[0] / dr
     for i in range(1, n - 1):
         L[i] = (flux[i] - flux[i - 1]) / (r[i] * dr)
     L[-1] = (flux[-1] - flux[-2]) / (r[-1] * dr)
@@ -181,6 +191,17 @@ def _esfuerzo_axial(mu, u, u_prev, h):
     return mu * (u - u_prev) / h
 
 
+def _dcorte_z(mu_f, uz, mu_f_prev, uz_prev, dr, h_corte):
+    """∂z(μ ∂u_z/∂r) en las caras del momento radial.
+
+    Es la otra mitad de τ_rz = μ (∂u_z/∂r + ∂u_r/∂z). ∂z(μ ∂u_r/∂z)
+    ya lo arma el esfuerzo axial; este término no lleva el factor 2.
+    """
+    tau = mu_f * np.diff(uz) / dr
+    tau_prev = mu_f_prev * np.diff(uz_prev) / dr
+    return (tau - tau_prev) / h_corte
+
+
 def residual(y, prev, h, mu, prev2=None, h_prev=None):
     r, dr = prev["r"], prev["dr"]
     n = r.size
@@ -190,32 +211,37 @@ def residual(y, prev, h, mu, prev2=None, h_prev=None):
     rho_f = 0.5 * (rho[:-1] + rho[1:])
     # masa: ∂z(ρ u_z) + (1/r) ∂r(r ρ u_r) = 0
     masa = (rho * uz - rho0 * prev["uz"]) / h + _div(r, dr, rho_f * ur)
-    # momento axial. L[u] = (1/r)∂r(r μ ∂r u) + ∂z(μ ∂z u)
+    # Divergencia de τ = 2μ e, axisimétrico, sin giro.
+    # Axial: (1/r)∂r[r μ(∂u_z/∂r + ∂u_r/∂z)] + ∂z(2μ ∂u_z/∂z).
+    # Radial: (1/r)∂r(r 2μ ∂u_r/∂r) − 2μ u_r/r² + ∂z[μ(∂u_r/∂z + ∂u_z/∂r)].
     ddz = (uz - prev["uz"]) / h
     urn = _ur_nodos(ur)
-    lap = _lap_uz(r, dr, mu, uz)
-    flujo = _esfuerzo_axial(mu, uz, prev["uz"], h)
+    dur_dz = (ur - prev["ur"]) / h
+    lap = _lap_uz(r, dr, mu, uz, dur_dz)
+    flujo = _esfuerzo_axial(2.0 * mu, uz, prev["uz"], h)
     if prev2 is None:
         flujo_prev = np.zeros_like(flujo)
         h_flux = h
     else:
-        flujo_prev = _esfuerzo_axial(prev["mu"], prev["uz"], prev2["uz"], h_prev)
+        flujo_prev = _esfuerzo_axial(2.0 * prev["mu"], prev["uz"], prev2["uz"], h_prev)
         h_flux = 0.5 * (h + h_prev)
     lap = lap + (flujo - flujo_prev) / h_flux
     mom_z = rho * (uz * ddz + urn * _d_dr(r, uz)) + (P - prev["P"]) / h + rho * g - lap
-    # momento radial en las caras, con el mismo ∂z(μ ∂z u_r) y el término geométrico
+    # momento radial en las caras
     uz_f = 0.5 * (uz[:-1] + uz[1:])
     mu_f = 0.5 * (mu[:-1] + mu[1:])
     x = np.concatenate([[0.0], 0.5 * (r[:-1] + r[1:]), [r[-1]]])
     dur = np.gradient(np.concatenate([[0.0], ur, [0.0]]), x)[1:-1]
-    lap_r = _lap_ur(r, mu_f, ur)
+    lap_r = 2.0 * _lap_ur(r, mu_f, ur)
     flujo_r = _esfuerzo_axial(mu_f, ur, prev["ur"], h)
     if prev2 is None:
         flujo_r_prev = np.zeros_like(flujo_r)
+        mu_prev_f = mu_f
     else:
         mu_prev_f = 0.5 * (prev["mu"][:-1] + prev["mu"][1:])
         flujo_r_prev = _esfuerzo_axial(mu_prev_f, prev["ur"], prev2["ur"], h_prev)
     lap_r = lap_r + (flujo_r - flujo_r_prev) / h_flux
+    lap_r = lap_r + _dcorte_z(mu_f, uz, mu_prev_f, prev["uz"], dr, h_flux)
     mom_r = (
         rho_f * (uz_f * (ur - prev["ur"]) / h + ur * dur)
         + (P[1:] - P[:-1]) / dr
