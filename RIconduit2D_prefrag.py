@@ -167,7 +167,10 @@ def _umbrales(vin=15.5):
         "Ca": float(Ca),
         "phicrit": float(phicrit),
         "phi1": float(phi1),
-        "phi2": float(phi1 + 0.01),
+        # Δφ = 0.01 deja a C cayendo varios órdenes dentro de un paso de 8 m
+        # y el momento radial encuentra la raíz con |u_r| grande. 0.05 es el
+        # ancho que ese paso recorre cerca de φ₁.
+        "phi2": float(phi1 + 0.05),
         "rb": float(rb),
         "Nd": float(Nd),
     }
