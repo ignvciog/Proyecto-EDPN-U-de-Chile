@@ -1148,7 +1148,8 @@ def marchar_columna(vin=15.5, n_r=13, h_liq=40.0, umb=None, reanudar=None, parci
             )
             h = max(h_uso * 0.5, 4.0)
             continue
-        if feo and (not fragmentado) and h_uso < _h_max(st["phi"], fragmentado, umb["phicrit"]) - 1.0e-9:
+        en_empalme = (not fragmentado) and float(np.max(st["phi"])) >= umb["phi1"] - 0.03
+        if feo and (not fragmentado) and (not en_empalme) and h_uso < _h_max(st["phi"], fragmentado, umb["phicrit"]) - 1.0e-9:
             print(
                 f"reintento z={st['z']:.2f} h={h_uso:.3f} costo={costo:.2e} "
                 f"|ur|={ur_max:.3e} d|ur|={desv:.3e} borde={en_borde} tablero={tablero}",
@@ -1157,8 +1158,7 @@ def marchar_columna(vin=15.5, n_r=13, h_liq=40.0, umb=None, reanudar=None, parci
             h = min(_h_max(st["phi"], fragmentado, umb["phicrit"]), max(h_uso * 1.25, h_uso + 2.0))
             continue
         if (
-            feo and (not fragmentado) and finos < 4 and h_uso > 2.0 + 1.0e-9
-            and float(np.max(st["phi"])) >= umb["phi1"] - 0.03
+            feo and en_empalme and finos < 4 and h_uso > 2.0 + 1.0e-9
         ):
             finos += 1
             h_fino = max(h_uso * 0.5, 2.0)
@@ -1191,7 +1191,16 @@ def marchar_columna(vin=15.5, n_r=13, h_liq=40.0, umb=None, reanudar=None, parci
         hist.append(st)
         h_tope = _h_max(st["phi"], fragmentado, umb["phicrit"])
         h_piso_nuevo = _h_piso(st, fragmentado)
-        if desv > 0.02 or costo > 1.0e-12 or ur_max > 0.02:
+        # Si el paso corto fue el que cerró el empalme, no volver al piso de 8 m
+        # mientras φ siga en esa banda: el piso deshace el reintento.
+        if (
+            (not fragmentado)
+            and h_uso + 1.0e-9 < h_piso_nuevo
+            and float(np.max(st["phi"])) < umb["phi2"] + 0.08
+        ):
+            h = h_uso
+            h_fino = h_uso
+        elif desv > 0.02 or costo > 1.0e-12 or ur_max > 0.02:
             h = min(max(h_uso, h_piso_nuevo), h_tope)
         elif dphi < 0.01:
             h = min(max(h_uso * 1.15, h_piso_nuevo), h_tope)
