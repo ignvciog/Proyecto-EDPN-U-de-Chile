@@ -140,7 +140,24 @@ def _umbrales(vin=15.5):
     dpdz = -rho_c * g - 8.0 * mu * vin / R_COND ** 2
     dvdz = vin * (-dndp * (1.0 - phi) + (1.0 - nstar) * dphidp) / max((1.0 - phi) ** 2, 1.0e-30) * dpdz
     gdot = 0.5 * (abs(dvdz) + vin / R_COND)
-    rb = (phi / ((4.0 / 3.0) * math.pi * N0 * max(1.0 - phi, 1.0e-6))) ** (1.0 / 3.0)
+    # N del radio en Ca: la misma rama que el 1D, con la velocidad media de entrada.
+    # Primero Toramaru, dp/dt = -(dp/dz)_base * vin. Si la base ya está saturada, N0.
+    rho_b = float(rho_de(P_BASE))
+    dis = min(float(C1 * P_BASE ** beta), CO)
+    vis_b = float(viscosity(
+        sio2, tio2, al2o3, feo, mno, mgo, cao, na2o, k2o, p2o5,
+        dis * 100.0, f2o, Tc1,
+    ))
+    vis_b *= float(fvrel(model, XI0, XI0, ar1, ar2, xmax, max(vin / R_COND, 1.0e-3)))
+    velc2 = 15.0e9 / rho_b
+    dpdz_b = (
+        -rho_b * (g + 8.0 * vis_b * vin / ((R_COND ** 2) * rho_b))
+    ) / (1.0 - (vin ** 2) / velc2)
+    dpdt = -dpdz_b * vin
+    Nd = 10.0 ** (1.5 * math.log10(dpdt) + 5.0)
+    if C1 * P_BASE ** beta < CO:
+        Nd = N0
+    rb = (phi / ((4.0 / 3.0) * math.pi * Nd * max(1.0 - phi, 1.0e-6))) ** (1.0 / 3.0)
     Ca = abs(gdot * mu * rb / 0.3)
     phicrit = ((0.785 - 0.525) / 2.0) * erf(math.log10(max(Ca, 1.0e-30))) + (0.785 + 0.525) / 2.0
     phi1 = ((0.15 - 0.40) / 2.0) * erf(math.log10(max(Ca, 1.0e-30))) + (0.15 + 0.40) / 2.0
@@ -151,6 +168,7 @@ def _umbrales(vin=15.5):
         "phi1": float(phi1),
         "phi2": float(phi1 + 0.01),
         "rb": float(rb),
+        "Nd": float(Nd),
     }
 
 
@@ -1339,6 +1357,11 @@ def evaluar_vin(vin, n_r=9, reanudar=None, parcial=None):
     """Una marcha completa. Devuelve la salida y la historia."""
     print(f"\n=== tiro  vin {vin:.4f}   n_r {n_r} ===", flush=True)
     umb = _umbrales(vin)
+    print(
+        f"umbrales  N_rb {umb['Nd']:.6e}  Ca {umb['Ca']:.6f}  "
+        f"phi_crit {umb['phicrit']:.4f}  rb {umb['rb']:.6e}",
+        flush=True,
+    )
     hist, umb, z_f, z_sat = marchar_columna(
         vin=vin, n_r=n_r, h_liq=40.0, umb=umb, reanudar=reanudar, parcial=parcial,
     )
@@ -1355,6 +1378,9 @@ def evaluar_vin(vin, n_r=9, reanudar=None, parcial=None):
         "z_f": None if z_f is None else float(z_f),
         "z_sat": float(z_sat),
         "phicrit": float(umb["phicrit"]),
+        "Ca": float(umb["Ca"]),
+        "Nd": float(umb["Nd"]),
+        "rb": float(umb["rb"]),
         "Ma": float(Ma),
         "c": float(c),
         "fallo": bool(ult.get("corte_numerico", False)),
@@ -1439,7 +1465,9 @@ def tiro(n_r=13, tol=0.4, v_max=48.0, pasos=5, vin0=20.0, lo0=15.5, hi0=None):
         graficar(hist, "/opt/cursor/artifacts/conducto_tiro.png", umb, z_sat, z_f)
     print(
         f"vin elegido {sal['vin']:.3f}  P_boca {sal['P']/1e6:.3f} MPa  "
-        f"um {sal['um']:.2f}  ug {sal['ug']:.2f}  Ma {sal['Ma']:.3f}  z_f {sal['z_f']}",
+        f"um {sal['um']:.2f}  ug {sal['ug']:.2f}  Ma {sal['Ma']:.3f}  z_f {sal['z_f']}  "
+        f"phi_crit {sal.get('phicrit', float('nan')):.4f}  "
+        f"N_rb {sal.get('Nd', float('nan')):.6e}  Ca {sal.get('Ca', float('nan')):.6f}",
         flush=True,
     )
     return sal, tabla, hist
@@ -1467,7 +1495,8 @@ if __name__ == "__main__":
     umb = _umbrales(vin)
     print(
         f"vin {vin:.3f}  P* {umb['Pstar']/1e6:.2f} MPa  Ca {umb['Ca']:.4f}  "
-        f"phi1 {umb['phi1']:.4f}  phi2 {umb['phi2']:.4f}  phi_crit {umb['phicrit']:.4f}",
+        f"phi1 {umb['phi1']:.4f}  phi2 {umb['phi2']:.4f}  phi_crit {umb['phicrit']:.4f}  "
+        f"N_rb {umb['Nd']:.6e}",
         flush=True,
     )
     reanudar = os.environ.get("CONDUIT_REANUDAR")
