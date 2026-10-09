@@ -1291,22 +1291,6 @@ def _guardar_parcial(hist, umb, z_sat, z_f):
     graficar(hist, "/opt/cursor/artifacts/conducto_fd.png", umb, z_sat, z_f)
 
 
-def _eje_N(ax, N, fontsize=9):
-    """Eje horizontal lineal, ajustado al mínimo y al máximo de N."""
-    N = np.asarray(N, dtype=float)
-    nmin = float(np.min(N))
-    nmax = float(np.max(N))
-    ancho = max(nmax - nmin, abs(nmax) * 1.0e-6, 1.0)
-    pad = 0.08 * ancho
-    lo, hi = nmin - pad, nmax + pad
-    ax.set_xscale("linear")
-    ax.set_xlim(lo, hi)
-    ticks = np.linspace(lo, hi, 5)
-    ax.set_xticks(ticks)
-    ax.set_xticklabels([f"{t:.5e}" for t in ticks], rotation=25, ha="right", fontsize=fontsize)
-    ax.set_xlabel(r"$N$ [m$^{-3}$]")
-
-
 def graficar(hist, ruta, umb, z_sat, z_frag):
     import matplotlib
     matplotlib.use("Agg")
@@ -1338,10 +1322,9 @@ def graficar(hist, ruta, umb, z_sat, z_frag):
     ax[0, 3].semilogx(np.maximum(ugr, 1.0e-16), z, color="C1", lw=1.2, ls="--", label="gas")
     ax[0, 3].set_xlabel(r"$|u_r|$ [m/s]")
     ax[0, 3].legend(frameon=False, fontsize=8)
-    # Lineal y recortado al rango de la solución. Desde 0 la caída
-    # de ~200 ppm queda en una recta vertical.
     ax[1, 0].plot(N, z, color="C0", lw=1.6)
-    _eje_N(ax[1, 0], N, fontsize=7)
+    ax[1, 0].set_xscale("linear")
+    ax[1, 0].set_xlabel(r"$N$ [m$^{-3}$]")
     ax[1, 1].plot(xi, z, color="C0", lw=1.6)
     ax[1, 1].set_xlabel(r"$\xi$")
     ax[1, 2].semilogx(np.maximum(mu, 1.0), z, color="C0", lw=1.6)
