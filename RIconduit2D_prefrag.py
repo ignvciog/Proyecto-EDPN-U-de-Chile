@@ -1322,11 +1322,13 @@ def graficar(hist, ruta, umb, z_sat, z_frag):
     ax[0, 3].semilogx(np.maximum(ugr, 1.0e-16), z, color="C1", lw=1.2, ls="--", label="gas")
     ax[0, 3].set_xlabel(r"$|u_r|$ [m/s]")
     ax[0, 3].legend(frameon=False, fontsize=8)
-    # N en el eje es casi constante (~6,5e13). El eje log solo mostraba
-    # el ruido de partes por millón y parecía una curva.
-    ax[1, 0].plot(N, z, color="C0", lw=1.6)
-    ax[1, 0].set_xlim(0.0, 8.0e13)
-    ax[1, 0].set_xlabel(r"$N$ [m$^{-3}$]")
+    # N en el eje es casi constante (~6,5×10^13). Escala lineal, en
+    # unidades de 10^13: un eje log convertía el ruido de ppm en una curva.
+    ax[1, 0].plot(N / 1.0e13, z, color="C0", lw=1.6)
+    ax[1, 0].set_xscale("linear")
+    ax[1, 0].set_xlim(0.0, 8.0)
+    ax[1, 0].set_xticks([0.0, 2.0, 4.0, 6.0, 8.0])
+    ax[1, 0].set_xlabel(r"$N$ [$10^{13}$ m$^{-3}$]")
     ax[1, 1].plot(xi, z, color="C0", lw=1.6)
     ax[1, 1].set_xlabel(r"$\xi$")
     ax[1, 2].semilogx(np.maximum(mu, 1.0), z, color="C0", lw=1.6)
