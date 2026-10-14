@@ -614,7 +614,6 @@ def residual_bifasico(y, prev, h, mu, s0z, s0r, prev2, h_prev, fragmentado, umb,
     # escondía un F de cientos de Pa/m detrás de un resbalamiento de 10^{-11} m/s.
     esc_gz = np.maximum(rho_g * np.maximum(phi, 1.0e-5) * g, 1.0e-2)
     esc_gr = np.maximum(0.5 * (esc_gz[:-1] + esc_gz[1:]), 1.0e-2)
-    u_ref = max(float(np.max(np.abs(prev["umz"]))), 1.0)
     N_ref = max(float(np.max(prev["N"])), 1.0)
     masa_m = masa_m / esc_m
     masa_g = masa_g / esc_g
@@ -623,7 +622,17 @@ def residual_bifasico(y, prev, h, mu, s0z, s0r, prev2, h_prev, fragmentado, umb,
     mom_mr = mom_mr / esc_z
     mom_gr = mom_gr / esc_gr
     xi_eq = xi_eq / 1.0e-6
-    N_eq = N_eq * h / (u_ref * N_ref)
+    # Un paso de coalescencia es |Γ| h/u_z, unos 4e7 m^-3 en el empalme.
+    # Dividir por N (~1e14) dejaba una subida de 1e8 m^-3 por debajo del
+    # costo que acepta el paso. La escala es |Γ| del nivel anterior; el
+    # piso cubre el arranque, donde la fuente todavía es chica, y el
+    # tramo fragmentado, donde Γ_N = 0.
+    if fragmentado or prev.get("fragmentado"):
+        gN_ref = np.zeros(n)
+    else:
+        gN_ref = _gamma_N(prev["P"], prev["phi"], prev["N"], prev["mu"], umb["phicrit"])
+    escala_N = np.maximum(np.abs(gN_ref), 1.0e7)
+    N_eq = N_eq / escala_N
     # En la pared la ecuación de transporte degenera: se impone derivada radial nula.
     xi_eq[-1] = (xi[-1] - xi[-2]) / 1.0e-4
     N_eq[-1] = (Nd[-1] - Nd[-2]) / N_ref
