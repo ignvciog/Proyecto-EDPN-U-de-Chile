@@ -624,15 +624,18 @@ def residual_bifasico(y, prev, h, mu, s0z, s0r, prev2, h_prev, fragmentado, umb,
     xi_eq = xi_eq / 1.0e-6
     # Un paso de coalescencia es |Γ| h/u_z, unos 4e7 m^-3 en el empalme.
     # Dividir por N (~1e14) dejaba una subida de 1e8 m^-3 por debajo del
-    # costo que acepta el paso. La escala es |Γ| del nivel anterior; el
-    # piso cubre el arranque, donde la fuente todavía es chica, y el
-    # tramo fragmentado, donde Γ_N = 0.
+    # costo que acepta el paso. Antes de fragmentar la escala es |Γ| del
+    # nivel anterior; el piso cubre el arranque, donde la fuente es chica.
+    # Con Γ_N = 0 se vuelve a ΔN/N: el piso 1e7 no deja cerrar el salto.
     if fragmentado or prev.get("fragmentado"):
-        gN_ref = np.zeros(n)
+        # Γ_N se apaga. El piso 1e7 deja el residuo unas 1e7 veces más
+        # pesado que ΔN/N y el salto de fragmentación no cierra.
+        u_ref = max(float(np.max(np.abs(prev["umz"]))), 1.0)
+        N_eq = N_eq * h / (u_ref * N_ref)
     else:
         gN_ref = _gamma_N(prev["P"], prev["phi"], prev["N"], prev["mu"], umb["phicrit"])
-    escala_N = np.maximum(np.abs(gN_ref), 1.0e7)
-    N_eq = N_eq / escala_N
+        escala_N = np.maximum(np.abs(gN_ref), 1.0e7)
+        N_eq = N_eq / escala_N
     # En la pared la ecuación de transporte degenera: se impone derivada radial nula.
     xi_eq[-1] = (xi[-1] - xi[-2]) / 1.0e-4
     N_eq[-1] = (Nd[-1] - Nd[-2]) / N_ref
