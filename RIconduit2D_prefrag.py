@@ -1291,6 +1291,33 @@ def _guardar_parcial(hist, umb, z_sat, z_f):
     graficar(hist, "/opt/cursor/artifacts/conducto_fd.png", umb, z_sat, z_f)
 
 
+def _marcar_baja_N(ax, N, z):
+    """Flecha horizontal entre el máximo y el mínimo de N."""
+    N = np.asarray(N, dtype=float)
+    z = np.asarray(z, dtype=float)
+    i_hi = int(np.argmax(N))
+    i_lo = int(np.argmin(N))
+    baja = float(N[i_hi] - N[i_lo])
+    if baja <= 0.0:
+        return
+    z_lo = float(z[i_lo])
+    ax.annotate(
+        "",
+        xy=(float(N[i_lo]), z_lo),
+        xytext=(float(N[i_hi]), z_lo),
+        arrowprops=dict(arrowstyle="<->", color="C3", lw=1.1),
+    )
+    ax.text(
+        0.5 * (float(N[i_hi]) + float(N[i_lo])),
+        z_lo,
+        f" −{baja:.2e}",
+        color="C3",
+        fontsize=8,
+        va="bottom",
+        ha="center",
+    )
+
+
 def graficar(hist, ruta, umb, z_sat, z_frag):
     import matplotlib
     matplotlib.use("Agg")
@@ -1326,8 +1353,9 @@ def graficar(hist, ruta, umb, z_sat, z_frag):
     ax[1, 0].set_xscale("linear")
     ax[1, 0].margins(x=0.25)
     ax[1, 0].autoscale(enable=True, axis="x", tight=False)
-    ax[1, 0].ticklabel_format(axis="x", useOffset=False, style="sci", scilimits=(0, 0))
+    ax[1, 0].ticklabel_format(axis="x", useOffset=True, style="sci", scilimits=(0, 0))
     ax[1, 0].set_xlabel(r"$N$ [m$^{-3}$]")
+    _marcar_baja_N(ax[1, 0], N, z)
     ax[1, 1].plot(xi, z, color="C0", lw=1.6)
     ax[1, 1].set_xlabel(r"$\xi$")
     ax[1, 2].semilogx(np.maximum(mu, 1.0), z, color="C0", lw=1.6)
