@@ -86,15 +86,22 @@ CS = math.sqrt(RV * T_GAS)
 PRES = 2.5e4  # escala de ∂P/∂z, Pa/m, solo para adimensionalizar el resbalamiento
 
 
-def n_de(P, xi, fragmentado):
-    """Fracción másica exsuelta. Después de fragmentar, sin (1-ξ)."""
+def n_de(P, xi, fragmentado, xi_final=None):
+    """Fracción másica exsuelta, la misma expresión que integra el 1D.
+
+    Antes de fragmentar, ξ es el cristal local. Después, el cristal queda
+    en el valor de ese nivel y el agua total sigue siendo (1-ξ0) c0.
+    """
     P = np.maximum(np.asarray(P, dtype=float), 1.0e4)
     a = C1 * np.power(P, beta)
     den = np.maximum(1.0 - a, 1.0e-12)
     if fragmentado:
-        return np.maximum((CO - a) / den, 0.0)
-    xi = np.asarray(xi, dtype=float)
-    num = (1.0 - XI0) * CO - (1.0 - xi) * a
+        xf = xi if xi_final is None else xi_final
+        xf = np.asarray(xf, dtype=float)
+        num = (1.0 - XI0) * CO - (1.0 - xf) * a
+    else:
+        xi = np.asarray(xi, dtype=float)
+        num = (1.0 - XI0) * CO - (1.0 - xi) * a
     return np.maximum(num / den, 0.0)
 
 
@@ -459,8 +466,13 @@ def residual_bifasico(y, prev, h, mu, s0z, s0r, prev2, h_prev, fragmentado, umb,
     rho_gf = 0.5 * (rho_g[:-1] + rho_g[1:])
     mu_f = 0.5 * (mu[:-1] + mu[1:])
 
-    n_new = n_de(P, xi, fragmentado)
-    n_old = n_de(prev["P"], prev["xi"], prev["fragmentado"])
+    # Después de fragmentar ξ queda fijo: n no depende del ξ que transporta el paso.
+    xf = prev.get("xi_final") if fragmentado else None
+    n_new = n_de(P, xi, fragmentado, xf)
+    n_old = n_de(
+        prev["P"], prev["xi"], prev["fragmentado"],
+        prev.get("xi_final") if prev.get("fragmentado") else None,
+    )
     # u_g(R)=0 es la condición puntual de la pared. La media-celda tiene un
     # espesor Δr y la capa límite del gas es mucho más fina: el flujo axial de
     # esa celda es el del nodo interior. El nivel anterior tiene que usar la
@@ -670,8 +682,12 @@ def _predecir(prev, prev2, h, fragmentado):
     else:
         dPdz = -rho_de(prev["P"]) * g
     st["P"] = np.maximum(prev["P"] + dPdz * h, Patm * 1.05)
-    n1 = n_de(st["P"], prev["xi"], fragmentado)
-    n0 = n_de(prev["P"], prev["xi"], prev["fragmentado"])
+    xf = prev.get("xi_final") if fragmentado else None
+    n1 = n_de(st["P"], prev["xi"], fragmentado, xf)
+    n0 = n_de(
+        prev["P"], prev["xi"], prev["fragmentado"],
+        prev.get("xi_final") if prev.get("fragmentado") else None,
+    )
     rho_g = np.maximum(st["P"], 1.0e4) / (RV * T_GAS)
     jz = rho_de(prev["P"]) * (1.0 - prev["phi"]) * np.maximum(prev["umz"], 0.0)
     phi = prev["phi"] + jz * np.maximum(n1 - n0, 0.0) / np.maximum(
@@ -681,8 +697,7 @@ def _predecir(prev, prev2, h, fragmentado):
     phi[-1] = phi[-2]
     phi[0] = 0.5 * (phi[0] + phi[1])
     if fragmentado and not prev["fragmentado"]:
-        # El salto de n no es dz·dn/dz. φ de equilibrio con el n nuevo, y el
-        # caudal de masa se reparte. Sirve solo de semilla del Newton.
+        # Semilla del cruce: φ de equilibrio con n del 1D, ξ congelado en este nivel.
         vivo = n1 > 1.0e-8
         phi = np.array(prev["phi"], copy=True)
         rho_m = np.maximum(rho_de(st["P"]), 1.0)
@@ -821,7 +836,7 @@ def _semilla_fragmentacion(prev, h, umb):
     for _ in range(5):
         rho_m = rho_de(st["P"])
         rho_g = np.maximum(st["P"], 1.0e4) / (RV * T_GAS)
-        n_new = n_de(st["P"], st["xi"], True)
+        n_new = n_de(st["P"], prev.get("xi_final", prev["xi"]), True)
         n_old = n_de(prev["P"], prev["xi"], False)
         ug_flujo = st["ugz"].copy()
         ug_flujo[-1] = st["ugz"][-2]
@@ -966,6 +981,10 @@ def _paso_bifasico(prev, prev2, h, h_prev, fragmentado, umb):
         "fragmentado": fragmentado,
         "costo": float(sol.cost),
     }
+    if fragmentado:
+        nuevo["xi_final"] = np.asarray(
+            prev["xi_final"] if "xi_final" in prev else prev["xi"], dtype=float,
+        ).copy()
     return nuevo, float(sol.cost)
 
 
@@ -1130,7 +1149,12 @@ def marchar_columna(vin=15.5, n_r=13, h_liq=40.0, umb=None, reanudar=None, parci
             # 8 m no cierra el salto de n. 16 m da la raíz subsónica;
             # 40 m salta el punto sónico.
             h = 16.0
-            print(f"z_f {z_f:.2f}  phi {float(np.max(st['phi'])):.4f}", flush=True)
+            st["xi_final"] = np.asarray(st["xi"], dtype=float).copy()
+            print(
+                f"z_f {z_f:.2f}  phi {float(np.max(st['phi'])):.4f}  "
+                f"xi_final {float(st['xi_final'][0]):.6f}",
+                flush=True,
+            )
             _guardar_estado(st, prev2, False, z_f, z_sat)
         piso = _h_piso(st, fragmentado)
         if h_fino is not None:
@@ -1245,8 +1269,9 @@ def marchar_columna(vin=15.5, n_r=13, h_liq=40.0, umb=None, reanudar=None, parci
                 f"xi={st['xi'][0]:.6f} N={st['N'][0]:.3e} Q={_caudal(st)/q_ref:.4f}",
                 flush=True,
             )
+        xi_sonido = st["xi_final"][0] if fragmentado and "xi_final" in st else st["xi"][0]
         Ma_m, _c_m = _mach_mezcla(
-            st["P"][0], st["ugz"][0], fragmentado, st["xi"][0],
+            st["P"][0], st["ugz"][0], fragmentado, xi_sonido,
         )
         if Ma_m >= 0.98:
             print(
@@ -1456,7 +1481,8 @@ def evaluar_vin(vin, n_r=9, reanudar=None, parcial=None):
     )
     ult = hist[-1]
     frag = bool(ult.get("fragmentado", z_f is not None))
-    Ma, c = _mach_mezcla(ult["P"][0], ult["ugz"][0], frag or z_f is not None, ult["xi"][0])
+    xi_boca = ult["xi_final"][0] if frag and "xi_final" in ult else ult["xi"][0]
+    Ma, c = _mach_mezcla(ult["P"][0], ult["ugz"][0], frag or z_f is not None, xi_boca)
     sal = {
         "vin": float(vin),
         "z": float(ult["z"]),
