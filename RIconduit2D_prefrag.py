@@ -1,5 +1,5 @@
 """
-Columna axisimétrica en diferencias finitas, de la base a la fragmentación.
+Columna axisimétrica en diferencias finitas, de la base a la boca.
 
 Hasta la saturación solo está el fundido. Desde que Henry suelta agua
 se resuelven, en cada paso, las mismas seis ecuaciones:
@@ -8,15 +8,26 @@ se resuelven, en cada paso, las mismas seis ecuaciones:
     momento axial de las dos fases, momento radial de las dos fases,
 
 más el transporte de N y de ξ. No se impone u_g = u_m ni u_g ≠ u_m.
-Al cruzar φ_crit cambian los cierres: n pierde (1-ξ), el arrastre pasa
-al de fragmentos, Γ_N = Γ_ξ = 0 y el no-deslizamiento de la pared pasa
-del fundido al gas. El laplaciano viscoso lleva la derivada radial y
-la derivada en z, y el momento radial lleva el término geométrico.
+Al cruzar φ_crit cambian los cierres: n conserva (1-ξ) con ξ congelado,
+el arrastre pasa al de fragmentos, Γ_N = Γ_ξ = 0 y el no-deslizamiento
+de la pared pasa del fundido al gas. El laplaciano viscoso lleva la
+derivada radial y la derivada en z, y el momento radial lleva el término
+geométrico.
+
+Para correrlo, en esta carpeta:
+
+    python -m pip install -r requirements.txt
+    python RIconduit2D_prefrag.py
+
+Los resultados quedan en salida/. Otra velocidad de entrada:
+
+    python -c "import RIconduit2D_prefrag as M; M.evaluar_vin(14.336, n_r=13)"
 """
 
 from __future__ import annotations
 
 import math
+import os
 
 import numpy as np
 from scipy.optimize import least_squares
@@ -70,6 +81,16 @@ from RIconduit2D_sinbub import (
     marchar,
     rho_de,
 )
+
+def _ruta_salida(nombre):
+    """Ruta dentro de salida/, junto a este archivo. CONDUIT_SALIDA la cambia."""
+    base = os.environ.get(
+        "CONDUIT_SALIDA",
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "salida"),
+    )
+    os.makedirs(base, exist_ok=True)
+    return os.path.join(base, nombre)
+
 
 N0 = 1.0e8
 RV = float(R)
@@ -1302,12 +1323,12 @@ def _guardar_estado(st, prev2, fragmentado, z_f, z_sat):
     datos["fragmentado"] = np.array([1.0 if fragmentado else 0.0])
     datos["z_f"] = np.array([-1.0 if z_f is None else z_f])
     datos["z_sat"] = np.array([z_sat])
-    np.savez("/opt/cursor/artifacts/conducto_estado.npz", **datos)
+    np.savez(_ruta_salida("conducto_estado.npz"), **datos)
 
 
 def _guardar_parcial(hist, umb, z_sat, z_f):
     np.savez(
-        "/opt/cursor/artifacts/conducto_fd_parcial.npz",
+        _ruta_salida("conducto_fd_parcial.npz"),
         z=np.array([s["z"] for s in hist]),
         P=np.array([s["P"][0] for s in hist]),
         phi=np.array([s["phi"][0] for s in hist]),
@@ -1325,7 +1346,7 @@ def _guardar_parcial(hist, umb, z_sat, z_f):
         z_sat=z_sat,
         z_f=-1.0 if z_f is None else z_f,
     )
-    graficar(hist, "/opt/cursor/artifacts/conducto_fd.png", umb, z_sat, z_f)
+    graficar(hist, _ruta_salida("conducto_fd.png"), umb, z_sat, z_f)
 
 
 def _marcar_baja_N(ax, N, z):
@@ -1510,9 +1531,10 @@ def evaluar_vin(vin, n_r=9, reanudar=None, parcial=None):
     return sal, hist, umb, z_f, z_sat
 
 
-def _guardar_tabla(tabla, ruta="/opt/cursor/artifacts/tiro_tabla.json"):
+def _guardar_tabla(tabla, ruta=None):
     import json
-    import os
+    if ruta is None:
+        ruta = _ruta_salida("tiro_tabla.json")
     os_dir = os.path.dirname(ruta)
     if os_dir:
         os.makedirs(os_dir, exist_ok=True)
@@ -1543,7 +1565,7 @@ def tiro(n_r=13, tol=0.4, v_max=48.0, pasos=5, vin0=20.0, lo0=15.5, hi0=None):
             aj == "sube" and (mejor is None or sal["vin"] >= mejor[0]["vin"])
         ):
             mejor = (sal, hist, umb, z_f, z_sat)
-            graficar(hist, "/opt/cursor/artifacts/conducto_tiro.png", umb, z_sat, z_f)
+            graficar(hist, _ruta_salida("conducto_tiro.png"), umb, z_sat, z_f)
         if aj == "boca":
             break
         if aj == "fallo":
@@ -1577,7 +1599,7 @@ def tiro(n_r=13, tol=0.4, v_max=48.0, pasos=5, vin0=20.0, lo0=15.5, hi0=None):
             flush=True,
         )
     if hist is not None:
-        graficar(hist, "/opt/cursor/artifacts/conducto_tiro.png", umb, z_sat, z_f)
+        graficar(hist, _ruta_salida("conducto_tiro.png"), umb, z_sat, z_f)
     print(
         f"vin elegido {sal['vin']:.3f}  P_boca {sal['P']/1e6:.3f} MPa  "
         f"um {sal['um']:.2f}  ug {sal['ug']:.2f}  Ma {sal['Ma']:.3f}  z_f {sal['z_f']}  "
@@ -1616,13 +1638,13 @@ if __name__ == "__main__":
     )
     reanudar = os.environ.get("CONDUIT_REANUDAR")
     parcial = os.environ.get(
-        "CONDUIT_PARCIAL", "/opt/cursor/artifacts/conducto_fd_parcial.npz",
+        "CONDUIT_PARCIAL", _ruta_salida("conducto_fd_parcial.npz"),
     )
     hist, umb, z_f, z_sat = marchar_columna(
         vin=vin, n_r=13, h_liq=40.0, umb=umb,
         reanudar=reanudar, parcial=parcial if reanudar else None,
     )
-    graficar(hist, "/opt/cursor/artifacts/conducto_fd.png", umb, z_sat, z_f)
+    graficar(hist, _ruta_salida("conducto_fd.png"), umb, z_sat, z_f)
     ult = hist[-1]
     q_ref = float(rho_de(P_BASE) * vin * math.pi * R_COND ** 2)
     print(

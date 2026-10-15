@@ -15,6 +15,7 @@ build/
 .ipynb_checkpoints/
 
 # Resultados locales (regenerables)
+salida/
 *.png
 *.jpg
 *.jpeg
