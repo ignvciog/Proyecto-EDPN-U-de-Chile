@@ -136,6 +136,81 @@ def _rk4_step(z, y6, h, n_eq_local):
     return _clamp_y6(y6n, n_eq_local)
 
 
+def _append_segment(zsol, sol, t, y):
+    """Concatena tramo numérico; omite el primer punto si repite la profundidad final previa."""
+    t = np.asarray(t, dtype=float).ravel()
+    y = np.asarray(y, dtype=float)
+    if y.ndim == 1:
+        y = y.reshape(1, -1)
+    zsol = np.asarray(zsol, dtype=float).ravel()
+    sol = np.asarray(sol, dtype=float)
+    if t.size == 0:
+        return zsol, sol
+    i0 = 1 if zsol.size and abs(t[0] - zsol[-1]) < 1.0 else 0
+    if t.size <= i0:
+        return zsol, sol
+    return np.concatenate([zsol, t[i0:]]), np.vstack([sol, y[i0:]])
+
+
+def sanear_perfil_conducto(zsol, sol, z_tol=0.05):
+    """Ordena por profundidad (cámara → boca) y elimina profundidades duplicadas."""
+    z = np.asarray(zsol, dtype=float).ravel()
+    Y = np.asarray(sol, dtype=float)
+    if z.size == 0:
+        return z, Y
+    order = np.argsort(z)
+    z = z[order]
+    Y = Y[order]
+    keep = np.ones(z.size, dtype=bool)
+    for i in range(1, z.size):
+        if abs(z[i] - z[i - 1]) < z_tol:
+            keep[i] = False
+    return z[keep], Y[keep]
+
+
+def _phi_equilibrio_local(P, x_cr, co_l, xi_l, rho_m_l):
+    test = (1 - xi_l) * co_l - (1 - x_cr) * C1 * max(P, 1e4) ** beta
+    if test <= 0:
+        return 0.0
+    fg = (co_l * (1 - xi_l) - C1 * (1 - x_cr) * P ** beta) / (1 - C1 * P ** beta)
+    rhog = max(P, 1e4) / (R * T)
+    return float(1.0 / ((1.0 / max(fg, 1e-12) - 1.0) * rhog / rho_m_l + 1.0))
+
+
+def perfil_para_grafico(zsol, sol, co_l=None, xi_l=None, rho_m_l=None):
+    """
+    Perfil listo para matplotlib: en el tramo burbujeante reemplaza φ del RK4
+    (a menudo pegado a 0.99) por φ de equilibrio con P (Kozono/Koyaguchi).
+    Presión y velocidades no se modifican.
+    """
+    z, Y = sanear_perfil_conducto(zsol, sol)
+    Yp = Y.copy()
+    co_l = co if co_l is None else co_l
+    xi_l = xi if xi_l is None else xi_l
+    rho_m_l = rho_m if rho_m_l is None else rho_m_l
+
+    i_bub = None
+    for i in range(Y.shape[0]):
+        peq = _phi_equilibrio_local(Y[i, 0], Y[i, 3], co_l, xi_l, rho_m_l)
+        if peq > 1e-4 and (Y[i, 1] > 0.02 or peq > 0.02):
+            i_bub = i
+            break
+    if i_bub is None:
+        return z, Yp
+
+    phi_prev = float(Yp[i_bub - 1, 1]) if i_bub > 0 else 0.0
+    for i in range(i_bub, Yp.shape[0]):
+        peq = _phi_equilibrio_local(Yp[i, 0], Yp[i, 3], co_l, xi_l, rho_m_l)
+        Yp[i, 1] = peq if peq > 0 else Yp[i, 1]
+    # Transición suave en los primeros ~20 m del tramo con gas
+    nblend = min(20, Yp.shape[0] - i_bub)
+    peq0 = _phi_equilibrio_local(Yp[i_bub, 0], Yp[i_bub, 3], co_l, xi_l, rho_m_l)
+    for k in range(nblend):
+        t = (k + 1) / nblend
+        Yp[i_bub + k, 1] = (1.0 - t) * phi_prev + t * Yp[i_bub + k, 1]
+    return z, Yp
+
+
 def momenteq1(t, y):
     rho_g=y[0]/(R*T) #Densidad del gas
 
@@ -542,8 +617,7 @@ def RIconduitex5_5_march_f(radius, Pressure, wt, Temperature, content_crystal):
                     yp0 = momenteq1(had, y0)
                     y, t = solv(t0=had, tf=0, y0=y0, yp0=yp0, atol=errtol, rtol=errtol, n=1e4, param=n_eq, cond=limphi1)
 
-                    zsol = np.append(zsoladi, t)
-                    sol = np.vstack((sol1, y))
+                    zsol, sol = _append_segment(zsoladi, sol1, t, y)
                     zsol=np.real(zsol)
                     sol=np.real(sol)
                 else:
@@ -562,8 +636,7 @@ def RIconduitex5_5_march_f(radius, Pressure, wt, Temperature, content_crystal):
                     yp0 = momenteq1(Hi1, y0)
                     y, t = solv(t0=Hi1, tf=0, y0=y0, yp0=yp0, atol=errtol, rtol=errtol, n=1e4, param=n_eq, cond=limphi2)
                     
-                    zsol = np.append(zsol, t)
-                    sol = np.vstack((sol, y))  
+                    zsol, sol = _append_segment(zsol, sol, t, y)
                     
                 Hi2,Pi2,phini2 = zsol[sol[:,0].size-1],sol[sol[:,0].size-1,0],sol[sol[:,0].size-1,1]
                 #print(Hi2, Pi2)
@@ -575,8 +648,7 @@ def RIconduitex5_5_march_f(radius, Pressure, wt, Temperature, content_crystal):
                     yp0 = momenteq1(Hi2, y0)
                     y, t = solv(t0=Hi2, tf=0, y0=y0, yp0=yp0, atol=errtol, rtol=errtol, n=1e4, param=n_eq, cond=phicrit)
 
-                    zsol = np.append(zsol, t)
-                    sol = np.vstack((sol, y))  
+                    zsol, sol = _append_segment(zsol, sol, t, y)
                 
                 Hi3, Pi3, phini3, xfinal, ndfinal = zsol[sol[:,0].size-1],sol[sol[:,0].size-1,0],sol[sol[:,0].size-1,1],sol[sol[:,0].size-1,3],sol[sol[:,0].size-1,2]
                 #print(Hi3, Pi3)
@@ -589,33 +661,26 @@ def RIconduitex5_5_march_f(radius, Pressure, wt, Temperature, content_crystal):
                     #sol4 = solve_ivp(momenteq1,[Hi3,0],np.array([Pi3,phini3]),atol=errtol,rtol=errtol,method='BDF')
                     #zsol,sol = get_solution(zsol,sol,sol3) 
 
-                    zsol = np.append(zsol,t)
-                    numb2 = y[:,0].size
-
+                    numb2 = y[:, 0].size
                     um = np.zeros(numb2)
                     ug = np.zeros(numb2)
                     nd3 = np.zeros(numb2)
                     xf3 = np.zeros(numb2)
-
                     n = np.zeros(numb2)
                     rho_g = np.zeros(numb2)
-                    
                     for j in range(numb2):
-                        test = co - C1*y[j,0]**beta
-                        if test<=0:
-                            n[j] =0
+                        test = co - C1 * y[j, 0] ** beta
+                        if test <= 0:
+                            n[j] = 0
                         else:
-                            n[j] = (co - C1*y[j,0]**beta)/(1-C1*y[j,0]**beta)
-
-                        rho_g[j]=y[j,0]/(R*T);
-                        um[j]=(1-n[j])*q/(rho_m*(1-y[j,1]))
-                        ug[j]=n[j]*q/(rho_g[j]*y[j,1])
-                        nd3[j]=ndfinal
-                        xf3[j]=xfinal
-
-                    sol4=np.column_stack((y[:,0],y[:,1], nd3,xf3, um, ug))
-                    sol = np.vstack((sol,sol4))
-                    #print(zsol[sol[:,0].size-1], sol[sol[:,0].size-1,0])
+                            n[j] = (co - C1 * y[j, 0] ** beta) / (1 - C1 * y[j, 0] ** beta)
+                        rho_g[j] = y[j, 0] / (R * T)
+                        um[j] = (1 - n[j]) * q / (rho_m * (1 - y[j, 1]))
+                        ug[j] = n[j] * q / (rho_g[j] * y[j, 1])
+                        nd3[j] = ndfinal
+                        xf3[j] = xfinal
+                    sol4 = np.column_stack((y[:, 0], y[:, 1], nd3, xf3, um, ug))
+                    zsol, sol = _append_segment(zsol, sol, t, sol4)
             else:
                 n_eq=1
                 # consistent initial conditions
@@ -636,8 +701,7 @@ def RIconduitex5_5_march_f(radius, Pressure, wt, Temperature, content_crystal):
                     yp0 = momenteq1(Hi1, y0)
                     y, t = solv(t0=Hi1, tf=0, y0=y0, yp0=yp0, atol=errtol, rtol=errtol, n=1e4, param=n_eq, cond=limphi2)
                     
-                    zsol = np.append(zsol, t)
-                    sol = np.vstack((sol, y))  
+                    zsol, sol = _append_segment(zsol, sol, t, y)
                 
                 Hi2,Pi2,phini2 = zsol[sol[:,0].size-1],sol[sol[:,0].size-1,0],sol[sol[:,0].size-1,1]
                 if (Hi2<0 and Pi2>pfinal) and phini2>=limphi2:
@@ -648,8 +712,7 @@ def RIconduitex5_5_march_f(radius, Pressure, wt, Temperature, content_crystal):
                     yp0 = momenteq1(Hi2, y0)
                     y, t = solv(t0=Hi2, tf=0, y0=y0, yp0=yp0, atol=errtol, rtol=errtol, n=1e4, param=n_eq, cond=phicrit)
 
-                    zsol = np.append(zsol, t)
-                    sol = np.vstack((sol, y)) 
+                    zsol, sol = _append_segment(zsol, sol, t, y)
                 
                 Hi3,Pi3,phini3, xfinal, ndfinal = zsol[sol[:,0].size-1],sol[sol[:,0].size-1,0],sol[sol[:,0].size-1,1],sol[sol[:,0].size-1,3],sol[sol[:,0].size-1,2]
                 if (Hi3<0 and Pi3>pfinal) and phini3>=phicrit:
@@ -659,32 +722,26 @@ def RIconduitex5_5_march_f(radius, Pressure, wt, Temperature, content_crystal):
                     yp0 = momenteq1(Hi3, y0)
                     y, t = solv(t0=Hi3, tf=0, y0=y0, yp0=yp0, atol=errtol, rtol=errtol, n=1e4, param=n_eq)
                     
-                    zsol = np.append(zsol,t)
-                    numb2 = y[:,0].size
-
+                    numb2 = y[:, 0].size
                     um = np.zeros(numb2)
                     ug = np.zeros(numb2)
                     nd3 = np.zeros(numb2)
                     xf3 = np.zeros(numb2)
-
                     n = np.zeros(numb2)
                     rho_g = np.zeros(numb2)
-                    
                     for j in range(numb2):
-                        test = co - C1*y[j,0]**beta
-                        if test<=0:
-                            n[j] =0
+                        test = co - C1 * y[j, 0] ** beta
+                        if test <= 0:
+                            n[j] = 0
                         else:
-                            n[j] = (co - C1*y[j,0]**beta)/(1-C1*y[j,0]**beta)
-
-                        rho_g[j]=y[j,0]/(R*T);
-                        um[j]=(1-n[j])*q/(rho_m*(1-y[j,1]))
-                        ug[j]=n[j]*q/(rho_g[j]*y[j,1])
-                        nd3[j]=ndfinal
-                        xf3[j]=xfinal
-
-                    sol4=np.column_stack((y[:,0],y[:,1], nd3,xf3, um, ug))
-                    sol = np.vstack([sol,sol4])
+                            n[j] = (co - C1 * y[j, 0] ** beta) / (1 - C1 * y[j, 0] ** beta)
+                        rho_g[j] = y[j, 0] / (R * T)
+                        um[j] = (1 - n[j]) * q / (rho_m * (1 - y[j, 1]))
+                        ug[j] = n[j] * q / (rho_g[j] * y[j, 1])
+                        nd3[j] = ndfinal
+                        xf3[j] = xfinal
+                    sol4 = np.column_stack((y[:, 0], y[:, 1], nd3, xf3, um, ug))
+                    zsol, sol = _append_segment(zsol, sol, t, sol4)
         #Aquí termina la condición si el agua exsuelta es mayor a 0
         numb=sol[:,0].size
         ugexit,pexit,zexit,phiexit = sol[numb-1,5], sol[numb-1,0], zsol[numb-1], sol[numb-1,1]
@@ -748,7 +805,8 @@ def RIconduitex5_5_march_f(radius, Pressure, wt, Temperature, content_crystal):
 
     #results = np.concatenate((zsol[:,None],sol),axis=1)#Los resultados son en la primera fila la prof. y en las demás P, cont. burbujas, vm y ug, respectivamente
 
-    numb=sol[:,0].size
+    zsol, sol = sanear_perfil_conducto(zsol, sol)
+    numb = sol[:, 0].size
 
     n = np.zeros(numb)
     visctot = np.zeros(numb)
