@@ -90,6 +90,8 @@ python3 run_conduit_march.py      # caso Calbuco completo (más lento que IDA)
 
 O abrir el notebook **`mainconduit5_5_march.ipynb`** (perfiles + tramo opcional para tareas).
 
+Paquete descargable: **`conduit_march_sin_ida.zip`** (mismos archivos + `README_conduit_march.txt`).
+
 ```python
 from calbuco2015d import radius1, overP1, h2o1, T1, xi1
 from RIconduitex5_5_march import RIconduitex5_5_march_f
