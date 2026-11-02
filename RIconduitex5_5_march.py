@@ -177,6 +177,21 @@ def _phi_equilibrio_local(P, x_cr, co_l, xi_l, rho_m_l):
     return float(1.0 / ((1.0 / max(fg, 1e-12) - 1.0) * rhog / rho_m_l + 1.0))
 
 
+def indice_inicio_bifasico(Y):
+    """Índice donde termina el tramo líquido analítico y empieza la marcha bifásica."""
+    Y = np.asarray(Y, dtype=float)
+    if Y.shape[0] < 2:
+        return 1
+    dP = np.diff(Y[:, 0])
+    hits = np.where(dP < -5e6)[0]
+    if hits.size:
+        return int(hits[0] + 1)
+    for i in range(1, Y.shape[0]):
+        if Y[i, 1] > 0.05 and Y[i - 1, 1] < 0.01:
+            return i
+    return 1
+
+
 def perfil_para_grafico(zsol, sol, co_l=None, xi_l=None, rho_m_l=None):
     """
     Perfil listo para matplotlib: en el tramo burbujeante reemplaza φ del RK4
@@ -189,13 +204,8 @@ def perfil_para_grafico(zsol, sol, co_l=None, xi_l=None, rho_m_l=None):
     xi_l = xi if xi_l is None else xi_l
     rho_m_l = rho_m if rho_m_l is None else rho_m_l
 
-    i_bub = None
-    for i in range(Y.shape[0]):
-        peq = _phi_equilibrio_local(Y[i, 0], Y[i, 3], co_l, xi_l, rho_m_l)
-        if peq > 1e-4 and (Y[i, 1] > 0.02 or peq > 0.02):
-            i_bub = i
-            break
-    if i_bub is None:
+    i_bub = indice_inicio_bifasico(Y)
+    if i_bub >= Y.shape[0]:
         return z, Yp
 
     phi_prev = float(Yp[i_bub - 1, 1]) if i_bub > 0 else 0.0
@@ -209,6 +219,92 @@ def perfil_para_grafico(zsol, sol, co_l=None, xi_l=None, rho_m_l=None):
         t = (k + 1) / nblend
         Yp[i_bub + k, 1] = (1.0 - t) * phi_prev + t * Yp[i_bub + k, 1]
     return z, Yp
+
+
+def graficar_perfil_march(
+    zsol,
+    sol,
+    visc,
+    limphi1,
+    phicrit,
+    co_l,
+    xi_l,
+    rho_m_l,
+    title="Calbuco — RIconduitex5_5_march (RK4, sin IDA)",
+):
+    """
+    Figura en 6 paneles: tramo líquido y bifásico se dibujan por separado
+    (sin unir con una línea el salto en z≈−3.6 km). φ usa equilibrio con P.
+    """
+    import matplotlib.pyplot as plt
+
+    z_raw, Y_raw = sanear_perfil_conducto(zsol, sol)
+    z, Y = perfil_para_grafico(zsol, sol, co_l, xi_l, rho_m_l)
+    ij = indice_inicio_bifasico(Y_raw)
+    if ij < 1:
+        ij = 1
+    if ij >= z.size:
+        ij = max(1, z.size // 2)
+
+    visc_z = np.interp(z, z_raw, np.asarray(visc, dtype=float).ravel()[: z_raw.size])
+    z_sat = float(z[ij])
+
+    fig, axs = plt.subplots(1, 6, figsize=(16, 7), sharey=True)
+    kw_liq = dict(color="C0", lw=1.5, alpha=0.55, label="líquido (φ=0)")
+    kw_gas = dict(color="C0", lw=2.2, label="bifásico")
+
+    def _seg_log(ax, x, *args, **kw):
+        ax.semilogx(x[:ij], z[:ij], *args, **kw)
+        ax.semilogx(x[ij:], z[ij:], *args, **kw)
+
+    _seg_log(axs[0], Y[:, 0], **kw_liq)
+    _seg_log(axs[0], Y[:, 0], **kw_gas)
+    axs[0].set_xlabel("Presión (Pa)")
+    axs[0].set_ylabel("Profundidad z (m)")
+
+    axs[1].plot(Y[:ij, 1], z[:ij], **kw_liq)
+    axs[1].plot(Y[ij:, 1], z[ij:], color="C1", lw=2.2, label="φ (equilibrio ~P)")
+    axs[1].set_xlabel("Fracción gas φ")
+    axs[1].axvline(limphi1, color="gray", ls=":", lw=1)
+    axs[1].axvline(phicrit, color="k", ls="--", lw=1)
+    axs[1].set_xlim(left=0)
+
+    _seg_log(axs[2], Y[:, 4], color="C0", lw=2, label="u_m")
+    _seg_log(axs[2], Y[:, 5], color="C1", ls="--", lw=2, label="u_g")
+    axs[2].set_xlabel("Velocidad (m/s)")
+
+    axs[3].plot(Y[:ij, 2], z[:ij], **kw_liq)
+    axs[3].plot(Y[ij:, 2], z[ij:], color="C3", lw=2)
+    axs[3].set_xlabel("N_d (1/m³)")
+    axs[3].ticklabel_format(axis="x", style="sci", scilimits=(0, 0))
+
+    x_lo, x_hi = float(np.min(Y[:, 3])), float(np.max(Y[:, 3]))
+    axs[4].plot(Y[:ij, 3], z[:ij], **kw_liq)
+    axs[4].plot(Y[ij:, 3], z[ij:], color="C4", lw=2)
+    axs[4].set_xlabel("Contenido cristal x")
+    axs[4].set_xlim(max(0, x_lo - 0.05), min(1.0, x_hi + 0.05))
+
+    _seg_log(axs[5], visc_z, color="C5", lw=2)
+    axs[5].set_xlabel("Viscosidad (Pa·s)")
+
+    for ax in axs:
+        ax.axhline(z_sat, color="0.5", ls=":", lw=0.9)
+        ax.grid(True, alpha=0.3)
+
+    axs[2].legend(fontsize=8, loc="lower left")
+    axs[1].legend(fontsize=8, loc="lower left")
+    fig.suptitle(title, fontsize=13, y=1.02)
+    fig.text(
+        0.5,
+        0.01,
+        f"Línea punteada horizontal: inicio desgasificación (z ≈ {z_sat:.0f} m). "
+        "Tramo líquido y bifásico no se unen a propósito (evita el “escalón” visual).",
+        ha="center",
+        fontsize=9,
+        color="0.35",
+    )
+    plt.tight_layout(rect=(0, 0.03, 1, 0.98))
+    return fig, axs, z, Y, ij
 
 
 def momenteq1(t, y):
