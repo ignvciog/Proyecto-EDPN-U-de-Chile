@@ -88,6 +88,8 @@ python3 test_march_1d.py          # prueba corta (un tramo en z)
 python3 run_conduit_march.py      # caso Calbuco completo (más lento que IDA)
 ```
 
+O abrir el notebook **`mainconduit5_5_march.ipynb`** (perfiles + tramo opcional para tareas).
+
 ```python
 from calbuco2015d import radius1, overP1, h2o1, T1, xi1
 from RIconduitex5_5_march import RIconduitex5_5_march_f
