@@ -1,5 +1,13 @@
+import math
+
 import numpy as np
-from scipy.special import erf 
+
+
+def _erf(x):
+    """error function (math.erf; no scipy required for em2s / Calbuco)."""
+    if isinstance(x, np.ndarray):
+        return np.vectorize(math.erf)(x)
+    return math.erf(float(x))
 
 def fvrel(model, cx, cxi, ar1, ar2, cmax, sr):
     """
@@ -41,7 +49,7 @@ def fvrel(model, cx, cxi, ar1, ar2, cmax, sr):
 
         f1 = 1 + (cx / phimax) ** delta
         f2 = 1 + (cx / phimax) ** gamma
-        f3 = alpha * erf(np.sqrt(np.pi) * cx * f2 / (2 * alpha * phimax))
+        f3 = alpha * _erf(np.sqrt(np.pi) * cx * f2 / (2 * alpha * phimax))
         relvisc = f1 / ((1 - f3) ** (2.5 * phimax))
 
     elif model == 'costa09v11':
@@ -52,7 +60,7 @@ def fvrel(model, cx, cxi, ar1, ar2, cmax, sr):
 
         f1 = 1 + (cx / phimax) ** delta
         f2 = 1 + (cx / phimax) ** gamma
-        f3 = alpha * erf(np.sqrt(np.pi) * cx * f2 / (2 * alpha * phimax))
+        f3 = alpha * _erf(np.sqrt(np.pi) * cx * f2 / (2 * alpha * phimax))
         relvisc = f1 / ((1 - f3) ** (2.5 * phimax))
 
     else:

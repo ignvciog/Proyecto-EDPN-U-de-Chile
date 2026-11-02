@@ -28,6 +28,9 @@ Codigo Python/
 ├── fvrel.py                           ← viscosidad relativa (cristales/burbujas)
 │
 ├── RIconduitex5_5.py                  ← solver 1D estacionario (IDA / scikits.odes)
+├── RIconduitex5_5_march.py            ← mismo 1D estacionario, marcha RK4 (sin IDA)
+├── run_conduit_march.py               ← script Calbuco para la variante sin IDA
+├── requirements-simple.txt            ← numpy + matplotlib (variante march)
 ├── RIconduit1D_transient.py           ← solver 1D transiente (MOL + IMEX)
 ├── RIconduit2D_FD.py                  ← solver 2D axisimétrico (FD radial)
 ├── RIconduit1D_chamber.py             ← extensión con cámara (si aplica)
@@ -74,6 +77,27 @@ pip install -r requirements.txt
 ```
 
 > El modelo **estacionario** usa `scikits.odes` (solver IDA). El **transiente** y el **2D** solo requieren `numpy` y `matplotlib`.
+
+### Variante estacionaria sin IDA (solo numpy)
+
+Para tareas o entornos donde no se quiera instalar `scikit-odes`, existe **`RIconduitex5_5_march.py`**: misma física y método de tiro que `RIconduitex5_5.py`, pero la marcha en profundidad \(z\) usa **RK4 con paso adaptativo** (método de líneas / diferencias finitas en \(z\)). Las velocidades \(u_m, u_g\) se cierran por **conservación de masa** (como variables algebraicas del DAE original).
+
+```bash
+pip install -r requirements-simple.txt
+python3 test_march_1d.py          # prueba corta (un tramo en z)
+python3 run_conduit_march.py      # caso Calbuco completo (más lento que IDA)
+```
+
+```python
+from calbuco2015d import radius1, overP1, h2o1, T1, xi1
+from RIconduitex5_5_march import RIconduitex5_5_march_f
+
+zsol, sol, count, vinicial, *_ = RIconduitex5_5_march_f(
+    radius1, overP1, h2o1, T1, xi1
+)
+```
+
+**Notas:** no requiere SciPy ni `scikits.odes` (`fvrel.py` usa `math.erf`). Los perfiles pueden diferir levemente del solver IDA en tramos muy burbujeantes (\(\varphi\) grande); para reproducibilidad estricta del paper use la versión con IDA.
 
 ---
 

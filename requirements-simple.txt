@@ -1,0 +1,3 @@
+# Conducto 1D con RIconduitex5_5_march.py (sin scikits.odes / IDA)
+numpy>=1.20
+matplotlib>=3.5
