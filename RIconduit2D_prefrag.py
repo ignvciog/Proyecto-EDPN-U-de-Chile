@@ -103,10 +103,6 @@ C_J4 = 3.0 * CD / (8.0 * RA)  # 300 m^{-1}
 # fragmentado, los de Castruccio et al. (2025).
 SIGMA = 0.1
 C_GW = 0.01
-# Corte del fundido ya fragmentado. μ del fundido (~10^5 Pa·s) a escala del
-# conducto frena el núcleo contra la pared. Este valor solo regulariza la
-# capa junto a la pared.
-MU_PIRO = 8.0e3
 CS = math.sqrt(RV * T_GAS)
 PRES = 2.5e4  # escala de ∂P/∂z, Pa/m, solo para adimensionalizar el resbalamiento
 
@@ -259,7 +255,10 @@ def _mu_nodo(P, phi, xi, Nd, gdot, phicrit=0.75, fragmentado=False):
     return max(float(factor) * vis, 1.0)
 
 
-def viscosidad(P, phi, xi, umz, Nd, dr, phicrit, u_prev=None, h=None, fragmentado=False):
+def viscosidad(P, phi, xi, umz, Nd, dr, phicrit, u_prev=None, h=None, fragmentado=False, mu_final=None):
+    """Después de fragmentar, μ del fundido es el perfil de ese nivel, como ξ."""
+    if fragmentado and mu_final is not None:
+        return np.asarray(mu_final, dtype=float).copy()
     gdot = _corte(umz, dr, u_prev, h)
     return np.array([
         _mu_nodo(
@@ -605,18 +604,12 @@ def residual_bifasico(y, prev, h, mu, s0z, s0r, prev2, h_prev, fragmentado, umb,
     dPdz = (P - prev["P"]) / h
     adv_mz = umz * (umz - prev["umz"]) / h + _adveccion_radial(umr_n, umz, r)
     adv_gz = ugz * (ugz - prev["ugz"]) / h + _adveccion_radial(ugr_n, ugz, r)
-    # Después de fragmentar el fundido son piroclastos. μ del fundido a
-    # escala del conducto (~10^5 Pa·s) reparte el núcleo rápido hacia la
-    # pared y u_z baja. Se deja solo lo necesario para la capa de la pared;
-    # el arrastre entre fases queda, y la viscosidad del gas sigue en su laplaciano.
+    # Después de fragmentar μ del fundido es el perfil guardado en ese nivel.
+    # (1-φ) sigue pesando el esfuerzo, porque es la fracción de fundido.
     mu_g = MU_G * np.maximum(phi, 0.0)
     mu_g0 = MU_G * np.maximum(prev["phi"], 0.0)
-    if fragmentado:
-        mu_m = np.full_like(phi, MU_PIRO) * (1.0 - phi)
-        mu_m0 = np.full_like(prev["phi"], MU_PIRO) * (1.0 - prev["phi"])
-    else:
-        mu_m = mu * (1.0 - phi)
-        mu_m0 = prev["mu"] * (1.0 - prev["phi"])
+    mu_m = mu * (1.0 - phi)
+    mu_m0 = prev["mu"] * (1.0 - prev["phi"])
     if prev2 is None:
         um2 = ug2 = None
         mu_m2 = mu_g2 = None
@@ -624,10 +617,7 @@ def residual_bifasico(y, prev, h, mu, s0z, s0r, prev2, h_prev, fragmentado, umb,
         um2 = prev2["umz"]
         ug2 = prev2["ugz"]
         mu_g2 = MU_G * np.maximum(prev2["phi"], 0.0)
-        if fragmentado:
-            mu_m2 = np.full_like(prev2["phi"], MU_PIRO) * (1.0 - prev2["phi"])
-        else:
-            mu_m2 = prev2["mu"] * (1.0 - prev2["phi"])
+        mu_m2 = prev2["mu"] * (1.0 - prev2["phi"])
     # τ = 2μ e. El cortante radial de u_z lleva ∂u_r/∂z; la extensión axial lleva 2μ.
     dur_dz_m = (umr - prev["umr"]) / h
     dur_dz_g = (ugr - prev["ugr"]) / h
@@ -665,10 +655,7 @@ def residual_bifasico(y, prev, h, mu, s0z, s0r, prev2, h_prev, fragmentado, umb,
     umz_f = 0.5 * (umz[:-1] + umz[1:])
     ugz_f = 0.5 * (ugz[:-1] + ugz[1:])
     dPdr = (P[1:] - P[:-1]) / dr
-    if fragmentado:
-        mu_mf = np.full_like(phi_f, MU_PIRO) * (1.0 - phi_f)
-    else:
-        mu_mf = mu_f * (1.0 - phi_f)
+    mu_mf = mu_f * (1.0 - phi_f)
     mu_gf = MU_G * np.maximum(phi_f, 0.0)
     mu_mf0 = 0.5 * (mu_m0[:-1] + mu_m0[1:])
     mu_gf0 = 0.5 * (mu_g0[:-1] + mu_g0[1:])
@@ -679,10 +666,7 @@ def residual_bifasico(y, prev, h, mu, s0z, s0r, prev2, h_prev, fragmentado, umb,
         ur2 = prev2["umr"]
         ugr2 = prev2["ugr"]
         mu_g2f = MU_G * np.maximum(prev2["phi"], 0.0)
-        if fragmentado:
-            mu_m2f = np.full_like(prev2["phi"], MU_PIRO) * (1.0 - prev2["phi"])
-        else:
-            mu_m2f = prev2["mu"] * (1.0 - prev2["phi"])
+        mu_m2f = prev2["mu"] * (1.0 - prev2["phi"])
         mu_mf2 = 0.5 * (mu_m2f[:-1] + mu_m2f[1:])
         mu_gf2 = 0.5 * (mu_g2f[:-1] + mu_g2f[1:])
     # Extensión radial con 2μ. ∂z(μ ∂u_r/∂z) queda con coeficiente 1, y se suma ∂z(μ ∂u_z/∂r).
@@ -1011,9 +995,10 @@ def _paso_bifasico(prev, prev2, h, h_prev, fragmentado, umb):
         guess = _semilla_fragmentacion(prev, h, umb)
     else:
         guess = _predecir(prev, prev2, h, fragmentado)
+    mu_final = prev.get("mu_final")
     mu = viscosidad(
         guess["P"], guess["phi"], guess["xi"], guess["umz"], guess["N"],
-        prev["dr"], umb["phicrit"], prev["umz"], h, fragmentado,
+        prev["dr"], umb["phicrit"], prev["umz"], h, fragmentado, mu_final,
     )
     s0z, s0r = _escalas(guess, mu, umb)
     n = prev["r"].size
@@ -1067,7 +1052,10 @@ def _paso_bifasico(prev, prev2, h, h_prev, fragmentado, umb):
             "P": P, "phi": phi, "umz": umz, "ugz": ugz, "umr": umr, "ugr": ugr,
             "xi": xi, "N": Nd, "fragmentado": fragmentado,
         })
-        mu = viscosidad(P, phi, xi, umz, Nd, prev["dr"], umb["phicrit"], prev["umz"], h, fragmentado)
+        mu = viscosidad(
+            P, phi, xi, umz, Nd, prev["dr"], umb["phicrit"], prev["umz"], h,
+            fragmentado, mu_final,
+        )
         s0z, s0r = _escalas(guess, mu, umb)
         y = np.minimum(np.maximum(_empaquetar(guess, s0z, s0r), lo + 1.0e-14), hi - 1.0e-14)
         if sol.cost < 1.0e-4:
@@ -1093,6 +1081,10 @@ def _paso_bifasico(prev, prev2, h, h_prev, fragmentado, umb):
         nuevo["xi_final"] = np.asarray(
             prev["xi_final"] if "xi_final" in prev else prev["xi"], dtype=float,
         ).copy()
+        nuevo["mu_final"] = np.asarray(
+            prev["mu_final"] if "mu_final" in prev else prev["mu"], dtype=float,
+        ).copy()
+        nuevo["mu"] = nuevo["mu_final"].copy()
     return nuevo, float(sol.cost)
 
 
@@ -1180,6 +1172,9 @@ def _estado_de(ruta, pref):
     st["z"] = float(st["z"])
     st["dr"] = float(st["dr"])
     st["fragmentado"] = False
+    clave = f"{pref}mu_final"
+    if clave in d.files:
+        st["mu_final"] = np.array(d[clave], dtype=float)
     return st, float(np.asarray(d["z_sat"]).reshape(-1)[0]), float(np.asarray(d["z_f"]).reshape(-1)[0])
 
 
@@ -1258,9 +1253,11 @@ def marchar_columna(vin=15.5, n_r=13, h_liq=40.0, umb=None, reanudar=None, parci
             # 40 m salta el punto sónico.
             h = 16.0
             st["xi_final"] = np.asarray(st["xi"], dtype=float).copy()
+            st["mu_final"] = np.asarray(st["mu"], dtype=float).copy()
             print(
                 f"z_f {z_f:.2f}  phi {float(np.max(st['phi'])):.4f}  "
-                f"xi_final {float(st['xi_final'][0]):.6f}",
+                f"xi_final {float(st['xi_final'][0]):.6f}  "
+                f"mu_final {float(st['mu_final'][0]):.4e}",
                 flush=True,
             )
             _guardar_estado(st, prev2, False, z_f, z_sat)
@@ -1411,6 +1408,10 @@ def _guardar_estado(st, prev2, fragmentado, z_f, z_sat):
     datos["fragmentado"] = np.array([1.0 if fragmentado else 0.0])
     datos["z_f"] = np.array([-1.0 if z_f is None else z_f])
     datos["z_sat"] = np.array([z_sat])
+    if "mu_final" in st:
+        datos["s_mu_final"] = np.asarray(st["mu_final"])
+    if "mu_final" in prev2:
+        datos["p_mu_final"] = np.asarray(prev2["mu_final"])
     np.savez(_ruta_salida("conducto_estado.npz"), **datos)
 
 
