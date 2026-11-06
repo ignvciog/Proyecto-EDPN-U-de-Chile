@@ -1,0 +1,37 @@
+Modelo 2D de la columna, en el estado actual.
+
+Estos seis archivos tienen que estar en la misma carpeta:
+
+  RIconduit2D_prefrag.py    la marcha bifásica, de la base a la boca
+  RIconduit2D_sinbub.py     el tramo líquido, hasta la saturación
+  calbuco2015d.py           parámetros del Calbuco 2015
+  density.py                densidad del fundido
+  viscosity.py              viscosidad del fundido
+  fvrel.py                  viscosidad relativa por cristales
+
+Instalación, una vez:
+
+  python -m pip install -r requirements.txt
+
+Correr la columna con v_in = 15.5 m/s y 13 radios:
+
+  python RIconduit2D_prefrag.py
+
+Otra velocidad de entrada, por ejemplo la del caso 1D:
+
+  python -c "import RIconduit2D_prefrag as M; M.evaluar_vin(14.336, n_r=13)"
+
+Los perfiles del eje, la figura y el último estado quedan en la carpeta
+salida/, al lado de estos archivos:
+
+  salida/conducto_fd.png
+  salida/conducto_fd_parcial.npz
+  salida/conducto_estado.npz
+
+Para guardar en otra carpeta:
+
+  export CONDUIT_SALIDA=/ruta/que/quieras          Linux o macOS
+  set CONDUIT_SALIDA=C:\ruta\que\quieras           Windows, cmd
+
+La marcha de los 7 km no es inmediata. El tramo líquido termina rápido.
+El tramo con gas, y sobre todo el cruce de la fragmentación, es el lento.
