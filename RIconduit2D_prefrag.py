@@ -315,8 +315,10 @@ def _C_fases(phi, rb, mu, mu_liq, um, rho_g, speed, fragmentado, phi_regimen=Non
     pper = _phi_per(Ca)
     stokes = 4.5 * mu / rb ** 2
     Re = 2.0 * rb * rho_g * speed_f / MU_G
-    # El piso evita k = 0 justo en φ_per, donde el peso todavía es el de Stokes.
-    kper = 0.125 * np.maximum(reg - pper, 1.0e-3) ** 2.1
+    # 0.125 (φ-φ_per)^2.1 es adimensional. El 1D lo multiplica por r_b^2,
+    # que es lo que da k en m^2 (Blower, Degruyter). Sin ese factor el
+    # arrastre se apaga y el paso no cierra.
+    kper = 0.125 * rb ** 2 * np.maximum(reg - pper, 1.0e-3) ** 2.1
     darcy = MU_G / np.maximum(kper, 1.0e-30)
     inercial = 0.33 * rho_g * speed_f / (4.0 * rb)
     perm = np.where(Re > 2200.0, inercial, darcy)
@@ -1054,7 +1056,7 @@ def _paso_bifasico(prev, prev2, h, h_prev, fragmentado, umb):
             # con el régimen del paso anterior y recién al final queda el φ real.
             y = y_aqui
             for peso in (0.0, 0.5, 1.0):
-                sol = _resolver(y, mu, s0z, s0r, peso, max(80, 3 * y.size))
+                sol = _resolver(y, mu, s0z, s0r, peso, max(500, 12 * y.size))
                 y = np.minimum(np.maximum(sol.x, lo + 1.0e-14), hi - 1.0e-14)
                 print(f"  continuación peso={peso:.1f} costo={sol.cost:.3e}", flush=True)
         else:
@@ -1305,7 +1307,8 @@ def marchar_columna(vin=15.5, n_r=13, h_liq=40.0, umb=None, reanudar=None, parci
             )
             h = max(h_uso * 0.5, 4.0)
             continue
-        en_empalme = (not fragmentado) and float(np.max(st["phi"])) >= umb["phi1"] - 0.03
+        # φ_per(Ca) puede quedar en 0.15, antes del φ1 fijo del umbral viejo.
+        en_empalme = (not fragmentado) and float(np.max(st["phi"])) >= 0.12
         if feo and (not fragmentado) and (not en_empalme) and h_uso < _h_max(st["phi"], fragmentado, umb["phicrit"]) - 1.0e-9:
             print(
                 f"reintento z={st['z']:.2f} h={h_uso:.3f} costo={costo:.2e} "
@@ -1315,10 +1318,10 @@ def marchar_columna(vin=15.5, n_r=13, h_liq=40.0, umb=None, reanudar=None, parci
             h = min(_h_max(st["phi"], fragmentado, umb["phicrit"]), max(h_uso * 1.25, h_uso + 2.0))
             continue
         if (
-            feo and en_empalme and finos < 4 and h_uso > 2.0 + 1.0e-9
+            feo and en_empalme and finos < 6 and h_uso > 1.0 + 1.0e-9
         ):
             finos += 1
-            h_fino = max(h_uso * 0.5, 2.0)
+            h_fino = max(h_uso * 0.5, 1.0)
             print(
                 f"reintento fino z={st['z']:.2f} h={h_uso:.3f}->{h_fino:.3f} "
                 f"costo={costo:.2e} |ur|={ur_max:.3e}",
