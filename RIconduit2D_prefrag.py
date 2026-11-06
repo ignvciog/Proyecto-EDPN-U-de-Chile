@@ -99,6 +99,10 @@ MU_G = 1.0e-5
 RA = 1.0e-3
 CD = 0.8
 C_J4 = 3.0 * CD / (8.0 * RA)  # 300 m^{-1}
+# Tensión superficial líquido–burbuja y coeficiente de la pared del gas
+# fragmentado, los de Castruccio et al. (2025).
+SIGMA = 0.1
+C_GW = 0.01
 # Corte del fundido ya fragmentado. μ del fundido (~10^5 Pa·s) a escala del
 # conducto frena el núcleo contra la pared. Este valor solo regulariza la
 # capa junto a la pared.
@@ -266,6 +270,61 @@ def viscosidad(P, phi, xi, umz, Nd, dr, phicrit, u_prev=None, h=None, fragmentad
     ])
 
 
+def _phi_per(Ca):
+    """Umbral de permeabilidad. Ca chico → 0.4; Ca grande → 0.15."""
+    Ca = np.maximum(np.asarray(Ca, dtype=float), 1.0e-30)
+    return -0.125 * erf(np.log10(Ca)) + 0.275
+
+
+def _mu_sin_burbujas(P, xi, gdot):
+    """Viscosidad del líquido con cristales, sin el factor de las burbujas."""
+    P = np.asarray(P, dtype=float)
+    xi = np.asarray(xi, dtype=float)
+    gdot = np.maximum(np.asarray(gdot, dtype=float), 1.0e-3)
+    salida = np.empty(P.size)
+    for i in range(P.size):
+        h2o = float(C1 * max(float(P[i]), 1.0e4) ** beta * 100.0)
+        vis = float(viscosity(
+            sio2, tio2, al2o3, feo, mno, mgo, cao, na2o, k2o, p2o5, h2o, f2o, Tc1,
+        ))
+        vis *= float(fvrel(model, float(xi[i]), XI0, ar1, ar2, xmax, float(gdot[i])))
+        salida[i] = max(vis, 1.0)
+    return salida
+
+
+def _C_fases(phi, rb, mu, mu_liq, um, rho_g, speed, fragmentado, phi_regimen=None):
+    """C tal que F = C (u_g - u_m).
+
+    Antes de fragmentar: Stokes con μ(Ca), y al pasar φ_per(Ca) la
+    permeabilidad de Darcy o la inercial. Después: arrastre de fragmentos
+    con r_p = 1 mm y C_pg = 0.8, el factor 300 m^{-1}.
+    """
+    phi = np.clip(np.asarray(phi, dtype=float), 0.0, 0.98)
+    reg = phi if phi_regimen is None else np.clip(np.asarray(phi_regimen, dtype=float), 0.0, 0.98)
+    rb = np.maximum(np.asarray(rb, dtype=float), 1.0e-8)
+    mu = np.maximum(np.asarray(mu, dtype=float), 1.0)
+    mu_liq = np.maximum(np.asarray(mu_liq, dtype=float), 1.0)
+    um = np.abs(np.asarray(um, dtype=float))
+    rho_g = np.maximum(np.asarray(rho_g, dtype=float), 1.0e-6)
+    speed = np.maximum(np.asarray(speed, dtype=float), 0.0)
+    fac = phi * (1.0 - phi)
+    speed_f = np.maximum(speed, 1.0e-8)
+    if fragmentado:
+        return np.where(phi < 1.0e-8, 0.0, C_J4 * rho_g * speed_f * fac)
+    Ca = rb * mu_liq * um / (SIGMA * R_COND)
+    pper = _phi_per(Ca)
+    stokes = 4.5 * mu / rb ** 2
+    Re = 2.0 * rb * rho_g * speed_f / MU_G
+    # El piso evita k = 0 justo en φ_per, donde el peso todavía es el de Stokes.
+    kper = 0.125 * np.maximum(reg - pper, 1.0e-3) ** 2.1
+    darcy = MU_G / np.maximum(kper, 1.0e-30)
+    inercial = 0.33 * rho_g * speed_f / (4.0 * rb)
+    perm = np.where(Re > 2200.0, inercial, darcy)
+    s = _suave((reg - pper) / 0.05)
+    base = np.maximum(perm, 1.0e-30) ** s * np.maximum(stokes, 1.0e-30) ** (1.0 - s)
+    return np.where(phi < 1.0e-8, 0.0, base * fac)
+
+
 def coef_arrastre(phi, rb, mu, rho_g, speed, phi1, phi2, phicrit, phi_regimen=None):
     """C tal que F = C (u_g - u_m), con el régimen que pide el φ local.
 
@@ -411,8 +470,10 @@ def _aplicar_pared(um_int, ug_int, fragmentado):
     umz[:-1] = um_int
     ugz[:-1] = ug_int
     if fragmentado:
+        # El fundido no se frena. El gas tampoco va a cero: la pared entra
+        # como tensión, no como Dirichlet.
         umz[-1] = umz[-2]
-        ugz[-1] = 0.0
+        ugz[-1] = ugz[-2]
     else:
         umz[-1] = 0.0
         ugz[-1] = ugz[-2]
@@ -524,15 +585,18 @@ def residual_bifasico(y, prev, h, mu, s0z, s0r, prev2, h_prev, fragmentado, umb,
     reg_f = 0.5 * (reg[:-1] + reg[1:])
     speed_z = np.sqrt(slip_z ** 2 + slip_r_n ** 2)
     rb = _radio_burbuja(phi, Nd)
-    Cz = coef_arrastre(
-        phi, rb, mu, rho_g, speed_z, umb["phi1"], umb["phi2"], umb["phicrit"], reg,
+    gdot = _corte(umz, dr, prev["umz"], h)
+    mu_liq = _mu_sin_burbujas(P, xi, gdot)
+    mu_liq_f = 0.5 * (mu_liq[:-1] + mu_liq[1:])
+    umz_f_c = 0.5 * (umz[:-1] + umz[1:])
+    Cz = _C_fases(
+        phi, rb, mu, mu_liq, umz, rho_g, speed_z, fragmentado, reg,
     )
     Fz = Cz * slip_z
     slip_r_speed = np.sqrt((0.5 * (slip_z[:-1] + slip_z[1:])) ** 2 + slip_r ** 2)
     rb_f = _radio_burbuja(phi_f, 0.5 * (Nd[:-1] + Nd[1:]))
-    Cr = coef_arrastre(
-        phi_f, rb_f, mu_f, rho_gf, slip_r_speed,
-        umb["phi1"], umb["phi2"], umb["phicrit"], reg_f,
+    Cr = _C_fases(
+        phi_f, rb_f, mu_f, mu_liq_f, umz_f_c, rho_gf, slip_r_speed, fragmentado, reg_f,
     )
     Fr = Cr * slip_r
 
@@ -571,14 +635,30 @@ def residual_bifasico(y, prev, h, mu, s0z, s0r, prev2, h_prev, fragmentado, umb,
     lap_gz = _axial(
         _lap_uz(r, dr, mu_g, ugz, dur_dz_g), 2.0 * mu_g, ugz, prev["ugz"], 2.0 * mu_g0, ug2, h, h_prev,
     )
+    if fragmentado:
+        # La subcapa no cabe en la celda: el flujo de la cara r=R es la tensión
+        # de F_gw, no μ ∂u/∂r con u(R)=0.
+        u_s = float(ugz[-2])
+        tau_w = -(C_GW / 8.0) * float(rho_g[-2]) * abs(u_s) * u_s
+        r_h = 0.5 * (float(r[-2]) + float(r[-1]))
+        mu_h = 0.5 * (float(mu_g[-2]) + float(mu_g[-1]))
+        grad_w = (float(ugz[-1]) - float(ugz[-2])) / dr + float(dur_dz_g[-1])
+        flux_mol = r_h * mu_h * grad_w
+        flux_bc = float(r[-1]) * tau_w
+        lap_gz[-2] += (flux_bc - flux_mol) / (float(r[-2]) * dr)
+    # I = F antes y después. Antes de fragmentar se suma Γ u_m, el R_g u_m
+    # de la ecuación (15): +I en el fundido y −I en el gas.
+    Iz = Fz
+    if not fragmentado:
+        Iz = Iz + Gamma * umz
     mom_mz = (
         rho_m * (1.0 - phi) * adv_mz
         + (1.0 - phi) * dPdz
         + rho_m * (1.0 - phi) * g
-        - Fz
+        - Iz
         - lap_mz
     )
-    mom_gz = rho_g * phi * adv_gz + phi * dPdz + rho_g * phi * g + Fz - lap_gz
+    mom_gz = rho_g * phi * adv_gz + phi * dPdz + rho_g * phi * g + Iz - lap_gz
 
     umz_f = 0.5 * (umz[:-1] + umz[1:])
     ugz_f = 0.5 * (ugz[:-1] + ugz[1:])
@@ -615,16 +695,19 @@ def residual_bifasico(y, prev, h, mu, s0z, s0r, prev2, h_prev, fragmentado, umb,
     lap_gr = lap_gr + _dcorte_z(mu_gf, ugz, mu_gf0, prev["ugz"], dr, h_corte)
     dumr = _upwind_cara(umr, r)
     dugr = _upwind_cara(ugr, r)
+    Ir = Fr
+    if not fragmentado:
+        Ir = Ir + 0.5 * (Gamma[:-1] + Gamma[1:]) * umr
     mom_mr = (
         rho_mf * (1.0 - phi_f) * (umz_f * (umr - prev["umr"]) / h + umr * dumr)
         + (1.0 - phi_f) * dPdr
-        - Fr
+        - Ir
         - lap_mr
     )
     mom_gr = (
         rho_gf * phi_f * (ugz_f * (ugr - prev["ugr"]) / h + ugr * dugr)
         + phi_f * dPdr
-        + Fr
+        + Ir
         - lap_gr
     )
 
@@ -688,7 +771,12 @@ def _escalas(st, mu, umb):
     ugr_n = _ur_nodos(st["ugr"])
     speed = np.sqrt((st["ugz"] - st["umz"]) ** 2 + (ugr_n - umr_n) ** 2)
     rb = _radio_burbuja(st["phi"], st["N"])
-    C = coef_arrastre(st["phi"], rb, mu, rho_g, speed, umb["phi1"], umb["phi2"], umb["phicrit"])
+    gdot = _corte(st["umz"], float(st["dr"]))
+    mu_liq = _mu_sin_burbujas(st["P"], st["xi"], gdot)
+    C = _C_fases(
+        st["phi"], rb, mu, mu_liq, st["umz"], rho_g, speed,
+        bool(st.get("fragmentado", False)),
+    )
     s0z = PRES * np.maximum(st["phi"], 1.0e-6) / np.maximum(C, 1.0e-3)
     s0z = np.clip(s0z, 1.0e-12, 25.0)
     s0r = np.clip(0.5 * (s0z[:-1] + s0z[1:]), 1.0e-12, 25.0)
@@ -777,10 +865,7 @@ def _cierre_axial(P, phi, i, prev, h, umb):
         return None
     slip = ug - um
     rb = float(_radio_burbuja(np.array([phi]), np.array([Nd]))[0])
-    C = float(coef_arrastre(
-        np.array([phi]), np.array([rb]), np.array([1.0e4]), np.array([rho_g]),
-        np.array([abs(slip)]), umb["phi1"], umb["phi2"], umb["phicrit"],
-    )[0])
+    C = C_J4 * rho_g * abs(slip) * phi * (1.0 - phi)
     F = C * slip
     mom_m = (
         rho_m * (1.0 - phi) * um * (um - um0)
