@@ -27,8 +27,9 @@ Codigo Python/
 ├── viscosity.py                       ← viscosidad (Giordano et al.)
 ├── fvrel.py                           ← viscosidad relativa (cristales/burbujas)
 │
-├── RIconduitex5_5.py                  ← solver 1D estacionario (FD por defecto; IDA opcional)
-├── RIconduit1D_FD.py                  ← marcha 1D en diferencias finitas (sin scikits.odes)
+├── RIconduitex5_5.py                  ← solver 1D estacionario explosivo (FD por defecto; IDA opcional)
+├── RIconduitef5_5.py                  ← solver 1D estacionario efusivo (FD por defecto; IDA opcional)
+├── RIconduit1D_FD.py                  ← marcha 1D en diferencias finitas (ramas explosiva y efusiva)
 ├── RIconduit1D_transient.py           ← solver 1D transiente (MOL + IMEX)
 ├── RIconduit2D_FD.py                  ← solver 2D axisimétrico (FD radial)
 ├── RIconduit1D_chamber.py             ← extensión con cámara (si aplica)
@@ -90,11 +91,15 @@ Desde Python o Jupyter:
 from calbuco2015d import radius1, overP1, h2o1, T1, xi1
 from RIconduitex5_5 import RIconduitex5_5_f
 
-result = RIconduitex5_5_f(radius1, overP1, h2o1, T1, xi1)          # diferencias finitas
+result = RIconduitex5_5_f(radius1, overP1, h2o1, T1, xi1)          # explosiva, diferencias finitas
 # result = RIconduitex5_5_f(radius1, overP1, h2o1, T1, xi1, solver='ida')  # IDA, si hay scikits.odes
+
+from RIconduitef5_5 import RIconduitef5_5_f
+result_ef = RIconduitef5_5_f(radius1, overP1, h2o1, T1, xi1)       # efusiva (P≈Patm, sin fragmentar)
+# equivalente: RIconduit1D_FD_f(..., rama='efusiva')
 ```
 
-También se puede llamar directo a `RIconduit1D_FD_f`. Notebook recomendado (sin IDA): `mainconduit1D_FD.ipynb`. El original con IDA es `mainconduit5_5.ipynb`.
+También se puede llamar directo a `RIconduit1D_FD_f`. Notebook recomendado (sin IDA): `mainconduit1D_FD.ipynb` (ramas explosiva y efusiva). El original con IDA es `mainconduit5_5.ipynb`.
 
 ### 2. Modelo 1D transiente (estacionario → transiente)
 
@@ -200,7 +205,7 @@ Genera las figuras ejecutando los notebooks/scripts y cópialas a `Template-Pres
 |-----------|----------|
 | **Raíz** | `README.md`, `requirements.txt`, `.gitignore` |
 | **Parámetros y propiedades** | `calbuco2015d.py`, `density.py`, `viscosity.py`, `fvrel.py` |
-| **Solvers principales** | `RIconduitex5_5.py`, `RIconduit1D_FD.py`, `RIconduit1D_transient.py`, `RIconduit2D_FD.py` |
+| **Solvers principales** | `RIconduitex5_5.py`, `RIconduitef5_5.py`, `RIconduit1D_FD.py`, `RIconduit1D_transient.py`, `RIconduit2D_FD.py` |
 | **Scripts / notebooks** | `main_transient.py`, `mainconduit1D_FD.ipynb`, `mainconduit_transient_v3.ipynb`, `mainconduit5_7.ipynb`, `mainconduit5_5.ipynb` |
 | **Presentación** | `Template-Presentacion-dim/main.tex`, `example.tex`, `library.bib`, `template.tex`, `template_config.tex`, `copiar_imagenes.py` |
 | **Figuras** | `Template-Presentacion-dim/img/**` (todas las imágenes usadas en la presentación) |

@@ -11,7 +11,8 @@ Post-fragmentación: las mismas ecuaciones 2×2 de Kozono que usa IDA
 el gas se separa del fundido. Sin proyectar φ ni capar la velocidad.
 
 Marcha en z (cámara → boca) con RK4 y, si un paso se rompe, Euler implícito
-con Picard. El método de tiro sobre vinicial es el de RIconduitex5_5_f.
+con Picard. El método de tiro sobre vinicial es el de RIconduitex5_5_f
+(rama explosiva) o el de RIconduitef5_5_f (rama efusiva).
 
 La firma de retorno coincide con RIconduitex5_5_f para que los notebooks
 y el transiente no cambien.
@@ -705,10 +706,26 @@ def _postprocess(zsol, sol):
     return rbub, visctot
 
 
-def RIconduit1D_FD_f(radius, Pressure, wt, Temperature, content_crystal, verbose=True, max_shots=60):
+def RIconduit1D_FD_f(
+    radius,
+    Pressure,
+    wt,
+    Temperature,
+    content_crystal,
+    verbose=True,
+    max_shots=None,
+    rama="explosiva",
+):
     """
-    Estacionario 1D por diferencias finitas. Misma interfaz que RIconduitex5_5_f.
+    Estacionario 1D por diferencias finitas.
+
+    rama='explosiva' (default): tiro de RIconduitex5_5_f (boca sónica o
+    P≈Patm con fragmentación).
+    rama='efusiva': tiro de RIconduitef5_5_f (P≈Patm, z≈0, sin fragmentar).
     """
+    rama = str(rama).strip().lower()
+    if rama not in ("explosiva", "efusiva"):
+        raise ValueError("rama debe ser 'explosiva' o 'efusiva'")
     wr = float(radius)
     _G.clear()
     _G["wr"] = wr
@@ -746,8 +763,16 @@ def RIconduit1D_FD_f(radius, Pressure, wt, Temperature, content_crystal, verbose
         fgi = exi
         _G["rho_ti"] = Pi * _G["rho_m"] / (_G["rho_m"] * R * _G["T"] * fgi + Pi * (1.0 - fgi))
 
-    vinicial = 10.0
-    vmin, vmax = 0.1, 50.0
+    if rama == "efusiva":
+        vinicial = 0.1
+        vmin, vmax = 1e-5, 5.0
+        if max_shots is None:
+            max_shots = 50
+    else:
+        vinicial = 10.0
+        vmin, vmax = 0.1, 50.0
+        if max_shots is None:
+            max_shots = 60
     vsound = 0.99 * math.sqrt(R * _G["T"])
     count = 1
     converged = False
@@ -775,45 +800,67 @@ def RIconduit1D_FD_f(radius, Pressure, wt, Temperature, content_crystal, verbose
             best_dist = dist
             best = (zsol.copy(), sol.copy(), vinicial, count)
 
-        ok1 = zexit >= -5 and ((pexit >= pfinal and 0.95 * vsound < ugexit <= 1.05 * vsound) or (
-            abs(pexit - pfinal) < 0.05e5 and phiexit >= _G["phicrit"]
-        ))
-        ok2 = zexit >= -15 and abs(pexit - pfinal) < 1.5e5 and ugexit > 0.5
-        if ok1:
-            converged = True
-            if verbose:
-                print(">>> Solucion de tiro convergida.")
-            break
-        if ok2:
-            converged = True
-            if verbose:
-                print(">>> Solucion de tiro convergida (tolerancia relajada en P/z).")
-            break
-
-        v_shot = vinicial
-        if count > 20 and U_prev is not None:
-            f0 = P_prev - pfinal
-            f1 = pexit - pfinal
-            if abs(f1 - f0) > 1e2:
-                v_sec = v_shot - f1 * (v_shot - U_prev) / (f1 - f0)
-                if np.isfinite(v_sec):
-                    v_sec = float(np.clip(v_sec, vmin + 1e-4, vmax - 1e-4))
-                    if vmin < v_sec < vmax:
-                        vinicial = v_sec
-
-        if pexit < pfinal:
-            vmax = v_shot
-            if vinicial == v_shot:
+        if rama == "efusiva":
+            # RIconduitef5_5: P≈Patm, z≈0 y sin cruzar φ_crit.
+            ok_ef = (
+                (pfinal - 0.05e5) <= pexit <= (pfinal + 0.05e5)
+                and -2.0 < zexit <= 0.0
+                and phiexit <= _G["phicrit"]
+            )
+            if ok_ef:
+                converged = True
+                if verbose:
+                    print(">>> Solucion efusiva de tiro convergida.")
+                break
+            v_shot = vinicial
+            if (pexit < (pfinal - 0.01e5) or zexit < -2.0) or phiexit > _G["phicrit"]:
+                vmax = v_shot
+                vinicial = vmin + (vmax - vmin) / 2.0
+            elif pexit > (pfinal + 0.05e5) or zexit > 0.0:
+                vmin = v_shot
+                vinicial = vmin + (vmax - vmin) / 2.0
+            else:
                 vinicial = vmin + (vmax - vmin) / 2.0
         else:
-            if zexit < -5 or ugexit > 1.02 * vsound:
+            ok1 = zexit >= -5 and ((pexit >= pfinal and 0.95 * vsound < ugexit <= 1.05 * vsound) or (
+                abs(pexit - pfinal) < 0.05e5 and phiexit >= _G["phicrit"]
+            ))
+            ok2 = zexit >= -15 and abs(pexit - pfinal) < 1.5e5 and ugexit > 0.5
+            if ok1:
+                converged = True
+                if verbose:
+                    print(">>> Solucion de tiro convergida.")
+                break
+            if ok2:
+                converged = True
+                if verbose:
+                    print(">>> Solucion de tiro convergida (tolerancia relajada en P/z).")
+                break
+
+            v_shot = vinicial
+            if count > 20 and U_prev is not None:
+                f0 = P_prev - pfinal
+                f1 = pexit - pfinal
+                if abs(f1 - f0) > 1e2:
+                    v_sec = v_shot - f1 * (v_shot - U_prev) / (f1 - f0)
+                    if np.isfinite(v_sec):
+                        v_sec = float(np.clip(v_sec, vmin + 1e-4, vmax - 1e-4))
+                        if vmin < v_sec < vmax:
+                            vinicial = v_sec
+
+            if pexit < pfinal:
                 vmax = v_shot
                 if vinicial == v_shot:
                     vinicial = vmin + (vmax - vmin) / 2.0
-            elif ugexit <= 0.98 * vsound:
-                vmin = v_shot
-                if vinicial == v_shot:
-                    vinicial = vmin + (vmax - vmin) / 2.0
+            else:
+                if zexit < -5 or ugexit > 1.02 * vsound:
+                    vmax = v_shot
+                    if vinicial == v_shot:
+                        vinicial = vmin + (vmax - vmin) / 2.0
+                elif ugexit <= 0.98 * vsound:
+                    vmin = v_shot
+                    if vinicial == v_shot:
+                        vinicial = vmin + (vmax - vmin) / 2.0
 
         U_prev, P_prev = v_shot, pexit
         if verbose:
@@ -826,10 +873,17 @@ def RIconduit1D_FD_f(radius, Pressure, wt, Temperature, content_crystal, verbose
 
     if not converged:
         if verbose:
-            print(
-                "ADVERTENCIA: el metodo de tiro NO convergio. "
-                f"Ultima z={zexit:.1f} m, P={pexit:.3e} Pa, ug={ugexit:.3f} m/s."
-            )
+            if rama == "efusiva":
+                print(
+                    "No hay solución efusiva: no se alcanza P_atm sin fragmentar. "
+                    f"Ultima z={zexit:.1f} m, P={pexit:.3e} Pa, "
+                    f"phi={phiexit:.4f}, ug={ugexit:.3f} m/s."
+                )
+            else:
+                print(
+                    "ADVERTENCIA: el metodo de tiro NO convergio. "
+                    f"Ultima z={zexit:.1f} m, P={pexit:.3e} Pa, ug={ugexit:.3f} m/s."
+                )
         if best is not None and (zsol is None or abs(zsol[-1]) > 20.0):
             zsol, sol, vinicial, count = best[0], best[1], best[2], best[3]
 
