@@ -72,6 +72,145 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 _G = {}
 
+_VOLC_ATTRS = (
+    "C1",
+    "F1",
+    "F2",
+    "Fc",
+    "H",
+    "Patm",
+    "R",
+    "al2o3",
+    "ar1",
+    "ar2",
+    "beta",
+    "cao",
+    "f2o",
+    "feo",
+    "g",
+    "geometry",
+    "h2o1",
+    "k2o",
+    "limperh",
+    "limperl",
+    "linf",
+    "lsup",
+    "mgo",
+    "mno",
+    "model",
+    "na2o",
+    "overP1",
+    "p2o5",
+    "pfinal",
+    "radius1",
+    "rcrust",
+    "sio2",
+    "tcar",
+    "tio2",
+    "xi1",
+    "xmax",
+    "T1",
+    "Tc1",
+)
+
+_DEFAULTS = {name: globals()[name] for name in _VOLC_ATTRS if name in globals()}
+
+
+def _looks_like_volc(obj):
+    if obj is None or isinstance(obj, (int, float, np.generic)):
+        return False
+    return hasattr(obj, "sio2") or hasattr(obj, "radius1")
+
+
+def _volc_get(p, *names, default=None):
+    if p is None:
+        return default
+    for name in names:
+        if hasattr(p, name):
+            val = getattr(p, name)
+            if val is not None:
+                return val
+    return default
+
+
+def _apply_volc(params):
+    """Copia un archivo de datos de volcán a los globales del solver."""
+    if params is not None and hasattr(params, "LISTO") and params.LISTO is False:
+        raise ValueError(
+            "El archivo del volcán todavía tiene LISTO = False. "
+            "Rellenen los datos buscados y pongan LISTO = True."
+        )
+    g = globals()
+    for name in _VOLC_ATTRS:
+        if params is not None and hasattr(params, name):
+            val = getattr(params, name)
+        else:
+            val = _DEFAULTS.get(name, g.get(name))
+        if name == "model" and isinstance(val, str):
+            val = val.lower()
+        if val is not None:
+            g[name] = val
+
+    if params is None:
+        return
+
+    h2o = _volc_get(params, "h2o1", "h2o")
+    if h2o is not None:
+        h2o = float(h2o)
+        g["h2o1"] = h2o * 100.0 if h2o <= 1.0 else h2o
+
+    Tc = _volc_get(params, "Tc1", "Tc")
+    T = _volc_get(params, "T1", "T")
+    if T is not None:
+        T = float(T)
+        if T < 200.0:
+            g["Tc1"] = T
+            g["T1"] = T + 273.15
+        else:
+            g["T1"] = T
+            g["Tc1"] = T - 273.15
+    elif Tc is not None:
+        g["Tc1"] = float(Tc)
+        g["T1"] = float(Tc) + 273.15
+
+    xi = _volc_get(params, "xi1", "xi")
+    if xi is not None:
+        g["xi1"] = float(xi)
+
+    if hasattr(params, "pfinal") and params.pfinal is not None:
+        g["pfinal"] = float(params.pfinal)
+        g["Patm"] = float(_volc_get(params, "Patm", default=params.pfinal))
+
+
+def _extract_run_args(params, radius, Pressure, wt, Temperature, content_crystal):
+    if radius is None:
+        radius = radius1
+    if Pressure is None:
+        Pressure = overP1
+    if wt is None:
+        wt = h2o1
+    if Temperature is None:
+        Temperature = T1
+    if content_crystal is None:
+        content_crystal = xi1
+    missing = [
+        n
+        for n, v in (
+            ("radius1", radius),
+            ("overP1", Pressure),
+            ("h2o1", wt),
+            ("T1", Temperature),
+            ("xi1", content_crystal),
+        )
+        if v is None
+    ]
+    if missing:
+        raise ValueError(
+            "Faltan datos en el archivo del volcán: " + ", ".join(missing) + ". "
+            "Rellenen la plantilla y pongan LISTO = True."
+        )
+    return float(radius), float(Pressure), float(wt), float(Temperature), float(content_crystal)
+
 
 def _real(x, default=0.0):
     val = np.real(x)
@@ -708,24 +847,35 @@ def _postprocess(zsol, sol):
 
 def RIconduit1D_FD_f(
     radius,
-    Pressure,
-    wt,
-    Temperature,
-    content_crystal,
+    Pressure=None,
+    wt=None,
+    Temperature=None,
+    content_crystal=None,
     verbose=True,
     max_shots=None,
     rama="explosiva",
+    params=None,
 ):
     """
     Estacionario 1D por diferencias finitas.
 
-    rama='explosiva' (default): tiro de RIconduitex5_5_f (boca sónica o
-    P≈Patm con fragmentación).
+    Se puede llamar con un archivo de datos:
+        RIconduit1D_FD_f(datos.calbuco2015, rama='explosiva')
+    o con los cinco números, como antes.
+
+    rama='explosiva': tiro de RIconduitex5_5_f (boca sónica o P≈Patm con fragmentación).
     rama='efusiva': tiro de RIconduitef5_5_f (P≈Patm, z≈0, sin fragmentar).
     """
     rama = str(rama).strip().lower()
     if rama not in ("explosiva", "efusiva"):
         raise ValueError("rama debe ser 'explosiva' o 'efusiva'")
+    if _looks_like_volc(radius):
+        params = radius
+        radius = Pressure = wt = Temperature = content_crystal = None
+    _apply_volc(params)
+    radius, Pressure, wt, Temperature, content_crystal = _extract_run_args(
+        params, radius, Pressure, wt, Temperature, content_crystal
+    )
     wr = float(radius)
     _G.clear()
     _G["wr"] = wr
@@ -739,6 +889,7 @@ def RIconduit1D_FD_f(
     _G["fragcrit"] = 0.0
     _G["xfinal"] = float(content_crystal)
     _G["Nd_final"] = 1e8
+    _G["nombre"] = _volc_get(params, "nombre", default="")
 
     if model in ("em2s", "vona11"):
         phimax1 = 0.656 * np.exp(-(np.log10(ar1) ** 2) / (2.0 * (1.08 ** 2)))
@@ -764,13 +915,15 @@ def RIconduit1D_FD_f(
         _G["rho_ti"] = Pi * _G["rho_m"] / (_G["rho_m"] * R * _G["T"] * fgi + Pi * (1.0 - fgi))
 
     if rama == "efusiva":
-        vinicial = 0.1
-        vmin, vmax = 1e-5, 5.0
+        vinicial = float(_volc_get(params, "vinicialef", default=0.1))
+        vmin = float(_volc_get(params, "vminef", default=1e-5))
+        vmax = float(_volc_get(params, "vmaxef", default=5.0))
         if max_shots is None:
             max_shots = 50
     else:
-        vinicial = 10.0
-        vmin, vmax = 0.1, 50.0
+        vinicial = float(_volc_get(params, "vinicialex", default=10.0))
+        vmin = float(_volc_get(params, "vminex", default=0.1))
+        vmax = float(_volc_get(params, "vmaxex", default=50.0))
         if max_shots is None:
             max_shots = 60
     vsound = 0.99 * math.sqrt(R * _G["T"])

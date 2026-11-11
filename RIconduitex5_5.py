@@ -389,16 +389,18 @@ def solv(t0, tf, y0, yp0, atol, rtol, n, param, cond=None):
     return y_values, t_values
 
 #Función principal del programa
-def RIconduitex5_5_f(radius,Pressure, wt, Temperature, content_crystal, solver='fd'):
+def RIconduitex5_5_f(radius, Pressure=None, wt=None, Temperature=None, content_crystal=None, solver='fd', **kwargs):
     """
     Estacionario 1D. Por defecto usa diferencias finitas (sin scikits.odes).
     solver='ida' recupera el DAE original si scikits.odes está instalado.
+    Acepta un módulo de datos: RIconduitex5_5_f(datos.calbuco2015).
     """
     if solver != 'ida' or not HAS_IDA:
         if solver == 'ida' and not HAS_IDA:
             print("scikits.odes no está instalado; se usa el 1D en diferencias finitas.")
         from RIconduit1D_FD import RIconduit1D_FD_f
-        return RIconduit1D_FD_f(radius, Pressure, wt, Temperature, content_crystal)
+        kwargs.setdefault("rama", "explosiva")
+        return RIconduit1D_FD_f(radius, Pressure, wt, Temperature, content_crystal, **kwargs)
 
     global Nd, rho_m, vinicial, q, count, results, vinicial, Pi, limphi1, limphi2, phicrit, xfinal, n_eq, rho_ti
     global overP, wr, T, Tc, co, xi, h2o, cg, xmax, phimax1, phimax2, cA
