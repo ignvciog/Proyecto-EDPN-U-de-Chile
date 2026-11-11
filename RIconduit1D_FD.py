@@ -5,9 +5,10 @@ resuelto por diferencias finitas en z. Sin scikits.odes / IDA.
 Incógnitas diferenciales: P(z), φ(z), Nd(z), x(z).
 Incógnitas algebraicas: um(z), ug(z).
 
-Pre-fragmentación: HEM + EOS (equivalente al régimen impermeable um = ug).
-Post-fragmentación: Drift-Flux (Zuber–Findlay). El DAE 2×2 de Kozono lo
-trata IDA de forma implícita; en diferencias finitas explícitas es rígido.
+Pre-fragmentación: HEM + EOS (régimen impermeable, um = ug).
+Post-fragmentación: las mismas ecuaciones 2×2 de Kozono que usa IDA
+(n_eq = 4): φ es independiente de la EOS, um y ug salen de la masa, y
+el gas se separa del fundido. Sin proyectar φ ni capar la velocidad.
 
 Marcha en z (cámara → boca) con RK4 y, si un paso se rompe, Euler implícito
 con Picard. El método de tiro sobre vinicial es el de RIconduitex5_5_f.
@@ -220,29 +221,78 @@ def _rhs(y, n_eq):
         return None
 
     if n_eq == 4:
-        # Post-fragmentación: Drift-Flux (Zuber–Findlay), como el 1D transiente.
-        # El 2×2 de Kozono es sónico/singular para una marcha explícita.
+        # Kozono n_eq=4 (igual que momenteq1 en RIconduitex5_5).
+        # φ NO sigue la EOS: um y ug se despejan de la masa y se separan.
         x_use = _G["xfinal"]
-        phi_eos, fg = _phi_eq(P, x_use)
-        phi = max(phi_eos, _clip(phi, 1e-6, 0.99))
-        rho_g = P / (R * _G["T"])
-        rho_mix = _G["rho_m"] * (1.0 - phi) + rho_g * phi
-        rho_mix = max(rho_mix, _G["q"] / 350.0)
-        u_mix = _G["q"] / rho_mix
-        delta_rho = max(_G["rho_m"] - rho_g, 0.0)
-        v_slip = math.sqrt(max(4.0 * 2e-3 * delta_rho * g / max(3.0 * rho_g * 0.8, 1e-12), 0.0))
-        v_slip = min(v_slip, 200.0)
-        um = u_mix - phi * (rho_g / rho_mix) * v_slip
-        ug = u_mix + (1.0 - phi) * (_G["rho_m"] / rho_mix) * v_slip
-        Fgw = 0.01 * rho_mix * u_mix ** 2 / (4.0 * _G["wr"])
-        dpdz = -rho_mix * g - Fgw
-        epsP = max(abs(P) * 1e-6, 100.0)
-        phi_eps, _ = _phi_eq(P + epsP, x_use)
-        dphidz = (phi_eps - phi_eos) / epsP * dpdz
+        phi = _clip(phi, 1e-4, 0.985)
+        fg = _fg(P, x_use)
+        rho_g = max(P / (R * _G["T"]), 1e-6)
+        um = (1.0 - fg) * _G["q"] / (_G["rho_m"] * max(1.0 - phi, 1e-6))
+        ug = (fg * _G["q"] / (rho_g * phi)) if fg > 0.0 else um
+        um, ug = _real(um, 0.0), _real(ug, 0.0)
+        if not np.isfinite(um) or not np.isfinite(ug):
+            return None
+        if um <= 0.0 or ug <= 0.0:
+            return None
+
+        Nd_use = max(_real(_G.get("Nd_final", _G.get("Nd", 1.0)), 1.0), 1.0)
+        rb = _rb(phi, Nd_use)
+        ra, cd = 1e-3, 0.8
+        Fgw = 0.01 * rho_g * abs(ug) * ug / (4.0 * _G["wr"])
+        slip = ug - um
+        if phi < _G["phicrit"] + 0.05:
+            tt = _clip((phi - _G["phicrit"]) / 0.05, 0.0, 1.0)
+            Fmg = (
+                ((0.33 / (4.0 * max(rb, 1e-9))) ** (1.0 - tt))
+                * ((3.0 * cd / (8.0 * ra)) ** tt)
+                * rho_g
+                * abs(slip)
+                * slip
+                * phi
+                * (1.0 - phi)
+            )
+        else:
+            Fmg = 3.0 * cd * rho_g * abs(slip) * slip * phi * (1.0 - phi) / (8.0 * ra)
+        Fmg = _real(Fmg, 0.0)
+
+        test = (1.0 - _G["xi"]) * _G["co"] - (1.0 - x_use) * C1 * P ** beta
+        if test <= 0.0:
+            dfgdp = 0.0
+        else:
+            den = (_G["co"] * (1.0 - _G["xi"]) - (1.0 - _G["xmax"]) * C1 * Patm ** beta) + 1e-30
+            f2 = _rmax((_G["co"] * (1.0 - _G["xi"]) - (1.0 - x_use) * C1 * P ** beta) / den, 0.0)
+            xteo = _G["xi"] + (_G["xmax"] - _G["xi"]) * f2
+            f3 = _rmax(1.0 - x_use / max(xteo, 1e-10), 0.0)
+            dxdp = _rmax((_G["xmax"] - _G["xi"]) * f2 * f3 / tcar, 0.0)
+            dfgdp = (
+                -(-dxdp * C1 * P ** beta + (1.0 - x_use) * C1 * beta * P ** (beta - 1.0))
+                + ((_G["co"] * (1.0 - _G["xi"]) - (1.0 - x_use) * C1 * P ** beta)
+                   * C1 * beta * P ** (beta - 1.0))
+            ) / (1.0 - C1 * P ** beta) ** 2
+            dfgdp = _real(dfgdp, 0.0)
+
+        aco = rho_g * ug ** 2
+        bco = phi - (ug ** 2) * phi / (R * _G["T"]) + dfgdp * _G["q"] * ug
+        cco = _G["rho_m"] * um ** 2
+        dco = dfgdp * _G["q"] * um - (1.0 - phi)
+        eco = -_G["rho_m"] * (1.0 - phi) * 9.8 + Fmg
+        fco = rho_g * phi * 9.8 + Fmg + Fgw
+        det = aco * dco - bco * cco
+        if not np.isfinite(det) or abs(det) < 1e-18 * max(abs(aco * dco), 1.0):
+            return None
+        dphidz = (-eco * bco + dco * fco) / det
+        dpdz = (-eco * aco + fco * cco) / det
+        if not np.isfinite(dpdz) or not np.isfinite(dphidz):
+            return None
+        if abs(dphidz) > 2.0 or abs(dpdz) > 5e7:
+            return None
+        vsound = 0.99 * math.sqrt(R * _G["T"])
+        if ug > 1.2 * vsound or um > 1.2 * vsound:
+            return None
         return (
             np.array([_real(dpdz), _real(dphidz), 0.0, 0.0], dtype=float),
-            _real(um),
-            _real(ug),
+            um,
+            ug,
         )
 
     # Pre-fragmentación: HEM + EOS. El DAE 2×2 de Kozono es rígido para
@@ -299,10 +349,10 @@ def _sanitize(y, n_eq):
     out[2] = max(float(np.real(out[2])), 1.0)
     out[3] = _clip(out[3], _G["xi"], _G["xmax"])
     if n_eq == 4:
+        # φ es incógnita diferencial; no proyectar sobre la EOS
+        out[1] = _clip(out[1], 1e-4, 0.985)
         out[2] = _G.get("Nd_final", out[2])
         out[3] = _G.get("xfinal", out[3])
-        phi_eos, _ = _phi_eq(out[0], out[3])
-        out[1] = _clip(phi_eos, 1e-16, 0.99)
     else:
         phi_eos, _ = _phi_eq(out[0], out[3])
         out[1] = phi_eos
@@ -362,14 +412,17 @@ def _march_segment(z0, y0, n_eq, phi_stop, z_end=0.0, dz0=1.0):
     z_list = [float(z0)]
     sol_list = [_row(y, um, ug)]
 
-    dz_min = 5e-3
-    dz_max = 20.0
+    dz_min = 1e-3 if n_eq == 4 else 5e-3
+    dz_max = 2.0 if n_eq == 4 else 20.0
     dz = float(np.clip(abs(dz0), dz_min, dz_max))
     z = float(z0)
     n_steps = 0
+    vsound = 0.99 * math.sqrt(R * _G["T"])
 
     while z < z_end - 1e-9 and n_steps < 80000:
         if y[0] <= pfinal:
+            break
+        if n_eq == 4 and ug >= 1.02 * vsound:
             break
         if phi_stop is not None and y[1] >= phi_stop:
             break
@@ -401,7 +454,8 @@ def _march_segment(z0, y0, n_eq, phi_stop, z_end=0.0, dz0=1.0):
         sol_list.append(_row(y, um_new, ug_new))
         n_steps += 1
 
-        if dphi < 0.002 and dP_rel < 0.01:
+        um, ug = um_new, ug_new
+        if dphi < 0.002 and dP_rel < 0.01 and not (n_eq == 4 and ug > 0.8 * vsound):
             dz = min(dz * 1.25, dz_max)
         if not np.isfinite(y[0]) or not np.isfinite(y[1]):
             break
@@ -578,7 +632,7 @@ def _shot(vinicial, verbose=True):
     _G["Nd_final"] = float(sol[-1, 2])
     if Hi3 < 0.0 and Pi3 > pfinal and phini3 >= _G["phicrit"]:
         y0 = sol[-1, :4].copy()
-        z4, s4 = _march_segment(Hi3, y0, n_eq=4, phi_stop=None, dz0=0.25)
+        z4, s4 = _march_segment(Hi3, y0, n_eq=4, phi_stop=None, dz0=0.1)
         zsol, sol = _append(zsol, sol, z4, s4)
 
     zexit = float(zsol[-1])
