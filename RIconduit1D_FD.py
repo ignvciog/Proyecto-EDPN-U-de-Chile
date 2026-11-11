@@ -775,11 +775,6 @@ def _shot(vinicial, verbose=True):
         z4, s4 = _march_segment(Hi3, y0, n_eq=4, phi_stop=None, dz0=0.1)
         zsol, sol = _append(zsol, sol, z4, s4)
 
-    # Igual que RIconduitex5_5 al empacar n_eq=4: um, ug se reconstruyen
-    # con n = (co − C1 P^β)/(1 − C1 P^β), sin el factor (1−ξ). Eso es lo
-    # que se ve en las figuras de IDA (ug se separa apenas fragmenta).
-    sol = _pack_frag_velocities(sol)
-
     zexit = float(zsol[-1])
     pexit = float(sol[-1, 0])
     ugexit = float(sol[-1, 5])
@@ -792,27 +787,6 @@ def _shot(vinicial, verbose=True):
             f"Contenido de burbujas de salida: {phiexit}"
         )
     return zsol, sol, zexit, pexit, ugexit, phiexit
-
-
-def _pack_frag_velocities(sol):
-    """um, ug post-fragmentación como en RIconduitex5_5 (líneas 651–660)."""
-    out = np.array(sol, dtype=float, copy=True)
-    co = _G["co"]
-    q = _G["q"]
-    rho_m = _G["rho_m"]
-    T = _G["T"]
-    phicrit = _G["phicrit"]
-    for j in range(out.shape[0]):
-        if out[j, 1] < phicrit:
-            continue
-        P = max(float(out[j, 0]), 1e4)
-        phi = _clip(out[j, 1], 1e-6, 0.99)
-        test = co - C1 * P ** beta
-        n = 0.0 if test <= 0.0 else test / (1.0 - C1 * P ** beta)
-        rho_g = P / (R * T)
-        out[j, 4] = (1.0 - n) * q / (rho_m * max(1.0 - phi, 1e-9))
-        out[j, 5] = (n * q / (rho_g * max(phi, 1e-9))) if n > 0.0 else out[j, 4]
-    return out
 
 
 def _postprocess(zsol, sol):
