@@ -34,9 +34,10 @@ Codigo Python/
 ├── RIconduit1D_chamber.py             ← extensión con cámara (si aplica)
 │
 ├── main_transient.py                  ← script: estacionario → transiente + figuras
+├── mainconduit1D_FD.ipynb             ← notebook 1D estacionario (diferencias finitas)
 ├── mainconduit_transient_v3.ipynb     ← notebook transiente (recomendado)
 ├── mainconduit5_7.ipynb               ← notebook 2D
-├── mainconduit5_5.ipynb               ← notebook estacionario
+├── mainconduit5_5.ipynb               ← notebook estacionario (IDA, opcional)
 │
 └── Template-Presentacion-dim/         ← presentación Beamer (LaTeX)
     ├── main.tex                       ← documento principal (compilar este)
@@ -93,7 +94,7 @@ result = RIconduitex5_5_f(radius1, overP1, h2o1, T1, xi1)          # diferencias
 # result = RIconduitex5_5_f(radius1, overP1, h2o1, T1, xi1, solver='ida')  # IDA, si hay scikits.odes
 ```
 
-También se puede llamar directo a `RIconduit1D_FD_f`. O abrir `mainconduit5_5.ipynb`.
+También se puede llamar directo a `RIconduit1D_FD_f`. Notebook recomendado (sin IDA): `mainconduit1D_FD.ipynb`. El original con IDA es `mainconduit5_5.ipynb`.
 
 ### 2. Modelo 1D transiente (estacionario → transiente)
 
@@ -200,7 +201,7 @@ Genera las figuras ejecutando los notebooks/scripts y cópialas a `Template-Pres
 | **Raíz** | `README.md`, `requirements.txt`, `.gitignore` |
 | **Parámetros y propiedades** | `calbuco2015d.py`, `density.py`, `viscosity.py`, `fvrel.py` |
 | **Solvers principales** | `RIconduitex5_5.py`, `RIconduit1D_FD.py`, `RIconduit1D_transient.py`, `RIconduit2D_FD.py` |
-| **Scripts / notebooks** | `main_transient.py`, `mainconduit_transient_v3.ipynb`, `mainconduit5_7.ipynb`, `mainconduit5_5.ipynb` |
+| **Scripts / notebooks** | `main_transient.py`, `mainconduit1D_FD.ipynb`, `mainconduit_transient_v3.ipynb`, `mainconduit5_7.ipynb`, `mainconduit5_5.ipynb` |
 | **Presentación** | `Template-Presentacion-dim/main.tex`, `example.tex`, `library.bib`, `template.tex`, `template_config.tex`, `copiar_imagenes.py` |
 | **Figuras** | `Template-Presentacion-dim/img/**` (todas las imágenes usadas en la presentación) |
 
