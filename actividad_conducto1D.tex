@@ -1,0 +1,277 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\usepackage{amsmath,amssymb,bm}
+\usepackage{geometry}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{hyperref}
+\usepackage{setspace}
+
+\geometry{margin=2.2cm}
+\setlist[enumerate]{leftmargin=*, itemsep=0.25em}
+\setlist[itemize]{leftmargin=*, itemsep=0.2em}
+\hypersetup{colorlinks=true, linkcolor=black, urlcolor=blue}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  keywordstyle=\bfseries,
+  commentstyle=\itshape\color{black!50},
+  showstringspaces=false,
+  breaklines=true,
+  frame=single,
+  rulecolor=\color{black!20},
+  backgroundcolor=\color{black!3},
+  columns=fullflexible,
+  keepspaces=true,
+}
+
+\title{Actividad: estilo eruptivo con el conducto 1D estacionario}
+\author{MA-5307 --- Análisis numérico de EDP \\
+Departamento de Ingeniería Matemática, Universidad de Chile}
+\date{}
+
+\begin{document}
+\maketitle
+\thispagestyle{empty}
+
+\noindent
+Modelo de Kozono \& Koyaguchi (2009), marchado en diferencias finitas.
+\textbf{No hace falta} \texttt{scikits.odes}. Notebook:
+\texttt{actividad\_conducto1D.ipynb}.
+
+\section{Qué hay que hacer}
+
+\begin{enumerate}
+  \item \textbf{No editen} \texttt{RIconduit1D\_FD.py},
+        \texttt{RIconduitex5\_5.py} ni \texttt{RIconduitef5\_5.py}.
+  \item Los datos de cada volcán están en \texttt{datos/}.
+        Ahí sí pueden (y deben) escribir.
+  \item Abran \texttt{actividad\_conducto1D.ipynb} y ejecuten todas las celdas.
+        Comenten los gráficos en las celdas que dicen \emph{Comenten aquí}.
+  \item El caso estromboliano lo \textbf{buscan ustedes}: copian la plantilla,
+        rellenan y vuelven a correr.
+\end{enumerate}
+
+\section{Las dos ramas del tiro}
+
+El mismo sistema de ecuaciones se cierra de dos maneras.
+
+\begin{center}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.22\textwidth}
+                >{\raggedright\arraybackslash}p{0.48\textwidth}
+                >{\raggedright\arraybackslash}p{0.22\textwidth}@{}}
+\toprule
+\textbf{Rama} & \textbf{Qué pide en la boca} & \textbf{Típico de} \\
+\midrule
+explosiva
+  & gas sónico, o $P\approx P_{\mathrm{atm}}$ \textbf{con} fragmentación
+    ($\varphi\ge\varphi_{\mathrm{crit}}$)
+  & Pliniana / sub-Pliniana \\[0.6em]
+efusiva
+  & $P\approx P_{\mathrm{atm}}$ \textbf{sin} fragmentar
+    ($\varphi\le\varphi_{\mathrm{crit}}$)
+  & lava / domo \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{0.4em}
+Un mismo volcán puede tener solución explosiva, efusiva, \textbf{las dos},
+o \textbf{ninguna}. Eso también se comenta.
+
+\section{Y lo estromboliano, ¿cómo entra?}
+
+Este modelo es \textbf{estacionario}: un perfil $P(z)$, $\varphi(z)$, $u(z)$
+que no cambia en el tiempo. Una erupción estromboliana real es una sucesión
+de explosiones discretas; \textbf{eso no lo resolvemos}.
+
+Lo que sí pueden hacer es buscar datos petrológicos de un volcán
+estromboliano (Stromboli, Villarrica, Etna, Pacaya, \ldots) y preguntarle
+al modelo: \emph{¿con estos números el conducto sale fragmentado, como lava,
+las dos cosas, o ninguna?} Eso es lo que hay que interpretar en los gráficos.
+
+\section{Cómo usarlo}
+
+En una terminal, desde la carpeta del proyecto:
+\begin{lstlisting}[language=bash]
+pip install numpy matplotlib
+\end{lstlisting}
+
+Después abran el notebook y ejecuten \textbf{todas} las celdas.
+Para cambiar de volcán no toquen el solver: cambian el archivo en
+\texttt{datos/} o copian la plantilla. La llamada es siempre:
+
+\begin{lstlisting}[language=Python]
+from datos import cargar
+from RIconduit1D_FD import RIconduit1D_FD_f
+
+volc = cargar("calbuco2015")   # archivo en datos/
+out  = RIconduit1D_FD_f(volc, rama="explosiva", verbose=False)
+\end{lstlisting}
+
+\texttt{rama} es \texttt{"explosiva"} o \texttt{"efusiva"}.
+
+\section{Casos}
+
+\subsection{Erupción explosiva --- Calbuco 2015}
+
+Datos \textbf{dados} en \texttt{datos/calbuco2015.py} (no los busquen).
+Corran la rama explosiva.
+
+\begin{center}
+\small
+\begin{tabular}{@{}llr@{}}
+\toprule
+& & Calbuco 2015 \\
+\midrule
+Estilo observado & & sub-Pliniana / explosiva \\
+$\mathrm{SiO}_2$ (vidrio) & wt\% & $62.72$ \\
+$\mathrm{H}_2\mathrm{O}$ & wt\% & $4$ \\
+$T$ & $^\circ\mathrm{C}$ & $970$ \\
+$\xi$ (cristales) & --- & $0.25$ \\
+$H$ (cámara) & m & $-7000$ \\
+Geometría & & cilindro \\
+Radio $R$ & m & $16$ \\
+$\Delta P$ & MPa & $5$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+En los gráficos fíjense en:
+\begin{itemize}
+  \item dónde cruza $\varphi$ a $\varphi_{\mathrm{crit}}$
+        (profundidad de fragmentación);
+  \item si $u_g$ se separa de $u_m$ después de fragmentar;
+  \item $P$ en la boca frente a $P_{\mathrm{atm}}$;
+  \item el orden de magnitud del flujo de masa $Q$.
+\end{itemize}
+
+\paragraph{Comenten.}
+¿A qué profundidad fragmenta? ¿Las velocidades se separan?
+¿El flujo de masa es alto o bajo comparado con una lava?
+¿La boca queda sónica o solo despresurizada?
+
+\subsection{Erupción efusiva --- St.\ Helens 2004 (domo)}
+
+Datos \textbf{dados} en \texttt{datos/sthelens2004.py}.
+Corran la rama \textbf{efusiva}. Si quieren, corran también la explosiva
+para ver si existe.
+
+\begin{center}
+\small
+\begin{tabular}{@{}llr@{}}
+\toprule
+& & St.\ Helens 2004 \\
+\midrule
+Estilo observado & & domo / efusiva \\
+$\mathrm{SiO}_2$ (vidrio) & wt\% & $73.5$ \\
+$\mathrm{H}_2\mathrm{O}$ & wt\% & $3$ \\
+$T$ & $^\circ\mathrm{C}$ & $950$ \\
+$\xi$ (cristales) & --- & $0.40$ \\
+$H$ (cámara) & m & $-5000$ \\
+Geometría & & cilindro \\
+Radio $R$ & m & $12.11$ \\
+$\Delta P$ & MPa & $16.16$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Comparen con Calbuco: $\varphi$ vs $\varphi_{\mathrm{crit}}$,
+$u_m$ y $u_g$, $P$ de salida, $Q$.
+
+\paragraph{Comenten.}
+¿Fragmenta? ¿$u_g$ se parece a $u_m$?
+¿El tiro llega a $P_{\mathrm{atm}}$ o se queda corto?
+Si la rama explosiva no llega a la boca, ¿qué significa eso para el estilo?
+
+\subsection{Caso estromboliano --- lo buscan ustedes}
+
+Este modelo \textbf{no} calcula las explosiones de Stromboli.
+Calcula un estado estacionario. La pregunta es: con datos reales de un
+volcán estromboliano, ¿qué rama(s) aparecen?
+
+\paragraph{Pasos.}
+\begin{enumerate}
+  \item Copien \texttt{datos/plantilla\_estromboliana.py} a
+        \texttt{datos/mi\_estromboliana.py}.
+  \item Rellenen solo lo marcado con \texttt{\# BUSCAR}
+        (composición del vidrio, $\mathrm{H}_2\mathrm{O}$, $T$, cristales,
+        profundidad de cámara, radio o dique, sobrepresión).
+  \item Si el magma es basáltico ($\mathrm{SiO}_2\lesssim 57\,\mathrm{wt\%}$),
+        descomenten $C_1$ y $\beta$ basálticos en la plantilla
+        ($C_1=6.80172\times 10^{-8}$, $\beta=0.7$).
+        Si es silíceo, dejen Henry como está
+        ($C_1=4.11\times 10^{-6}$, $\beta=0.5$).
+  \item Pongan \texttt{LISTO = True} y citen las fuentes (paper, tabla, página).
+  \item En el notebook, dejen
+        \texttt{VOLCAN\_ESTROMBOLIANA = "mi\_estromboliana"}
+        y vuelvan a ejecutar.
+\end{enumerate}
+
+Volcanes razonables: \textbf{Stromboli}, \textbf{Villarrica},
+\textbf{Etna}, \textbf{Pacaya}.
+Sobrepresión y radio casi nunca salen en un abstract: si no los encuentran,
+elijan un valor en el rango de la plantilla y \textbf{justifiquen}.
+
+Referencia útil:
+Castruccio, Rebolledo \& Gómez (2025), \emph{JGR Solid Earth}
+(Villarrica aparece como hawaiana/estromboliana).
+
+Campos que tienen que buscar:
+
+\begin{center}
+\small
+\begin{tabular}{@{}llp{0.48\textwidth}@{}}
+\toprule
+Variable & Unidades & Qué buscar \\
+\midrule
+composición del vidrio & wt\% & $\mathrm{SiO}_2$, $\mathrm{TiO}_2$, \ldots \\
+\texttt{h2o1} & wt\% & $\mathrm{H}_2\mathrm{O}$ (inclusiones; típ.\ $0.5$--$2.5$) \\
+\texttt{Tc1} & $^\circ\mathrm{C}$ & $T$ (basalto: $\sim 1050$--$1150$) \\
+\texttt{xi1} & --- & fracción de cristales ($0$--$0.4$) \\
+\texttt{H} & m & profundidad de cámara (negativa, ej.\ $-3000$) \\
+\texttt{geometry} & --- & \texttt{"cylinder"} o \texttt{"dyke"} \\
+\texttt{radius1} & m & radio, o semi-ancho si es dique \\
+\texttt{overP1} & Pa & sobrepresión; si no aparece, prueben $1$--$5\,\mathrm{MPa}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{Comenten.}
+¿Qué volcán eligieron y de dónde salieron los datos?
+¿El modelo da rama explosiva, efusiva, ambas o ninguna?
+¿Eso calza con el estilo observado, o el modelo estacionario se queda corto?
+Si cambiaron radio o $\Delta P$ porque no los encontraron,
+¿hacia qué lado mueve el resultado?
+
+\section{Comparación}
+
+Completen (una frase cada uno):
+\begin{itemize}
+  \item Calbuco vs St.\ Helens: la diferencia más clara en los perfiles es \ldots
+  \item En este modelo, ``estromboliano'' se ve como \ldots
+  \item Una limitación del 1D estacionario para el caso~3 es \ldots
+\end{itemize}
+
+\section*{Qué entregar}
+
+El notebook con las figuras y los comentarios escritos,
+más \texttt{datos/mi\_estromboliana.py} con las fuentes citadas.
+
+\vspace{1.2em}
+{\small
+\noindent\textit{Datos de Calbuco y St.\ Helens:}
+Castruccio, A., Rebolledo, A.\ \& Gómez, I.\ (2025).
+The influence of melt composition, temperature, crystallinity and water
+content on eruptive style and eruption rate: insights from a conduit model
+of magma ascent. \emph{Journal of Geophysical Research: Solid Earth}, 130,
+e2024JB030599. \url{https://doi.org/10.1029/2024JB030599}
+}
+
+\end{document}

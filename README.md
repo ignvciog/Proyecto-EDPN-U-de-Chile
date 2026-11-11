@@ -105,6 +105,7 @@ También se puede llamar directo a `RIconduit1D_FD_f` pasando un archivo de `dat
 
 - Notebook técnico (sin IDA): `mainconduit1D_FD.ipynb`
 - **Actividad de curso** (explosiva dada, efusiva dada, estromboliana a buscar): `actividad_conducto1D.ipynb`
+- Enunciado en LaTeX: `actividad_conducto1D.tex` (`pdflatex actividad_conducto1D.tex`)
 - Original con IDA: `mainconduit5_5.ipynb`
 
 ### 2. Modelo 1D transiente (estacionario → transiente)
