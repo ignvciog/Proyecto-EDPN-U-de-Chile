@@ -1,3 +1,5 @@
 numpy>=1.20
 matplotlib>=3.5
-scikit-odes>=2.6.0
+# scikit-odes es opcional (solver IDA). El 1D estacionario usa
+# diferencias finitas por defecto: RIconduit1D_FD.py
+# scikit-odes>=2.6.0

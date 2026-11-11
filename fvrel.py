@@ -1,5 +1,14 @@
+import math
+
 import numpy as np
-from scipy.special import erf 
+
+
+def erf(x):
+    """Error function sin scipy (costa09 / costa09v11)."""
+    x = np.asarray(x, dtype=float)
+    if x.ndim == 0:
+        return math.erf(float(x))
+    return np.vectorize(math.erf, otypes=[float])(x) 
 
 def fvrel(model, cx, cxi, ar1, ar2, cmax, sr):
     """
