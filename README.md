@@ -4,7 +4,7 @@ Proyecto final del curso **Análisis Numérico de Ecuaciones en Derivadas Parcia
 
 Implementación en Python de un modelo de conducto volcánico con:
 
-- **1D estacionario** (DAE bifásico, método de tiro, solver IDA)
+- **1D estacionario** (DAE bifásico, método de tiro, diferencias finitas en z; IDA opcional)
 - **1D transiente** (EDPs + esquema IMEX: MOL, FD upwind, RK4)
 - **2D axisimétrico** (perfil radial \(u_m(r)\) con FD, Thomas y Picard)
 
@@ -27,15 +27,20 @@ Codigo Python/
 ├── viscosity.py                       ← viscosidad (Giordano et al.)
 ├── fvrel.py                           ← viscosidad relativa (cristales/burbujas)
 │
-├── RIconduitex5_5.py                  ← solver 1D estacionario (IDA / scikits.odes)
+├── RIconduitex5_5.py                  ← solver 1D estacionario explosivo (FD por defecto; IDA opcional)
+├── RIconduitef5_5.py                  ← solver 1D estacionario efusivo (FD por defecto; IDA opcional)
+├── RIconduit1D_FD.py                  ← marcha 1D en diferencias finitas (ramas explosiva y efusiva)
 ├── RIconduit1D_transient.py           ← solver 1D transiente (MOL + IMEX)
 ├── RIconduit2D_FD.py                  ← solver 2D axisimétrico (FD radial)
 ├── RIconduit1D_chamber.py             ← extensión con cámara (si aplica)
 │
 ├── main_transient.py                  ← script: estacionario → transiente + figuras
+├── datos/                             ← archivos de volcán (lo único que editan los alumnos)
+├── actividad_conducto1D.ipynb         ← actividad: explosiva, efusiva y estromboliana
+├── mainconduit1D_FD.ipynb             ← notebook 1D estacionario (diferencias finitas)
 ├── mainconduit_transient_v3.ipynb     ← notebook transiente (recomendado)
 ├── mainconduit5_7.ipynb               ← notebook 2D
-├── mainconduit5_5.ipynb               ← notebook estacionario
+├── mainconduit5_5.ipynb               ← notebook estacionario (IDA, opcional)
 │
 └── Template-Presentacion-dim/         ← presentación Beamer (LaTeX)
     ├── main.tex                       ← documento principal (compilar este)
@@ -73,7 +78,8 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-> El modelo **estacionario** usa `scikits.odes` (solver IDA). El **transiente** y el **2D** solo requieren `numpy` y `matplotlib`.
+> El 1D **estacionario**, el **transiente** y el **2D** solo requieren `numpy` y `matplotlib`.
+> `scikits.odes` (IDA) es opcional: `RIconduitex5_5_f(..., solver='ida')` si está instalado.
 
 ---
 
@@ -87,10 +93,20 @@ Desde Python o Jupyter:
 from calbuco2015d import radius1, overP1, h2o1, T1, xi1
 from RIconduitex5_5 import RIconduitex5_5_f
 
-result = RIconduitex5_5_f(radius1, overP1, h2o1, T1, xi1)
+result = RIconduitex5_5_f(radius1, overP1, h2o1, T1, xi1)          # explosiva, diferencias finitas
+# result = RIconduitex5_5_f(radius1, overP1, h2o1, T1, xi1, solver='ida')  # IDA, si hay scikits.odes
+
+from RIconduitef5_5 import RIconduitef5_5_f
+result_ef = RIconduitef5_5_f(radius1, overP1, h2o1, T1, xi1)       # efusiva (P≈Patm, sin fragmentar)
+# equivalente: RIconduit1D_FD_f(..., rama='efusiva')
 ```
 
-O abrir `mainconduit5_5.ipynb`.
+También se puede llamar directo a `RIconduit1D_FD_f` pasando un archivo de `datos/` (`RIconduit1D_FD_f(volc, rama='explosiva')`).
+
+- Notebook técnico (sin IDA): `mainconduit1D_FD.ipynb`
+- **Actividad de curso** (explosiva dada, efusiva dada, estromboliana a buscar): `actividad_conducto1D.ipynb`
+- Enunciado en LaTeX: `actividad_conducto1D.tex` (`pdflatex actividad_conducto1D.tex`)
+- Original con IDA: `mainconduit5_5.ipynb`
 
 ### 2. Modelo 1D transiente (estacionario → transiente)
 
@@ -196,8 +212,9 @@ Genera las figuras ejecutando los notebooks/scripts y cópialas a `Template-Pres
 |-----------|----------|
 | **Raíz** | `README.md`, `requirements.txt`, `.gitignore` |
 | **Parámetros y propiedades** | `calbuco2015d.py`, `density.py`, `viscosity.py`, `fvrel.py` |
-| **Solvers principales** | `RIconduitex5_5.py`, `RIconduit1D_transient.py`, `RIconduit2D_FD.py` |
-| **Scripts / notebooks** | `main_transient.py`, `mainconduit_transient_v3.ipynb`, `mainconduit5_7.ipynb`, `mainconduit5_5.ipynb` |
+| **Solvers principales** | `RIconduitex5_5.py`, `RIconduitef5_5.py`, `RIconduit1D_FD.py`, `RIconduit1D_transient.py`, `RIconduit2D_FD.py` |
+| **Scripts / notebooks** | `main_transient.py`, `actividad_conducto1D.ipynb`, `mainconduit1D_FD.ipynb`, `mainconduit_transient_v3.ipynb`, `mainconduit5_7.ipynb`, `mainconduit5_5.ipynb` |
+| **Datos de volcanes** | `datos/` (`calbuco2015.py`, `sthelens2004.py`, `plantilla_estromboliana.py`) |
 | **Presentación** | `Template-Presentacion-dim/main.tex`, `example.tex`, `library.bib`, `template.tex`, `template_config.tex`, `copiar_imagenes.py` |
 | **Figuras** | `Template-Presentacion-dim/img/**` (todas las imágenes usadas en la presentación) |
 
@@ -266,7 +283,7 @@ La carpeta `Template-Presentacion-dim/` usa el template de [Pablo Pizarro R.](ht
 
 | Problema | Solución |
 |----------|----------|
-| `ModuleNotFoundError: scikits.odes` | `pip install scikit-odes` |
+| `ModuleNotFoundError: scikits.odes` | No hace falta. El 1D estacionario usa diferencias finitas. Si quieres IDA: `pip install scikit-odes` y `solver='ida'`. |
 | Referencias vacías en el PDF | Compilar con BibTeX (`bibtex main`) |
 | Figuras faltantes en Beamer | Copiar PNG/JPG a `Template-Presentacion-dim/img/` |
 | `apacite` no encontrado | Instalar en MiKTeX: `mpm --install=apacite` |

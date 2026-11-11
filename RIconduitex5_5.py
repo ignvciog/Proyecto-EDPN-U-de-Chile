@@ -12,11 +12,17 @@ import numpy as np
 import math
 from calbuco2015d import *
 from fvrel import *
-from scikits.odes import dae
 import warnings
 warnings.simplefilter("ignore", category=RuntimeWarning)
 # Suprimir advertencias y errores
 warnings.filterwarnings("ignore", category=UserWarning)  # Ignora UserWarnings generados por el solver
+
+try:
+    from scikits.odes import dae
+    HAS_IDA = True
+except Exception:
+    HAS_IDA = False
+    dae = None
 
 # Optional 2D radial coupling: override wall friction from FD profile (RIconduitex5_9).
 suppress_Fmw = False
@@ -331,6 +337,8 @@ def momenteq1(t, y):
         return np.array([dpdz,dphidz])  
         
 def solv(t0, tf, y0, yp0, atol, rtol, n, param, cond=None):
+    if not HAS_IDA:
+        raise RuntimeError("scikits.odes no está instalado. Usa RIconduit1D_FD_f o RIconduitex5_5_f().")
     tspan = np.linspace(t0, tf, int(n))
 
     if param in [1,2,3]:
@@ -381,7 +389,19 @@ def solv(t0, tf, y0, yp0, atol, rtol, n, param, cond=None):
     return y_values, t_values
 
 #Función principal del programa
-def RIconduitex5_5_f(radius,Pressure, wt, Temperature, content_crystal):
+def RIconduitex5_5_f(radius, Pressure=None, wt=None, Temperature=None, content_crystal=None, solver='fd', **kwargs):
+    """
+    Estacionario 1D. Por defecto usa diferencias finitas (sin scikits.odes).
+    solver='ida' recupera el DAE original si scikits.odes está instalado.
+    Acepta un módulo de datos: RIconduitex5_5_f(datos.calbuco2015).
+    """
+    if solver != 'ida' or not HAS_IDA:
+        if solver == 'ida' and not HAS_IDA:
+            print("scikits.odes no está instalado; se usa el 1D en diferencias finitas.")
+        from RIconduit1D_FD import RIconduit1D_FD_f
+        kwargs.setdefault("rama", "explosiva")
+        return RIconduit1D_FD_f(radius, Pressure, wt, Temperature, content_crystal, **kwargs)
+
     global Nd, rho_m, vinicial, q, count, results, vinicial, Pi, limphi1, limphi2, phicrit, xfinal, n_eq, rho_ti
     global overP, wr, T, Tc, co, xi, h2o, cg, xmax, phimax1, phimax2, cA
 
